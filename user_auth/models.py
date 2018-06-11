@@ -15,6 +15,8 @@ class Address(models.Model):
     city = models.CharField(max_length=100, null=True)
     state = models.CharField(max_length=50, null=True)
     country = models.CharField(max_length=50, null=True)
+    latitude = models.FloatField(null=True)
+    longitude = models.FloatField(null=True)
 
 
 # Create your models here.
@@ -26,12 +28,12 @@ class Organization(models.Model):
 
 
 # Home Health Agency specific fields - if any
-class HHAProfile(models.Model):
-    organization = models.OneToOneField(Organization, primary_key=True, on_delete=models.CASCADE)
-
-
-class PharmacyProfile(models.Model):
-    organization = models.OneToOneField(Organization, primary_key=True, on_delete=models.CASCADE)
+# class HHAProfile(models.Model):
+#     organization = models.OneToOneField(Organization, primary_key=True, on_delete=models.CASCADE)
+#
+#
+# class PharmacyProfile(models.Model):
+#     organization = models.OneToOneField(Organization, primary_key=True, on_delete=models.CASCADE)
 
 
 # class HospitalProfile(models.Model):
@@ -44,6 +46,7 @@ class UserProfile(models.Model):
     title = models.CharField(max_length=50)
     contact_no = models.CharField(max_length=15, null=True)
     qualification = models.CharField(max_length=40, null=True)
+    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
     organizations = models.ManyToManyField(Organization, through='UserOrganizationAccess')
 
 

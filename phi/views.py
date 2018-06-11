@@ -12,8 +12,9 @@ class PatientViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        # Todo: Move to a middleware/decorator ???
         # Access Control Resolution
+        # Todo: Move access control to a middleware/decorator ???
+
         # Todo: Fetch User Episode Access, Also, return org in result
         objects = models.UserEpisodeAccess.objects.filter(user__id=user.profile.id)
         print('Length of objects:')
