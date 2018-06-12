@@ -27,24 +27,7 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     serializer_class = UserProfileSerializer
 
 
-class UserOrganizationViewSet(viewsets.ModelViewSet):
-    """
-    Only tested for GET calls
-    """
-    queryset = models.UserOrganizationAccess.objects.all()
-    serializer_class = UserOrgAccessSerializer
-    permission_classes = (IsAuthenticated,)
-
-    def get_queryset(self):
-        user = self.request.user
-        # Check if this user is the admin
-        # TODO: Move ACLs to MiddleWare
-        queryset = models.UserOrganizationAccess.objects.filter(user__id=user.profile.id).filter(is_admin=True)
-        # Get list of all users
-        queryset.get()
-        return queryset
-
-
+# Being used for web API
 class UserOrganizationView(APIView):
     permission_classes = (IsAuthenticated,)
 

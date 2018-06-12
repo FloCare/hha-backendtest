@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 
-router.register(r'patients', views.AccessiblePatientViewSet)
+router.register(r'patients', views.AccessiblePatientsViewSet)
 # TODO: DISABLE THIS IN PRODUCTION
 router.register(r'all', views.AllPatientsViewset)
 

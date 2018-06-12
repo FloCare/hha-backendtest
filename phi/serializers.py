@@ -8,10 +8,13 @@ from django.db import transaction
 class PatientSerializer(serializers.ModelSerializer):
     address = AddressSerializer()
     name = serializers.SerializerMethodField()
+    primaryContact = serializers.CharField(source='primary_contact')
+    emergencyContact = serializers.CharField(source='emergency_contact')
+    timestamp = serializers.DateTimeField(source='created_on')
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'name', 'primary_contact', 'emergency_contact', 'created_on',
+        fields = ('id', 'name', 'primaryContact', 'emergencyContact', 'timestamp',
                   'archived', 'address',)
 
     def get_name(self, obj):

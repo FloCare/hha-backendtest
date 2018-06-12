@@ -9,7 +9,6 @@ router.register(r'view', views.UserViewSet)
 router.register(r'profile', views.UserProfileViewSet)
 router.register(r'address', views.AddressViewSet)
 router.register(r'org', views.OrganizationViewSet)
-#router.register(r'org-access', views.UserOrganizationViewSet)
 
 urlpatterns = [
     url(r'^v1.0/', include([
