@@ -20,7 +20,7 @@ from rest_framework.authtoken import views as rest_framework_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('patients/', include('phi.urls')),
+    path('phi/', include('phi.urls')),
     path('users/', include('user_auth.urls')),
     url(r'^api-auth/', include('rest_framework.urls')),
     url(r'^get-token/$', rest_framework_views.obtain_auth_token, name='get_auth_token'),

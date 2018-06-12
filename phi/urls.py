@@ -5,7 +5,9 @@ from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 
-router.register(r'', views.PatientViewSet)
+router.register(r'patients', views.AccessiblePatientViewSet)
+# TODO: DISABLE THIS IN PRODUCTION
+router.register(r'all', views.AllPatientsViewset)
 
 urlpatterns = [
     url(r'^v1.0/', include([

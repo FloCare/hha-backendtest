@@ -4,9 +4,12 @@ from django.contrib.auth.models import User
 
 
 class AddressSerializer(serializers.ModelSerializer):
+    zipCode = serializers.CharField(source='zip')
+    streetAddress = serializers.CharField(source='street_address')
+
     class Meta:
         model = models.Address
-        fields = '__all__'
+        fields = ('id', 'apartment_no', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -38,9 +41,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserOrganizationAccessSerializer(serializers.ModelSerializer):
-    org = OrganizationSerializer()
-    user = UserSerializer()
+    organization = OrganizationSerializer()
+    user = UserProfileSerializer()
 
     class Meta:
         model = models.UserOrganizationAccess
-        fields = ('id', 'org', 'user', 'user_role', 'is_admin',)
+        fields = ('id', 'organization', 'user', 'user_role', 'is_admin',)
