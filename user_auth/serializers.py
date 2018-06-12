@@ -47,3 +47,35 @@ class UserOrganizationAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.UserOrganizationAccess
         fields = ('id', 'organization', 'user', 'user_role', 'is_admin',)
+
+
+class UserOrgAccessSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    organization = OrganizationSerializer()
+    user = UserProfileSerializer()                      # TODO: TEST THIS OUT
+    user_role = serializers.CharField()
+    is_admin = serializers.BooleanField()
+
+    class Meta:
+        fields = ('id', 'organization', 'user', 'user_role', 'is_admin',)
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+
+
+class AdminUserResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    organization = OrganizationSerializer()
+    users = UserProfileSerializer(many=True)
+
+    class Meta:
+        fields = ('success', 'organization', 'users',)
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass

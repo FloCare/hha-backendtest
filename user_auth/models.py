@@ -59,4 +59,8 @@ class UserOrganizationAccess(models.Model):
     user_role = models.CharField(max_length=100)   # Todo: Make enum
     is_admin = models.BooleanField(default=False)
 
+    class Meta:
+        # A user can be an admin of 1 org only
+        unique_together = ('user', 'is_admin',)
+
 
