@@ -3,6 +3,7 @@ from phi import models
 from phi.serializers import PatientSerializer, PatientListSerializer
 from rest_framework import generics
 from rest_framework.response import Response
+from rest_framework.views import APIView
 # from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
@@ -50,4 +51,22 @@ class AccessiblePatientListView(generics.ListAPIView):
     def list(self, request):
         queryset = self.get_queryset()
         serializer = PatientListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class AccessiblePatientsDetailView(APIView):
+    # Todo: Add permissions classes + check for access etc
+    queryset = models.Patient.objects.all()
+    serializer_class = PatientSerializer
+
+    def get_queryset(self, request):
+        data = request.data
+        if 'patients' in data:
+            patient_list = data['patients']
+            return models.Patient.objects.all().filter(id__in=patient_list)
+        return None
+
+    def post(self, request):
+        queryset = self.get_queryset(request)
+        serializer = PatientSerializer(queryset, many=True)
         return Response(serializer.data)
