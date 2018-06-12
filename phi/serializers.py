@@ -40,3 +40,30 @@ class PatientListSerializer(serializers.ModelSerializer):
         model = models.Patient
         fields = ('patients',)
 
+
+class PatientFailureSerializer(serializers.Serializer):
+    error = serializers.CharField()
+    id = serializers.IntegerField()
+
+    class Meta:
+        fields = ('id', 'error',)
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+
+
+class PatientDetailsResponseSerializer(serializers.Serializer):
+    success = PatientSerializer(many=True)
+    failure = PatientFailureSerializer(many=True)
+
+    class Meta:
+        fields = ('success', 'failure')
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass

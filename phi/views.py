@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from phi import models
-from phi.serializers import PatientSerializer, PatientListSerializer
+from phi.serializers import PatientSerializer, PatientListSerializer, PatientDetailsResponseSerializer
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -57,7 +57,7 @@ class AccessiblePatientListView(generics.ListAPIView):
 class AccessiblePatientsDetailView(APIView):
     # Todo: Add permissions classes + check for access etc
     queryset = models.Patient.objects.all()
-    serializer_class = PatientSerializer
+    serializer_class = PatientDetailsResponseSerializer
 
     def get_queryset(self, request):
         data = request.data
@@ -68,5 +68,7 @@ class AccessiblePatientsDetailView(APIView):
 
     def post(self, request):
         queryset = self.get_queryset(request)
-        serializer = PatientSerializer(queryset, many=True)
+        # Todo: Handle errors here
+        resp = {'success': queryset, 'failure': [{'id': 10000, 'error': 'Some error'}]}
+        serializer = PatientDetailsResponseSerializer(resp)
         return Response(serializer.data)
