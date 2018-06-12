@@ -32,3 +32,9 @@ class PatientSerializer(serializers.ModelSerializer):
             print('Error in writing:', e)
             return None
 
+
+class PatientListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Patient
+        fields = ('id',)
+

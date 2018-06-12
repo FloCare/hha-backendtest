@@ -12,6 +12,7 @@ router.register(r'all', views.AllPatientsViewset)
 urlpatterns = [
     url(r'^v1.0/', include([
             url(r'^', include(router.urls)),
+            url(r'^my-patients/$', views.AccessiblePatientListView.as_view())
         ])
     ),
 ]
