@@ -34,7 +34,9 @@ class PatientSerializer(serializers.ModelSerializer):
 
 
 class PatientListSerializer(serializers.ModelSerializer):
+    patients = serializers.ListField(child=serializers.IntegerField())
+
     class Meta:
         model = models.Patient
-        fields = ('id',)
+        fields = ('patients',)
 

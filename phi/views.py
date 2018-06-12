@@ -45,12 +45,12 @@ class AccessiblePatientListView(generics.ListAPIView):
     def get_queryset(self):
         #user = self.request.user
         # todo: fix this before Prod
-        objects = models.UserEpisodeAccess.objects.all().select_related('episode__patient') # filter(user__id=user.profile.id).
+        objects = models.UserEpisodeAccess.objects.all().select_related('episode__patient').values_list('id', flat=True)    # filter(user__id=user.profile.id).
         return objects
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = PatientListSerializer(queryset, many=True)
+        serializer = PatientListSerializer({'patients': list(queryset)})
         return Response(serializer.data)
 
 

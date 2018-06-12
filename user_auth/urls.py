@@ -14,6 +14,7 @@ router.register(r'org', views.OrganizationViewSet)
 urlpatterns = [
     url(r'^v1.0/', include([
             url(r'^', include(router.urls)),
+            # This works
             url(r'org-access', views.UserOrganizationView.as_view()),
         ])
     ),
