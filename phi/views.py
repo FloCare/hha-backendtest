@@ -145,12 +145,15 @@ class AccessiblePatientListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         # todo: fix this before Prod
-        objects = models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).select_related('episode__patient').values_list('id', flat=True) # noqa
-        return objects
+        episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True)) # noqa
+        patient_ids = list()
+        for episode_id in episode_ids:
+            patient_ids.append(models.Episode.objects.get(id=episode_id).patient.id)
+        return patient_ids
 
     def list(self, request):
-        queryset = self.get_queryset()
-        serializer = PatientListSerializer({'patients': list(queryset)})
+        patient_list = self.get_queryset()
+        serializer = PatientListSerializer({'patients': patient_list})
         return Response(serializer.data)
 
 
@@ -163,16 +166,29 @@ class AccessiblePatientsDetailView(APIView):
     permission_classes = (IsAuthenticated,)
 
     # Todo: Check if user has access to those ids first
-    def get_queryset(self, request):
+    def get_results(self, request):
+        user = request.user
         data = request.data
         if 'patients' in data:
             patient_list = data['patients']
-            return models.Patient.objects.all().filter(id__in=patient_list)
+
+            # Todo: Improve Queries
+            episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True)) # noqa
+            valid_ids = list()
+            for episode_id in episode_ids:
+                valid_ids.append(models.Episode.objects.get(id=episode_id).patient.id)
+
+            success_ids = list(set(valid_ids).intersection(patient_list))
+            failure_ids = list(set(patient_list) - set(success_ids))
+            return models.Patient.objects.all().filter(id__in=success_ids), failure_ids
         return None
 
     def post(self, request):
-        queryset = self.get_queryset(request)
-        # Todo: Handle errors here;
-        resp = {'success': queryset, 'failure': [{'id': 10000, 'error': 'Some error'}]}
+        success, failure_ids = self.get_results(request)
+        print('success:', success)
+        failure = list()
+        for id in failure_ids:
+            failure.append({'id': id, 'error': 'Access denied'})
+        resp = {'success': success, 'failure': failure}
         serializer = PatientDetailsResponseSerializer(resp)
         return Response(serializer.data)
