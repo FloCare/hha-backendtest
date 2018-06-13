@@ -11,6 +11,14 @@ class AddressSerializer(serializers.ModelSerializer):
         model = models.Address
         fields = ('id', 'apartment_no', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
 
+    def create(self, validated_data):
+        """
+        Create and return a new Address instance, given the validated data
+        :param validated_data:
+        :return:
+        """
+        return models.Address.objects.create(**validated_data)
+
 
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:

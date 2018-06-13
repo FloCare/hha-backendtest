@@ -50,6 +50,7 @@ class Episode(models.Model):
         max_length=4,
         choices=CPR,
         default='DNR',
+        null=True
     )
     TRANSPORTATION_LEVEL = (
         ('1', 'TAL-1'),
@@ -59,7 +60,8 @@ class Episode(models.Model):
     transportation_level = models.CharField(
         max_length=2,
         choices=TRANSPORTATION_LEVEL,
-        default='1'
+        default='1',
+        null=True
     )
     ACUITY = (
         ('R', 'RED'),
@@ -70,7 +72,8 @@ class Episode(models.Model):
     acuity_type = models.CharField(
         max_length=2,
         choices=ACUITY,
-        default='R'
+        default='R',
+        null=True
     )
     classification = models.CharField(max_length=100, null=True)
     allergies = models.CharField(max_length=100, null=True)
@@ -96,3 +99,6 @@ class UserEpisodeAccess(models.Model):
 class OrganizationPatientsMapping(models.Model):
     organization = models.ForeignKey(user_models.Organization, on_delete=None)
     patient = models.ForeignKey(Patient, on_delete=None)
+
+    class Meta:
+        unique_together = ('organization', 'patient',)

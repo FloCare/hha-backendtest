@@ -32,13 +32,18 @@ class UserOrganizationView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, format=None):
-        user = request.user
-        # Check if this user is admin
-        qs = models.UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
-        # Get list of all users in that org
-        # Todo: Optimize Queries
-        users = models.UserProfile.objects.filter(organizations__id=qs.organization.id).distinct()
-        org = models.Organization(id=qs.organization.id)
-        serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': users})
-        headers = {'Content-Type': 'application/json'}
-        return Response(serializer.data, headers=headers)
+        try:
+            user = request.user
+            # Check if this user is admin
+            qs = models.UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            # Get list of all users in that org
+            # Todo: Optimize Queries
+            users = models.UserProfile.objects.filter(organizations__id=qs.organization.id).distinct()
+            org = models.Organization(id=qs.organization.id)
+            serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': users})
+            headers = {'Content-Type': 'application/json'}
+            return Response(serializer.data, headers=headers)
+        except Exception as e:
+            print("Error:", e)
+            headers = {'Content-Type': 'application/json'}
+            return Response({'success': False, 'error': 'Access Denied'}, headers=headers)
