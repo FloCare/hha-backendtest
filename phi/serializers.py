@@ -19,6 +19,19 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
                   'archived', 'address_id',)
 
 
+class PatientSerializerWeb(serializers.ModelSerializer):
+    address = AddressSerializer()
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    primaryContact = serializers.CharField(source='primary_contact')
+    emergencyContact = serializers.CharField(source='emergency_contact')
+    timestamp = serializers.DateTimeField(source='created_on')
+
+    class Meta:
+        model = models.Patient
+        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp', 'address',)
+
+
 class PatientSerializer(serializers.ModelSerializer):
     address = AddressSerializer()
     name = serializers.SerializerMethodField()

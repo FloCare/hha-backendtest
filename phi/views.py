@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from phi import models
 from user_auth.models import UserOrganizationAccess
-from phi.serializers import PatientSerializer, PatientListSerializer, \
+from phi.serializers import PatientSerializerWeb, PatientListSerializer, \
     PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer
 from user_auth.serializers import AddressSerializer
@@ -72,7 +72,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     print('User is admin')
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).values_list('patient_id')
                     patients = models.Patient.objects.filter(id__in=patient_ids)
-                    serializer = PatientSerializer(patients, many=True)
+                    serializer = PatientSerializerWeb(patients, many=True)
                     return Response(serializer.data)
             except Exception as e:
                 print('Error: User is not admin: ', str(e))
@@ -83,7 +83,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             patients = list()
             for episode_id in episode_ids:
                 patients.append(models.Episode.objects.get(id=episode_id).patient)
-            serializer = PatientSerializer(patients, many=True)
+            serializer = PatientSerializerWeb(patients, many=True)
             return Response(serializer.data)
         except Exception as e:
             print('Error:', e)
