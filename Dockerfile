@@ -24,9 +24,9 @@ ADD . /app
 # will help you experiment with Enclave before bothering with static
 # files.
 # Review http://go.aptible.com/assets for production-ready advice.
-# RUN set -a \
-# && . ./.aptible.env \
-# &&  python manage.py collectstatic
+RUN set -a \
+ && . ./.aptible.env \
+ &&  python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
