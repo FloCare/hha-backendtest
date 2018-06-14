@@ -43,9 +43,7 @@ from django.db import transaction
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
     queryset = models.Patient.objects.all()
-    """
-    Currently writing for add operations
-    """
+
     def parse_data(self, data):
         try:
             patient = data['patient']
@@ -56,6 +54,24 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         except Exception as e:
             print('Incorrect or Incomplete data passed:', e)
             return None, None, None
+
+    def list(self, request):
+        """
+        Return list of details of patients this user has access to.
+        :param request:
+        :return:
+        """
+        try:
+            user = request.user
+            episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True))  # noqa
+            patients = list()
+            for episode_id in episode_ids:
+                patients.append(models.Episode.objects.get(id=episode_id).patient)
+            serializer = PatientSerializer(patients, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            print('Error:', e)
+            return Response({'error': 'Something went wrong'})
 
     def create(self, request, format=None):
         """

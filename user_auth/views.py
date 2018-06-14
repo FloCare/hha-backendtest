@@ -29,6 +29,9 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
 # Being used for web API
 class UserOrganizationView(APIView):
+    """
+    Returns the list of users registered with this organization
+    """
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, format=None):

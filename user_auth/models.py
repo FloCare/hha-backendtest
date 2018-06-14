@@ -63,4 +63,3 @@ class UserOrganizationAccess(models.Model):
         # A user can be an admin of 1 org only
         unique_together = ('user', 'is_admin',)
 
-
