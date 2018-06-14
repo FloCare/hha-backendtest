@@ -43,6 +43,7 @@ from django.db import transaction
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
     queryset = models.Patient.objects.all()
+    permission_classes = (IsAuthenticated,)
 
     def parse_data(self, data):
         try:
@@ -63,6 +64,21 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         try:
             user = request.user
+            # Check if this user is admin of the org
+            # Note: (A user can be admin of only 1 org)
+            try:
+                user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+                if user_org :
+                    print('User is admin')
+                    patient_ids = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).values_list('patient_id')
+                    patients = models.Patient.objects.filter(id__in=patient_ids)
+                    serializer = PatientSerializer(patients, many=True)
+                    return Response(serializer.data)
+            except Exception as e:
+                print('Error: User is not admin: ', str(e))
+
+            # Check if user has episodes to his name
+            # TODO: ALSO CHECK REQUEST USER'S ORGANIZATION
             episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True))  # noqa
             patients = list()
             for episode_id in episode_ids:
@@ -126,6 +142,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 # Find this user's organization and Check if this user is the admin
                 # Only admin should have write permissions
+                # TODO: Move this permission check at the top
                 user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
                 organization = user_org.organization
 
