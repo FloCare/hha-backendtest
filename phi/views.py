@@ -92,6 +92,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
     def create(self, request, format=None):
         """
         Within Single Transaction:
+            check if the calling user is an admin of this org
+            check if the passed users belong to this org
             Add address
             patient
             episode
@@ -107,6 +109,19 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         if (not patient) or (not address):
             return Response({'error': 'Invalid data passed'})
         try:
+            # Find this user's organization and Check if this user is the admin
+            # Only admin should have write permissions
+            user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            organization = user_org.organization
+
+            # Check if the passed users belong to this organization
+            # Someone might maliciously pass invalid users
+            # TODO: This IS BAAAAD. CHange this ASAP.
+            for userid in users:
+                u = UserOrganizationAccess.objects.filter(organization__id=organization.id).get(user__id=userid)
+                if not u:
+                    raise Exception('Invalid user passed')
+
             with transaction.atomic():
                 # Save Address
                 serializer = AddressSerializer(data=address)
@@ -140,12 +155,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 episode_serializer.is_valid()
                 episode_obj = episode_serializer.save()
 
-                # Find this user's organization and Check if this user is the admin
-                # Only admin should have write permissions
-                # TODO: Move this permission check at the top
-                user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
-                organization = user_org.organization
-
                 # Link Patient to Org
                 mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.id,
                                                                                 'patient_id': patient_obj.id})
@@ -166,7 +175,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
         except Exception as e:
             print(e)
-            return Response({'success': False, 'error': str(e)})
+            return Response({'success': False, 'error': 'Something went wrong'})
 
 
 # Being Used for app API
