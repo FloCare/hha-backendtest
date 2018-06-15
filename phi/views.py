@@ -57,6 +57,66 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             print('Incorrect or Incomplete data passed:', e)
             return None, None, None
 
+    def update(self, request, pk=None):
+        """
+        Update the users associated to this patient
+        :param request:
+        :param pk:
+        :return:
+        """
+        try:
+            user = request.user
+            data = request.data
+            if 'users' not in data:
+                return Response({'error': 'Invalid data passed'})
+            users = data['users']
+
+            # Check if caller is an admin
+            user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            organization = user_org.organization
+            if user_org :
+
+                # Check if the passed users belong to this organization
+                # Someone might maliciously pass invalid users
+                # TODO: This IS BAAAAD. Change this ASAP to bulk API.
+                for userid in users:
+                    u = UserOrganizationAccess.objects.filter(organization__id=organization.id).get(user__id=userid)
+                    if not u:
+                        raise Exception('Invalid user passed')
+
+                patient = models.Patient.objects.get(id=pk)
+                episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
+
+                # Todo: Remove this hack
+                # Get the last Episode ID
+                if len(episode_ids) == 0:
+                    raise Exception('No episodes registered for this patient')
+                episode_id = list(episode_ids)[-1]
+                print('org-id:', organization.id)
+                print('patient-id:', patient.id)
+
+                # Check if org has access to this patient
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
+                if org_has_access:
+                    with transaction.atomic():
+                        # Todo: Do not delete admin's accesses
+                        models.UserEpisodeAccess.objects.filter(organization_id=organization.id).delete()
+
+                        for user_id in users:
+                            access_serializer = UserEpisodeAccessSerializer(data={'organization_id': organization.id,
+                                                                                  'user_id': user_id,
+                                                                                  'episode_id': episode_id,
+                                                                                  'user_role': 'CareGiver'})
+                            access_serializer.is_valid()
+                            access_serializer.save()
+                    return Response({'success': True})
+
+            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+        except Exception as e:
+            print('Error:', str(e))
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+
+
     def retrieve(self, request, pk=None):
         """
         Return the details of this patient, if user has access to it.
@@ -67,20 +127,21 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         # Check if user is admin of this org
         try:
             user = request.user
-            patient = models.Patient.objects.get(id=pk)
-            episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
-
             user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            organization = user_org.organization
             if user_org :
-                print('Org=id', user_org.organization.id)
-                print('patient-id:', patient.id)
-                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).get(patient_id=patient.id)
+                patient = models.Patient.objects.get(id=pk)
+                episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
+
+                # Org has access to patient
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
-                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=user_org.id).values_list('user_id')
+                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=organization.id).values_list('user_id')
                     print('users registered for this patient:', user_profile_ids)
                     users = UserProfile.objects.filter(id__in=user_profile_ids)
                     serializer = PatientWithUsersSerializer({'patient': patient, 'users': users})
                     return Response(serializer.data)
+            return Response(status=401, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
             print('Error:', str(e))
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
