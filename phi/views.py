@@ -87,7 +87,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             return Response(serializer.data)
         except Exception as e:
             print('Error:', e)
-            return Response({'error': 'Something went wrong'})
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def create(self, request, format=None):
         """
@@ -175,7 +175,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
         except Exception as e:
             print(e)
-            return Response({'success': False, 'error': 'Something went wrong'})
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
 
 # Being Used for app API
