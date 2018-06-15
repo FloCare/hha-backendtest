@@ -1,9 +1,10 @@
 from rest_framework import viewsets
 from phi import models
-from user_auth.models import UserOrganizationAccess
+from user_auth.models import UserOrganizationAccess, UserProfile
 from phi.serializers import PatientSerializerWeb, PatientListSerializer, \
     PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
-    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer
+    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
+    PatientWithUsersSerializer
 from user_auth.serializers import AddressSerializer
 from rest_framework import generics
 from rest_framework.response import Response
@@ -55,6 +56,34 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         except Exception as e:
             print('Incorrect or Incomplete data passed:', e)
             return None, None, None
+
+    def retrieve(self, request, pk=None):
+        """
+        Return the details of this patient, if user has access to it.
+        :param request:
+        :param pk:
+        :return:
+        """
+        # Check if user is admin of this org
+        try:
+            user = request.user
+            patient = models.Patient.objects.get(id=pk)
+            episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
+
+            user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            if user_org :
+                print('Org=id', user_org.organization.id)
+                print('patient-id:', patient.id)
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).get(patient_id=patient.id)
+                if org_has_access:
+                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=user_org.id).values_list('user_id')
+                    print('users registered for this patient:', user_profile_ids)
+                    users = UserProfile.objects.filter(id__in=user_profile_ids)
+                    serializer = PatientWithUsersSerializer({'patient': patient, 'users': users})
+                    return Response(serializer.data)
+        except Exception as e:
+            print('Error:', str(e))
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def list(self, request):
         """
@@ -116,7 +145,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             # Check if the passed users belong to this organization
             # Someone might maliciously pass invalid users
-            # TODO: This IS BAAAAD. CHange this ASAP.
+            # TODO: This IS BAAAAD. Change this ASAP to bulk API.
             for userid in users:
                 u = UserOrganizationAccess.objects.filter(organization__id=organization.id).get(user__id=userid)
                 if not u:
