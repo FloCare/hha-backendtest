@@ -41,7 +41,16 @@ class UserOrganizationView(APIView):
             qs = models.UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
             # Get list of all users in that org
             # Todo: Optimize Queries
+            filters = request.query_params.get('ids', None)
             users = models.UserProfile.objects.filter(organizations__id=qs.organization.id).distinct()
+            # TODO: Don't use eval
+            if filters:
+                try:
+                    filters = list(eval(filters))
+                except Exception as e:
+                    print('Error. Filters not a list:', str(e))
+                    filters = [int(filters)]
+                users = users.filter(user_id__in=filters)
             org = models.Organization(id=qs.organization.id)
             serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': users})
             headers = {'Content-Type': 'application/json'}
