@@ -9,12 +9,12 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     primaryContact = serializers.CharField(source='primary_contact')
-    emergencyContact = serializers.CharField(source='emergency_contact')
+    # emergencyContact = serializers.CharField(source='emergency_contact')
     address_id = serializers.IntegerField()
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'address_id',)
+        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id',)
 
 
 class PatientSerializerWeb(serializers.ModelSerializer):
