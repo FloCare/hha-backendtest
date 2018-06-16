@@ -31,12 +31,13 @@ class PatientSerializerWeb(serializers.ModelSerializer):
 
 
 class PatientWithUsersSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
     patient = PatientSerializerWeb()
     users = UserProfileSerializer(many=True)
 
     class Meta:
         model = models.Patient
-        fields = ('patient', 'users')
+        fields = ('id', 'patient', 'users')
 
 
 class PatientSerializer(serializers.ModelSerializer):

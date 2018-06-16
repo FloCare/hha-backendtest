@@ -185,7 +185,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=organization.id).values_list('user_id')
                     print('users registered for this patient:', user_profile_ids)
                     users = UserProfile.objects.filter(id__in=user_profile_ids)
-                    serializer = PatientWithUsersSerializer({'patient': patient, 'users': users})
+                    serializer = PatientWithUsersSerializer({'id': patient.id, 'patient': patient, 'users': users})
                     return Response(serializer.data)
             return Response(status=401, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
