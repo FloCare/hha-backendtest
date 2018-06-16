@@ -34,7 +34,7 @@ class Patient(models.Model):
 # Todo: When to add episode
 # Todo: Create Episode at the time of assigning patient to a user ???
 class Episode(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=None, related_name='episodes')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='episodes')
     soc_date = models.DateField(null=True)
     end_date = models.DateField(null=True)
     period = models.IntegerField(null=True)                     # In Days
@@ -78,11 +78,11 @@ class Episode(models.Model):
     classification = models.CharField(max_length=100, null=True)
     allergies = models.CharField(max_length=100, null=True)
 
-    pharmacy = models.ForeignKey(user_models.Organization, on_delete=None, null=True)
+    pharmacy = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
 
-    soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=None, related_name='soc_episodes', null=True)
-    attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=None, related_name='attending_episodes', null=True)      # noqa
-    primary_physician = models.ForeignKey(user_models.UserProfile, on_delete=None, related_name='primary_episodes', null=True)          # noqa
+    soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='soc_episodes', null=True)
+    attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
+    primary_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
 
 
 class UserEpisodeAccess(models.Model):
@@ -90,15 +90,15 @@ class UserEpisodeAccess(models.Model):
     Used for faster querying - finding all episodes/patients for a particular user,
     through an organization
     """
-    episode = models.ForeignKey(Episode, on_delete=None)
-    user = models.ForeignKey(user_models.UserProfile, on_delete=None)
-    organization = models.ForeignKey(user_models.Organization, on_delete=None)
+    episode = models.ForeignKey(Episode, on_delete=models.CASCADE)
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     user_role = models.CharField(max_length=100)            # Todo: Make Enum
 
 
 class OrganizationPatientsMapping(models.Model):
-    organization = models.ForeignKey(user_models.Organization, on_delete=None)
-    patient = models.ForeignKey(Patient, on_delete=None)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('organization', 'patient',)

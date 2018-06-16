@@ -116,6 +116,52 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             print('Error:', str(e))
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
+    def destroy(self, request, pk=None):
+        """
+        Delete the details of this patient, if user has access to it.
+        :param request:
+        :param pk:
+        :return:
+        """
+        # Check if user is admin of this org
+
+        # TODO:
+        # Delete org patient mapping
+        # delete UserEpisodeAccess for this org
+        # Check if patient is mapped to some other org
+        # If Yes, delete these episodes
+        # If No, delete episodes, patients, addresses
+
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            organization = user_org.organization
+            if user_org :
+                patient = models.Patient.objects.get(id=pk)
+                episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
+
+                # Org has access to patient
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
+                if org_has_access:
+
+                    with transaction.atomic():
+                        models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
+                        models.UserEpisodeAccess.objects.filter(organization_id=organization.id).delete()
+                        q = models.OrganizationPatientsMapping.objects.filter(patient_id=patient.id)
+                        if len(q) == 0:
+                            address = patient.address
+                            address.delete()
+                            patient.delete()    # this will also delete the episodes
+                            print('Delete successful')
+                        else:
+                            # pass
+                            # TODO: IMP: Complete this before pushing to production
+                            return Response(status=500, data={'success': False, 'error': 'Server Error'})
+                    return Response({'success': True, 'error': None})
+            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+        except Exception as e:
+            print('Error:', str(e))
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def retrieve(self, request, pk=None):
         """
