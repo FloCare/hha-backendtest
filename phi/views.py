@@ -51,7 +51,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             patient = data['patient']
             address = patient.pop('address')
             # address = patient['address']
-            users = data['users']
+            users = data['users_ids']
             return patient, address, users
         except Exception as e:
             print('Incorrect or Incomplete data passed:', e)
