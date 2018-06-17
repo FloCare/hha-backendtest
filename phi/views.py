@@ -51,7 +51,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             patient = data['patient']
             address = patient.pop('address')
             # address = patient['address']
-            users = data['users_ids']
+            users = data['users']
             return patient, address, users
         except Exception as e:
             print('Incorrect or Incomplete data passed:', e)
@@ -67,9 +67,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         try:
             user = request.user
             data = request.data
-            if 'users_ids' not in data:
+            if 'users' not in data:
                 return Response(status=400, data={'error': 'Invalid data passed'})
-            users = data['users_ids']
+            users = data['users']
 
             # Check if caller is an admin
             user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
