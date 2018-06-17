@@ -67,9 +67,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         try:
             user = request.user
             data = request.data
-            if 'users' not in data:
-                return Response({'error': 'Invalid data passed'})
-            users = data['users']
+            if 'users_ids' not in data:
+                return Response(status=400, data={'error': 'Invalid data passed'})
+            users = data['users_ids']
 
             # Check if caller is an admin
             user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
@@ -99,7 +99,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
                     with transaction.atomic():
-                        # Todo: Do not delete admin's accesses
+                        # Todo: Do not delete admin's episodes (doesn't matter)
                         models.UserEpisodeAccess.objects.filter(organization_id=organization.id).delete()
 
                         for user_id in users:
@@ -243,7 +243,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         data = request.data
         patient, address, users = self.parse_data(data)
         if (not patient) or (not address):
-            return Response({'error': 'Invalid data passed'})
+            return Response(status=400, data={'error': 'Invalid data passed'})
         try:
             # Find this user's organization and Check if this user is the admin
             # Only admin should have write permissions
