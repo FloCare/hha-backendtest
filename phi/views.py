@@ -99,9 +99,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
                     with transaction.atomic():
-                        # Todo: Do not delete admin's episodes (doesn't matter)
-                        models.UserEpisodeAccess.objects.filter(organization_id=organization.id).delete()
+                        # For this episode, delete all users for this org
+                        models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id=episode_id).delete()
 
+                        # Add the users sent in the payload
                         for user_id in users:
                             access_serializer = UserEpisodeAccessSerializer(data={'organization_id': organization.id,
                                                                                   'user_id': user_id,
