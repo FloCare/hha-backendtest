@@ -139,23 +139,23 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             organization = user_org.organization
             if user_org:
                 patient = models.Patient.objects.get(id=pk)
-                episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
+                # episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
 
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
                     with transaction.atomic():
-                        models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
-                        models.UserEpisodeAccess.objects.filter(organization_id=organization.id).delete()
-                        q = models.OrganizationPatientsMapping.objects.filter(patient_id=patient.id)
-                        if len(q) == 0:
-                            address = patient.address
-                            address.delete()
-                            patient.delete()    # this will also delete the episodes
-                            print('Delete successful')
-                        else:
-                            # TODO: IMP: Complete this before pushing to production
-                            return Response(status=500, data={'success': False, 'error': 'Server Error'})
+                        # models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
+                        # models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id__in=episode_ids).delete()
+                        # q = models.OrganizationPatientsMapping.objects.filter(patient_id=patient.id)
+                        # if len(q) == 0:
+                        address = patient.address
+                        patient.delete()    # this will also delete the episodes
+                        address.delete()
+                    print('Delete successful')
+                    # else:
+                    #     # TODO: IMP: Complete this before pushing to production
+                    #     return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
             return Response(status=401, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
