@@ -137,14 +137,13 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             user = request.user
             user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
             organization = user_org.organization
-            if user_org :
+            if user_org:
                 patient = models.Patient.objects.get(id=pk)
                 episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
 
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
-
                     with transaction.atomic():
                         models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
                         models.UserEpisodeAccess.objects.filter(organization_id=organization.id).delete()

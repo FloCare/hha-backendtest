@@ -11,7 +11,7 @@ class Address(models.Model):
     """
     apartment_no = models.CharField(max_length=10, null=True)
     street_address = models.CharField(max_length=255, null=True)
-    zip = models.IntegerField(null=True)
+    zip = models.CharField(max_length=20, null=True)
     city = models.CharField(max_length=100, null=True)
     state = models.CharField(max_length=50, null=True)
     country = models.CharField(max_length=50, null=True)
