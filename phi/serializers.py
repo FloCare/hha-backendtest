@@ -30,14 +30,23 @@ class PatientSerializerWeb(serializers.ModelSerializer):
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp', 'address',)
 
 
+# class PatientWithUsersSerializer(serializers.ModelSerializer):
+#     id = serializers.IntegerField()
+#     patient = PatientSerializerWeb()
+#     users = UserProfileSerializer(many=True)
+#
+#     class Meta:
+#         model = models.Patient
+#         fields = ('id', 'patient', 'users')
+
+
 class PatientWithUsersSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
     patient = PatientSerializerWeb()
-    users = UserProfileSerializer(many=True)
+    userIds = serializers.ListField(child=serializers.IntegerField())
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'patient', 'users')
+        fields = ('patient', 'userIds')
 
 
 class PatientSerializer(serializers.ModelSerializer):

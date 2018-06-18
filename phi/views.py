@@ -154,7 +154,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             patient.delete()    # this will also delete the episodes
                             print('Delete successful')
                         else:
-                            # pass
                             # TODO: IMP: Complete this before pushing to production
                             return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
@@ -182,10 +181,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
-                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=organization.id).values_list('user_id')
-                    print('users registered for this patient:', user_profile_ids)
-                    users = UserProfile.objects.filter(id__in=user_profile_ids)
-                    serializer = PatientWithUsersSerializer({'id': patient.id, 'patient': patient, 'users': users})
+                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=organization.id).values_list('user_id', flat=True)
+                    # print('users registered for this patient:', list(user_profile_ids))
+                    #users = UserProfile.objects.filter(id__in=user_profile_ids)
+                    serializer = PatientWithUsersSerializer({'id': patient.id, 'patient': patient, 'userIds': list(user_profile_ids)})
                     return Response(serializer.data)
             return Response(status=401, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
@@ -208,12 +207,22 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     print('User is admin')
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).values_list('patient_id')
                     patients = models.Patient.objects.filter(id__in=patient_ids)
-                    serializer = PatientSerializerWeb(patients, many=True)
+                    patient_list = list()
+                    # Todo: Extremely SLow Query
+                    for patient in patients:
+                        episode_ids = patient.episodes.values_list('id', flat=True)
+                        #print('episode_ids:', episode_ids)
+                        user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization_id=user_org.organization.id).values_list('user_id', flat=True)
+                        patient_list.append({'patient': patient, 'userIds': list(user_profile_ids)})
+                    serializer = PatientWithUsersSerializer(patient_list, many=True)
                     return Response(serializer.data)
             except Exception as e:
                 print('Error: User is not admin: ', str(e))
+                return Response(status=400, data={'success': False, 'error': 'Something went wront'})
 
+            # Todo: Don't go to this part of the API ???
             # Check if user has episodes to his name
+            print('User is not admin')                      # This part of API not being used currently
             # TODO: ALSO CHECK REQUEST USER'S ORGANIZATION
             episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True))  # noqa
             patients = list()
