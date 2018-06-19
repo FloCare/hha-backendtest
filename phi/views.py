@@ -12,34 +12,6 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 
-# Create your views here.
-
-
-# class AllPatientsViewset(viewsets.ModelViewSet):
-#     queryset = models.Patient.objects.all()
-#     serializer_class = PatientSerializer
-#     # permission_classes = (IsAuthenticated,)
-
-
-# # Todo: Add org to response; episode ???
-# class AccessiblePatientsViewSet(viewsets.ModelViewSet):
-#     queryset = models.Patient.objects.all()
-#     serializer_class = PatientSerializer
-#     # Todo: Enable in production
-#     permission_classes = (IsAuthenticated,)
-#
-#     def get_queryset(self):
-#         user = self.request.user
-#
-#         # Access Control Resolution
-#         # Todo: Move access control to a middleware/decorator
-#
-#         # Todo: Fetch User Episode Access, Also, return org in result
-#         objects = models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).select_related('episode__patient')
-#         patients = list()
-#         for obj in objects:
-#             patients.append(obj.episode.patient)
-#         return patients
 
 
 class AccessiblePatientViewSet(viewsets.ViewSet):

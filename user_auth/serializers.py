@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from user_auth import models
-from django.contrib.auth.models import User
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -26,58 +25,35 @@ class OrganizationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    first_name = serializers.CharField(source='user.first_name')
-    last_name = serializers.CharField(source='user.last_name')
-    username = serializers.CharField(source='user.username')
-    email = serializers.CharField(source='user.email')
-    is_admin = serializers.BooleanField(source='user.is_superuser', read_only=True)
-
-    class Meta:
-        model = models.UserProfile
-        fields = ('id', 'title', 'first_name', 'last_name', 'username', 'email', 'contact_no', 'qualification', 'address', 'is_admin')   # noqa
-
-
-class UserSerializer(serializers.ModelSerializer):
-    contact_no = serializers.CharField(source='profile.contact_no', read_only=True)
-    title = serializers.CharField(source='profile.title', read_only=True)
-    is_admin = serializers.BooleanField(source='is_superuser', read_only=True)
-
-    class Meta:
-        model = User
-        fields = ('id', 'title', 'first_name', 'last_name', 'username', 'email', 'contact_no', 'is_admin')
+# class UserProfileSerializer(serializers.ModelSerializer):
+#     first_name = serializers.CharField(source='user.first_name')
+#     last_name = serializers.CharField(source='user.last_name')
+#     username = serializers.CharField(source='user.username')
+#     email = serializers.CharField(source='user.email')
+#     is_admin = serializers.BooleanField(source='user.is_superuser', read_only=True)
+#
+#     class Meta:
+#         model = models.UserProfile
+#         fields = ('id', 'title', 'first_name', 'last_name', 'username', 'email', 'contact_no', 'qualification', 'address', 'is_admin')   # noqa
 
 
-class UserOrganizationAccessSerializer(serializers.ModelSerializer):
-    organization = OrganizationSerializer()
-    user = UserProfileSerializer()
+class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.user.first_name')
+    last_name = serializers.CharField(source='user.user.last_name')
+    username = serializers.CharField(source='user.user.username')
+    email = serializers.CharField(source='user.user.email')
+    title = serializers.CharField(source='user.title')
+    contact_no = serializers.CharField(source='user.contact_no')
 
     class Meta:
         model = models.UserOrganizationAccess
-        fields = ('id', 'organization', 'user', 'user_role', 'is_admin',)
-
-
-class UserOrgAccessSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    organization = OrganizationSerializer()
-    user = UserProfileSerializer()                      # TODO: TEST THIS OUT
-    user_role = serializers.CharField()
-    is_admin = serializers.BooleanField()
-
-    class Meta:
-        fields = ('id', 'organization', 'user', 'user_role', 'is_admin',)
-
-    def create(self, validated_data):
-        pass
-
-    def update(self, instance, validated_data):
-        pass
+        fields = ('id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
 
 
 class AdminUserResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     organization = OrganizationSerializer()
-    users = UserProfileSerializer(many=True)
+    users = UserProfileWithOrgAccessSerializer(many=True)
 
     class Meta:
         fields = ('success', 'organization', 'users',)
