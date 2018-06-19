@@ -1,8 +1,6 @@
 from rest_framework import serializers
 from phi import models
-from user_auth import models as user_auth_models
-from user_auth.serializers import AddressSerializer, OrganizationSerializer, UserProfileSerializer
-from django.db import transaction
+from user_auth.serializers import AddressSerializer
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -28,16 +26,6 @@ class PatientSerializerWeb(serializers.ModelSerializer):
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp', 'address',)
-
-
-# class PatientWithUsersSerializer(serializers.ModelSerializer):
-#     id = serializers.IntegerField()
-#     patient = PatientSerializerWeb()
-#     users = UserProfileSerializer(many=True)
-#
-#     class Meta:
-#         model = models.Patient
-#         fields = ('id', 'patient', 'users')
 
 
 class PatientWithUsersSerializer(serializers.ModelSerializer):
