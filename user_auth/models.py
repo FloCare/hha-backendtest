@@ -55,7 +55,7 @@ class UserOrganizationAccess(models.Model):
     Lists out the users of an organization
     """
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
     user_role = models.CharField(max_length=100)   # Todo: Make enum
     is_admin = models.BooleanField(default=False)
 
