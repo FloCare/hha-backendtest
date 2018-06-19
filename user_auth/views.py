@@ -1,4 +1,4 @@
-from user_auth.serializers import AdminUserResponseSerializer
+from user_auth.serializers import AdminUserResponseSerializer, UserProfileForAppSerializer
 from user_auth import models
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -37,3 +37,21 @@ class UserOrganizationView(APIView):
             print("Error:", e)
             headers = {'Content-Type': 'application/json'}
             return Response({'success': False, 'error': 'Access Denied'}, headers=headers)
+
+
+# Being used by app API
+class UserProfileView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, format=None):
+        user = request.user
+
+        try:
+            user_id = user.profile.id
+            accesses = models.UserOrganizationAccess.objects.filter(user_id=user_id)
+            serializer = UserProfileForAppSerializer({'id': user_id, 'roles': accesses})
+            headers = {'Content-Type': 'application/json'}
+            return Response(serializer.data, headers=headers)
+        except Exception as e:
+            print('Error:', str(e))
+            return Response(status=400, data={'error': 'Something went wrong'})

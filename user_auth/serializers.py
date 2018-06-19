@@ -25,16 +25,22 @@ class OrganizationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-# class UserProfileSerializer(serializers.ModelSerializer):
-#     first_name = serializers.CharField(source='user.first_name')
-#     last_name = serializers.CharField(source='user.last_name')
-#     username = serializers.CharField(source='user.username')
-#     email = serializers.CharField(source='user.email')
-#     is_admin = serializers.BooleanField(source='user.is_superuser', read_only=True)
-#
-#     class Meta:
-#         model = models.UserProfile
-#         fields = ('id', 'title', 'first_name', 'last_name', 'username', 'email', 'contact_no', 'qualification', 'address', 'is_admin')   # noqa
+class RoleSerializer(serializers.ModelSerializer):
+    org = serializers.CharField(source='organization.name')
+    role = serializers.CharField(source='user_role')
+
+    class Meta:
+        model = models.UserOrganizationAccess
+        fields = ('org', 'role')
+
+
+class UserProfileForAppSerializer(serializers.ModelSerializer):
+    id = serializers.CharField()
+    roles = RoleSerializer(many=True)
+
+    class Meta:
+        model = models.UserProfile
+        fields = ('id', 'roles')
 
 
 class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
