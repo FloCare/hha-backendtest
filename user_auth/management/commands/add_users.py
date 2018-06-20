@@ -50,6 +50,9 @@ class Command(BaseCommand):
         country = row.get(constants.COUNTRY, 'USA')
         zip_code = row.get(constants.ZIPCODE)
 
+        if phone1:
+            phone1 = phone1.replace(')', '').replace('(', '').replace('-', '').replace(' ', '')
+
         try:
             with transaction.atomic():
                 # Save user to db
@@ -66,7 +69,7 @@ class Command(BaseCommand):
                     self.stderr.write('Address Save failed for: %s %s. Error: %s' % (first_name, last_name, str(e)))
 
                 # Save user profile to db
-                profile = UserProfile(user=user, title='', contact_no='', address=address)
+                profile = UserProfile(user=user, title='', contact_no=phone1, address=address)
                 profile.save()
 
                 # Add entry to UserOrganizationAccess: For that org, add all users, and their 'roles'

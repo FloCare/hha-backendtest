@@ -37,6 +37,8 @@ class Command(BaseCommand):
         first_name = row.get(constants.FIRSTNAME)
         last_name = row.get(constants.LASTNAME)
         primary_contact = row.get(constants.PHONE)
+        if primary_contact:
+            primary_contact = primary_contact.replace(')', '').replace('(', '').replace('-', '').replace(' ', '')
         emergency_contact = row.get(constants.EMERGENCYCONTACTPHONE)
         gender = row.get(constants.GENDER)
         if gender:
