@@ -39,6 +39,7 @@ class Command(BaseCommand):
         phone1 = row.get(constants.PHONE1)
         phone2 = row.get(constants.PHONE2)
         dob = row.get(constants.DOB)
+        username = str(first_name).strip().lower() + str(last_name).strip().lower()
         # Address Details
         street_address = row.get(constants.ADDRESS1)
         apartment_no = row.get(constants.ADDRESS2)
@@ -46,12 +47,12 @@ class Command(BaseCommand):
         state = row.get(constants.STATE)
         country = row.get(constants.COUNTRY, 'USA')
         zip_code = row.get(constants.ZIPCODE)
-        username = str(first_name).strip().lower() + str(last_name).strip().lower()
 
         try:
             with transaction.atomic():
                 # Save user to db
-                user = User(first_name=first_name, last_name=last_name, username=username)
+                user = User.objects.create_user(first_name=first_name, last_name=last_name,
+                                                username=username, password=username)
                 user.save()
 
                 # Save address to db
@@ -74,14 +75,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            self.stdout.write(self.style.SUCCESS('Opening and Parsing the text file ...'))
+            self.stdout.write(self.style.SUCCESS('Opening and Parsing the CSV ...'))
             filepath = 'user_auth/management/data/employees.csv'
             data = _readfile(filepath)
         except Exception as e:
             self.stderr.write(str(e))
             raise e
 
-        org_name = options['org']
+        org_name = options['org'][0]
         print('')
         print('Organization Name is:', org_name)
         print('')
@@ -89,10 +90,11 @@ class Command(BaseCommand):
         # 1. Insert or fetch the org
         orgs = Organization.objects.filter(name=org_name)
         if len(orgs) == 0:
-            if options.get('add-org'):
+            if options.get('add_org', 'False') == 'True':
                 print("Organization doesn't exist. Inserting it ...")
                 org = Organization(name=org_name, address=None, contact_no=None, type=constants.ORG_TYPE_HOME_HEALTH)
                 org.save()
+                print('Saved Organization')
             else:
                 raise Exception('Matching organization not found ...')
         elif len(orgs) > 1:
@@ -106,7 +108,3 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('Data insert completed.'))
 
-        try:
-            self.stdout.write(self.style.SUCCESS('Successfully written to DB'))
-        except Exception as e:
-            self.stderr.write('Failure while writing employee to DB')

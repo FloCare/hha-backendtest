@@ -20,13 +20,16 @@ class Patient(models.Model):
     gender = models.CharField(
         max_length=2,
         choices=GENDER,
-        default='M'
+        default='M',
+        null=True
     )
     primary_contact = models.CharField(max_length=15, null=True)
     emergency_contact = models.CharField(max_length=15, null=True)
     created_on = models.DateTimeField(auto_now_add=True)
     archived = models.BooleanField(default=False)
     address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE)
+    medical_record_no = models.CharField(max_length=50, null=True)
+    hic_no = models.CharField(max_length=50, null=True)
 
     organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
 
