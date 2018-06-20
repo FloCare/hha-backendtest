@@ -39,7 +39,9 @@ class Command(BaseCommand):
         phone1 = row.get(constants.PHONE1)
         phone2 = row.get(constants.PHONE2)
         dob = row.get(constants.DOB)
-        username = str(first_name).strip().lower() + str(last_name).strip().lower()
+        password = row.get(constants.PASSWORD)
+        username = str(first_name).strip().lower() + '.' + str(last_name).strip().lower()
+        email = str(first_name).strip().lower() + '.' + str(last_name).strip().lower() + '@freudenthalhh.com'
         # Address Details
         street_address = row.get(constants.ADDRESS1)
         apartment_no = row.get(constants.ADDRESS2)
@@ -52,7 +54,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 # Save user to db
                 user = User.objects.create_user(first_name=first_name, last_name=last_name,
-                                                username=username, password=username)
+                                                username=username, password=password, email=email)
                 user.save()
 
                 # Save address to db
