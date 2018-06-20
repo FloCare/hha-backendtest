@@ -43,7 +43,7 @@ class Command(BaseCommand):
                 if 'location' in geometry:
                     location = geometry['location']
                     lat = location.get('lat')
-                    long = location.get('long')
+                    long = location.get('lng')
                     with transaction.atomic():
                         address.latitude = lat
                         address.longitude = long

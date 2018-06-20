@@ -139,6 +139,8 @@ class Command(BaseCommand):
         else:
             org = orgs[0]
 
+        shape = data.shape
+        print('No of patients:', shape[0])
         for i in data.index[:]:
             row = data.loc[i]
             self.process_row(org, row)
