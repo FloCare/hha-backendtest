@@ -3,6 +3,7 @@ from user_auth import models
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from user_auth.constants import query_to_db_field_map
 
 
 # Being used for web API
@@ -19,9 +20,20 @@ class UserOrganizationView(APIView):
             qs = models.UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
             org = qs.organization
 
+            # Todo: Improve Sorting logic - use DRF builtin
+            query_params = request.query_params
+            sort_field = 'user__user__first_name'
+            order = 'ASC'
+            if 'sort' in query_params:
+                sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
+                if 'order' in query_params:
+                    order = query_params['order']
+            if order == 'DESC':
+                sort_field = '-' + sort_field
+
             # Get list of all users in that org
             filters = request.query_params.get('ids', None)
-            accesses = models.UserOrganizationAccess.objects.filter(organization_id=org.id)
+            accesses = models.UserOrganizationAccess.objects.filter(organization_id=org.id).order_by(sort_field)
             # TODO: Don't use eval
             if filters:
                 try:
