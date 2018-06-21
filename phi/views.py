@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-
+from phi.constants import query_to_db_field_map
 
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
@@ -174,6 +174,18 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         try:
             user = request.user
+
+            # Todo: Improve Sorting logic - use DRF builtin
+            query_params = request.query_params
+            sort_field = 'first_name'
+            order = 'ASC'
+            if 'sort' in query_params:
+                sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
+                if 'order' in query_params:
+                    order = query_params['order']
+            if order == 'DESC':
+                sort_field = '-' + sort_field
+
             # Check if this user is admin of the org
             # Note: (A user can be admin of only 1 org)
             try:
@@ -181,7 +193,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 if user_org :
                     print('User is admin')
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).values_list('patient_id')
-                    patients = models.Patient.objects.filter(id__in=patient_ids)
+                    patients = models.Patient.objects.filter(id__in=patient_ids).order_by(sort_field)
                     patient_list = list()
                     # Todo: Extremely SLow Query
                     for patient in patients:
@@ -195,16 +207,16 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 print('Error: User is not admin: ', str(e))
                 return Response(status=400, data={'success': False, 'error': 'Something went wront'})
 
-            # Todo: Don't go to this part of the API ???
-            # Check if user has episodes to his name
-            print('User is not admin')                      # This part of API not being used currently
-            # TODO: ALSO CHECK REQUEST USER'S ORGANIZATION
-            episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True))  # noqa
-            patients = list()
-            for episode_id in episode_ids:
-                patients.append(models.Episode.objects.get(id=episode_id).patient)
-            serializer = PatientSerializerWeb(patients, many=True)
-            return Response(serializer.data)
+        #     # Todo: Don't go to this part of the API ???
+        #     # Check if user has episodes to his name
+        #     print('User is not admin')                      # This part of API not being used currently
+        #     # TODO: ALSO CHECK REQUEST USER'S ORGANIZATION
+        #     episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True))  # noqa
+        #     patients = list()
+        #     for episode_id in episode_ids:
+        #         patients.append(models.Episode.objects.get(id=episode_id).patient)
+        #     serializer = PatientSerializerWeb(patients, many=True)
+        #     return Response(serializer.data)
         except Exception as e:
             print('Error:', e)
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
