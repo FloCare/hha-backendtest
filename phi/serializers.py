@@ -46,7 +46,7 @@ class PatientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'name', 'primaryContact', 'emergencyContact', 'timestamp',
+        fields = ('id', 'name', 'first_name', 'last_name', 'primaryContact', 'emergencyContact', 'timestamp',
                   'archived', 'address',)
 
     def get_name(self, obj):
