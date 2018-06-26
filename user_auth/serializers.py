@@ -44,6 +44,7 @@ class UserProfileForAppSerializer(serializers.ModelSerializer):
 
 
 class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='user.id')
     first_name = serializers.CharField(source='user.user.first_name')
     last_name = serializers.CharField(source='user.user.last_name')
     username = serializers.CharField(source='user.user.username')
