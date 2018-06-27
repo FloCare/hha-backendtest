@@ -19,6 +19,26 @@ class AddressSerializer(serializers.ModelSerializer):
         return models.Address.objects.create(**validated_data)
 
 
+# Todo: Make same as AddressSerializer, and delete this: Only difference apartment_no field.
+# Todo: This serializer is created just to avoid change in web frontend the time being
+class AddressSerializerForApp(serializers.ModelSerializer):
+    zipCode = serializers.CharField(source='zip')
+    streetAddress = serializers.CharField(source='street_address')
+    apartmentNo = serializers.CharField(source='apartment_no')
+
+    class Meta:
+        model = models.Address
+        fields = ('id', 'apartmentNo', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
+
+    def create(self, validated_data):
+        """
+        Create and return a new Address instance, given the validated data
+        :param validated_data:
+        :return:
+        """
+        return models.Address.objects.create(**validated_data)
+
+
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Organization

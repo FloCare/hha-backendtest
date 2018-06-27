@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from phi import models
-from user_auth.serializers import AddressSerializer
+from user_auth.serializers import AddressSerializer, AddressSerializerForApp
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -38,7 +38,9 @@ class PatientWithUsersSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializer(serializers.ModelSerializer):
-    address = AddressSerializer()
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    address = AddressSerializerForApp()
     name = serializers.SerializerMethodField()
     primaryContact = serializers.CharField(source='primary_contact')
     emergencyContact = serializers.CharField(source='emergency_contact')
@@ -46,7 +48,7 @@ class PatientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'name', 'first_name', 'last_name', 'primaryContact', 'emergencyContact', 'timestamp',
+        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp',
                   'archived', 'address',)
 
     def get_name(self, obj):
