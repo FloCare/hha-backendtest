@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from rest_framework import status
 from phi import models
 from user_auth.models import UserOrganizationAccess, UserProfile
 from phi.serializers import PatientSerializerWeb, PatientListSerializer, \
@@ -43,7 +44,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             user = request.user
             data = request.data
             if 'users' not in data:
-                return Response(status=400, data={'error': 'Invalid data passed'})
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Invalid data passed'})
             users = data['users']
 
             # Check if caller is an admin
@@ -87,10 +88,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             access_serializer.save()
                     return Response({'success': True})
 
-            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     def destroy(self, request, pk=None):
         """
@@ -132,10 +133,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     #     # TODO: IMP: Complete this before pushing to production
                     #     return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
-            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     def retrieve(self, request, pk=None):
         """
@@ -161,10 +162,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     #users = UserProfile.objects.filter(id__in=user_profile_ids)
                     serializer = PatientWithUsersSerializer({'id': patient.id, 'patient': patient, 'userIds': list(user_profile_ids)})
                     return Response(serializer.data)
-            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': 'Access denied'})
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     def list(self, request):
         """
@@ -205,7 +206,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     return Response(serializer.data)
             except Exception as e:
                 print('Error: User is not admin: ', str(e))
-                return Response(status=400, data={'success': False, 'error': 'Something went wront'})
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wront'})
 
         #     # Todo: Don't go to this part of the API ???
         #     # Check if user has episodes to his name
@@ -219,7 +220,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         #     return Response(serializer.data)
         except Exception as e:
             print('Error:', e)
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     def create(self, request, format=None):
         """
@@ -239,7 +240,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         data = request.data
         patient, address, users = self.parse_data(data)
         if (not patient) or (not address):
-            return Response(status=400, data={'error': 'Invalid data passed'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Invalid data passed'})
         try:
             # Find this user's organization and Check if this user is the admin
             # Only admin should have write permissions
@@ -307,7 +308,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
         except Exception as e:
             print(e)
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
 
 # Being Used for app API

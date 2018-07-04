@@ -3,6 +3,7 @@ from user_auth import models
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from user_auth.constants import query_to_db_field_map
 
 
@@ -66,4 +67,4 @@ class UserProfileView(APIView):
             return Response(serializer.data, headers=headers)
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Something went wrong'})
