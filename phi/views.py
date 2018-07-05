@@ -76,17 +76,29 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
                     with transaction.atomic():
-                        # For this episode, delete all users for this org
-                        models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id=episode_id).delete()
-
                         # Add the users sent in the payload
                         for user_id in users:
-                            access_serializer = UserEpisodeAccessSerializer(data={'organization_id': organization.id,
-                                                                                  'user_id': user_id,
-                                                                                  'episode_id': episode_id,
-                                                                                  'user_role': 'CareGiver'})
-                            access_serializer.is_valid()
-                            access_serializer.save()
+                            try:
+                                models.UserEpisodeAccess.objects \
+                                    .get(organization_id=organization.id, episode_id=episode_id, user_id=user_id)
+                            except:
+                                access_serializer = UserEpisodeAccessSerializer(
+                                    data={'organization_id': organization.id,
+                                          'user_id': user_id,
+                                          'episode_id': episode_id,
+                                          'user_role': 'CareGiver'})
+                                access_serializer.is_valid()
+                                access_serializer.save()
+                                print('new episode access created for userid:', user_id)
+
+                        user_access_to_delete = models.UserEpisodeAccess.objects.filter(
+                            organization_id=organization.id).filter(episode_id=episode_id).exclude(user_id__in=users)
+                        print('to delete:', user_access_to_delete)
+
+                        for user_episode_access in user_access_to_delete.iterator():
+                            print('user access to delete:', user_episode_access)
+
+                        user_access_to_delete.delete()
                     return Response({'success': True})
 
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})

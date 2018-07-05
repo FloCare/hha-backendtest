@@ -98,6 +98,9 @@ class UserEpisodeAccess(models.Model):
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     user_role = models.CharField(max_length=100)            # Todo: Make Enum
 
+    class Meta:
+        unique_together = ('episode', 'organization', 'user',)
+
 
 class OrganizationPatientsMapping(models.Model):
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
