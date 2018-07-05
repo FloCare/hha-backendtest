@@ -319,17 +319,16 @@ class AccessiblePatientListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        # todo: fix this before Prod
-        episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True)) # noqa
-        patient_ids = list()
-        for episode_id in episode_ids:
-            patient_ids.append(models.Episode.objects.get(id=episode_id).patient.id)
+        # Todo: Also pass Organization for filtering
+        accesses = models.UserEpisodeAccess.objects.filter(user__id=user.profile.id)
+        patient_ids = [access.episode.patient.id for access in accesses]
         return patient_ids
 
     def list(self, request):
-        patient_list = self.get_queryset()
-        serializer = PatientListSerializer({'patients': patient_list})
-        return Response(serializer.data)
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(data={'patients': queryset})
+        serializer.is_valid()
+        return Response(serializer.validated_data)
 
 
 # Being used for app API
