@@ -24,15 +24,16 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         try:
             patient = data['patient']
             address = patient.pop('address')
+            physicianId = data['physicianId']
             # address = patient['address']
             if 'users' in data:
                 users = data['users']
             else:
                 users = []
-            return patient, address, users
+            return patient, address, users, physicianId
         except Exception as e:
             print('Incorrect or Incomplete data passed:', e)
-            return None, None, None
+            return None, None, None, None
 
     def update(self, request, pk=None):
         """
@@ -239,7 +240,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         user = request.user
         data = request.data
-        patient, address, users = self.parse_data(data)
+        print(data)
+        patient, address, users, physicianId = self.parse_data(data)
         if (not patient) or (not address):
             return Response(status=400, data={'error': 'Invalid data passed'})
         try:
@@ -264,7 +266,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 # # Save Patient
                 patient['address_id'] = address_obj.id
-                patient['dob'] = datetime.datetime.strftime(datetime.datetime.strptime(patient['dob'],'%d/%m/%Y'),'%Y-%m-%d')
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
                 patient_serializer.is_valid()
                 patient_obj = patient_serializer.save()
@@ -284,7 +285,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     'pharmacy': None,
                     'soc_clinician': None,
                     'attending_physician': None,
-                    'primary_physician': None
+                    'primary_physician': physicianId
                 }
                 episode_serializer = EpisodeSerializer(data=episode)
                 episode_serializer.is_valid()
@@ -394,6 +395,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
                     physicians = models.Physician.objects.all();
                     serializer = PhysicianResponseSerializer(physicians, many=True)
                     headers = {'Content-Type': 'application/json'}
+                    print(serializer.data)
                     return Response(serializer.data, headers=headers)
             except Exception as e:
                 print(e)
@@ -424,7 +426,19 @@ class PhysiciansViewSet(viewsets.ViewSet):
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def retrieve(self, request, pk=None):
-        pass
+        # Check if user is admin of this org
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            organization = user_org.organization
+            physician = models.Physician.objects.get(id=pk)
+            serializer = PhysicianResponseSerializer(physician)
+            headers = {'Content-Type': 'application/json'}
+            print(serializer.data)
+            return Response(serializer.data, headers=headers)
+        except Exception as e:
+            print('Error:', str(e))
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def update(self, request, pk=None):
         pass

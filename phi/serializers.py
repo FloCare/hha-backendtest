@@ -40,13 +40,15 @@ class PatientSerializerWeb(serializers.ModelSerializer):
     address = AddressSerializer()
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
+    dob = serializers.DateField()
     primaryContact = serializers.CharField(source='primary_contact')
-    emergencyContact = serializers.CharField(source='emergency_contact')
+    emergencyContactName = serializers.CharField(source='emergency_contact_name')
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
     timestamp = serializers.DateTimeField(source='created_on')
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp', 'address',)
+        fields = ('id', 'firstName', 'lastName', 'dob', 'primaryContact', 'emergencyContactName', 'emergencyContactNumber', 'timestamp', 'address',)
 
 
 class PatientWithUsersSerializer(serializers.ModelSerializer):
