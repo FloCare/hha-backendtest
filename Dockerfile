@@ -12,7 +12,7 @@ RUN apt-get update \
 
 # Install Gunicorn. If Gunicorn is already present in your requirements.txt,
 # you don't need that (but if won't hurt).
-RUN pip install gunicorn
+# RUN pip install gunicorn
 
 ADD requirements.txt /app/
 WORKDIR /app
@@ -30,7 +30,7 @@ RUN set -a \
 
 EXPOSE 8000
 # Environment settings for django configuration
-ENV settings=backend.settings
-ENV configuration=Prod
+ENV DJANGO_SETTINGS_MODULE=backend.settings
+ENV DJANGO_CONFIGURATION=Prod
 
 CMD ["gunicorn", "--access-logfile=-", "--error-logfile=-", "--bind=0.0.0.0:8000", "--workers=3", "backend.wsgi"]
