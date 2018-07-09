@@ -27,10 +27,10 @@ class Prod(Base):
         },
     ]
 
-    CORS_ORIGIN_ALLOW_ALL = False
-    CORS_ORIGIN_WHITELIST = (
-        'dashboard.flocare.health:80',
-    )
+    CORS_ORIGIN_ALLOW_ALL = True
+    # CORS_ORIGIN_WHITELIST = (
+    #     'dashboard.flocare.health:80',
+    # )
 
     # Todo: Revisit the REST FRAMEWORK settings for prod
     REST_FRAMEWORK = {
