@@ -7,12 +7,33 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     primaryContact = serializers.CharField(source='primary_contact')
-    # emergencyContact = serializers.CharField(source='emergency_contact')
+    dob = serializers.DateField()
+    emergencyContactName = serializers.CharField(source='emergency_contact_name')
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
     address_id = serializers.IntegerField()
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id',)
+        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName', 'emergencyContactNumber', 'dob')
+
+class PhysicianObjectSerializer(serializers.ModelSerializer):
+    npi = serializers.CharField()
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    phone1 = serializers.CharField()
+    phone2 = serializers.CharField()
+    fax = serializers.CharField()
+
+    class Meta:
+        model = models.Physician
+        fields = ('npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
+
+
+class PhysicianResponseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Physician
+        fields = ('npi', 'first_name', 'last_name', 'phone1', 'phone2', 'fax')
 
 
 class PatientSerializerWeb(serializers.ModelSerializer):

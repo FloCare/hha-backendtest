@@ -7,6 +7,7 @@ router = DefaultRouter()
 
 # Todo: Allow only get request in this API
 router.register(r'patients', views.AccessiblePatientViewSet)
+router.register(r'physicians', views.PhysiciansViewSet)
 
 urlpatterns = [
     url(r'^v1.0/', include([

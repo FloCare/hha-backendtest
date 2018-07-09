@@ -1,10 +1,12 @@
 from rest_framework import viewsets
+import re
+import datetime
 from phi import models
 from user_auth.models import UserOrganizationAccess, UserProfile
 from phi.serializers import PatientSerializerWeb, PatientListSerializer, \
     PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
-    PatientWithUsersSerializer
+    PatientWithUsersSerializer, PhysicianObjectSerializer, PhysicianResponseSerializer
 from user_auth.serializers import AddressSerializer
 from rest_framework import generics
 from rest_framework.response import Response
@@ -16,7 +18,7 @@ from phi.constants import query_to_db_field_map
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
     queryset = models.Patient.objects.all()
-    permission_classes = (IsAuthenticated,)
+    # permission_classes = (IsAuthenticated,)
 
     def parse_data(self, data):
         try:
@@ -262,6 +264,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 # # Save Patient
                 patient['address_id'] = address_obj.id
+                patient['dob'] = datetime.datetime.strftime(datetime.datetime.strptime(patient['dob'],'%d/%m/%Y'),'%Y-%m-%d')
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
                 patient_serializer.is_valid()
                 patient_obj = patient_serializer.save()
@@ -366,3 +369,68 @@ class AccessiblePatientsDetailView(APIView):
         resp = {'success': success, 'failure': failure}
         serializer = PatientDetailsResponseSerializer(resp)
         return Response(serializer.data)
+
+
+class PhysiciansViewSet(viewsets.ViewSet):
+
+    queryset = models.Physician.objects.all()
+
+    def parse_data(self, data):
+            try:
+                physician = data['physician']
+                return physician;
+            except Exception as e:
+                return None
+
+    def list(self, request):
+
+        try:
+            user = request.user
+            try:
+                user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+                if user_org :
+                    print('User is admin')
+
+                    physicians = models.Physician.objects.all();
+                    serializer = PhysicianResponseSerializer(physicians, many=True)
+                    headers = {'Content-Type': 'application/json'}
+                    return Response(serializer.data, headers=headers)
+            except Exception as e:
+                print(e)
+                return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+
+        except Exception as e:
+            print('Error:', e)
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+
+
+    def create(self, request):
+        user = request.user
+        data = request.data
+
+        physician = self.parse_data(data)
+        if (not physician):
+            return Response(status=400, data={'error': 'Invalid data passed'})
+
+        try:
+            physician_serializer = PhysicianObjectSerializer(data=physician)
+            physician_serializer.is_valid()
+            physician_obj = physician_serializer.save()
+
+            return Response({'success': True, 'error': None})
+
+        except Exception as e:
+            print(e)
+            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+
+    def retrieve(self, request, pk=None):
+        pass
+
+    def update(self, request, pk=None):
+        pass
+
+    def partial_update(self, request, pk=None):
+        pass
+
+    def destroy(self, request, pk=None):
+        pass
