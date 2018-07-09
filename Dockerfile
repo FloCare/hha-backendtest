@@ -29,5 +29,8 @@ RUN set -a \
  &&  python manage.py collectstatic --noinput
 
 EXPOSE 8000
+# Environment settings for django configuration
+ENV settings=backend.settings
+ENV configuration=Prod
 
 CMD ["gunicorn", "--access-logfile=-", "--error-logfile=-", "--bind=0.0.0.0:8000", "--workers=3", "backend.wsgi"]
