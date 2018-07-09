@@ -54,10 +54,6 @@ class UserOrganizationView(APIView):
             return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
 
 
-class UOView(ListAPIView):
-    pass
-
-
 # Being used by app API
 class UserProfileView(APIView):
     permission_classes = (IsAuthenticated,)
