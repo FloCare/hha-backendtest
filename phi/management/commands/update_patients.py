@@ -48,7 +48,7 @@ class Command(BaseCommand):
                     if emergency_contact_phone is not None:
                         patient.emergency_contact_number = emergency_contact_phone
                     if emergency_contact_relation is not None:
-                        patient.emergency_contact_relation = emergency_contact_relation
+                        patient.emergencyContactRelationship = emergency_contact_relation
                     if emergency_contact_name is not None:
                         patient.emergency_contact_name = emergency_contact_name
                     patient.save()
