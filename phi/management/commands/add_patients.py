@@ -39,7 +39,7 @@ class Command(BaseCommand):
         primary_contact = row.get(constants.PHONE)
         if primary_contact:
             primary_contact = primary_contact.replace(')', '').replace('(', '').replace('-', '').replace(' ', '')
-        emergency_contact = row.get(constants.EMERGENCYCONTACTPHONE)
+        emergency_contact_number = row.get(constants.EMERGENCYCONTACTPHONE)
         gender = row.get(constants.GENDER)
         if gender:
             if gender.lower() == 'female':
@@ -91,7 +91,7 @@ class Command(BaseCommand):
                 try:
                     # Save patient to db
                     patient = Patient(first_name=first_name, last_name=last_name, dob=dob, title=title,
-                                      primary_contact=primary_contact, emergency_contact=emergency_contact,
+                                      primary_contact=primary_contact, emergency_contact_number=emergency_contact_number,
                                       address=address, gender=gender, medical_record_no=medical_record_no,
                                       hic_no=hic_no)
                     patient.save()
