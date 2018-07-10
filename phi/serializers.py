@@ -10,11 +10,13 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
     dob = serializers.DateField()
     emergencyContactName = serializers.CharField(source='emergency_contact_name')
     emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
+    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship')
     address_id = serializers.IntegerField()
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName', 'emergencyContactNumber', 'dob')
+        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
+        'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
 
 class PhysicianObjectSerializer(serializers.ModelSerializer):
     npi = serializers.CharField()
@@ -44,11 +46,13 @@ class PatientSerializerWeb(serializers.ModelSerializer):
     primaryContact = serializers.CharField(source='primary_contact')
     emergencyContactName = serializers.CharField(source='emergency_contact_name')
     emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
+    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship')
     timestamp = serializers.DateTimeField(source='created_on')
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'dob', 'primaryContact', 'emergencyContactName', 'emergencyContactNumber', 'timestamp', 'address',)
+        fields = ('id', 'firstName', 'lastName', 'dob', 'primaryContact', 'emergencyContactName',
+        'emergencyContactNumber', 'emergencyContactRelationship', 'timestamp', 'address',)
 
 
 class PatientWithUsersSerializer(serializers.ModelSerializer):
@@ -61,6 +65,7 @@ class PatientWithUsersSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializer(serializers.ModelSerializer):
+    print('INSIDE')
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     address = AddressSerializerForApp()

@@ -24,16 +24,16 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         try:
             patient = data['patient']
             address = patient.pop('address')
-            physicianId = data['physicianId']
+            #physicianId = data['physicianId']
             # address = patient['address']
             if 'users' in data:
                 users = data['users']
             else:
                 users = []
-            return patient, address, users, physicianId
+            return patient, address, users
         except Exception as e:
             print('Incorrect or Incomplete data passed:', e)
-            return None, None, None, None
+            return None, None, None
 
     def update(self, request, pk=None):
         """
@@ -240,8 +240,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         user = request.user
         data = request.data
-        print(data)
-        patient, address, users, physicianId = self.parse_data(data)
+        patient, address, users = self.parse_data(data)
         if (not patient) or (not address):
             return Response(status=400, data={'error': 'Invalid data passed'})
         try:
@@ -285,7 +284,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     'pharmacy': None,
                     'soc_clinician': None,
                     'attending_physician': None,
-                    'primary_physician': physicianId
+                    'primary_physician': None
                 }
                 episode_serializer = EpisodeSerializer(data=episode)
                 episode_serializer.is_valid()
