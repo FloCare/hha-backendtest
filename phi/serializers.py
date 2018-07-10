@@ -65,7 +65,6 @@ class PatientWithUsersSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializer(serializers.ModelSerializer):
-    print('INSIDE')
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     address = AddressSerializerForApp()
