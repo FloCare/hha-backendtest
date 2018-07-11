@@ -5,9 +5,9 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.conf import settings
 
 from backend import errors
-from backend.settings.base import Base
 from phi import models
 from phi.constants import query_to_db_field_map
 from phi.serializers import PatientListSerializer, \
@@ -102,7 +102,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             try:
                                 models.UserEpisodeAccess.objects \
                                     .get(organization_id=organization.id, episode_id=episode_id, user_id=user_id)
-                                Base.pubnub.publish().channel(str(user_id) + '_assignedPatients').message({
+                                settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'UPDATE',
                                     'patientID': patient.id,
                                 }).async(my_publish_callback)
@@ -116,7 +116,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 access_serializer.save()
                                 print('new episode access created for userid:', user_id)
 
-                                Base.pubnub.publish().channel(str(user_id) + '_assignedPatients').message({
+                                settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'ASSIGN',
                                     'patientID': patient.id,
                                     'pn_apns': {
@@ -140,7 +140,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                         for user_episode_access in user_access_to_delete.iterator():
                             print('user access to delete:', user_episode_access)
-                            Base.pubnub.publish().channel(str(user_episode_access.user.id) + '_assignedPatients').message({
+                            settings.PUBNUB.publish().channel(str(user_episode_access.user.id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': patient.id,
                             }).async(my_publish_callback)
@@ -192,7 +192,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             episode_id__in=episode_ids)
 
                         for user_episode_access in user_episode_accesses:
-                            Base.pubnub.publish().channel(
+                            settings.PUBNUB.publish().channel(
                                 str(user_episode_access.user.id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': patient.id,
@@ -377,7 +377,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     access_serializer.is_valid()
                     access_serializer.save()
 
-                    Base.pubnub.publish().channel(str(user_id) + '_assignedPatients').message({
+                    settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
                         'patientID': patient_obj.id,
                         'pn_apns': {

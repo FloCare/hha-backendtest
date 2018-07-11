@@ -99,5 +99,5 @@ class Base(Configuration):
     pnconfig.publish_key = "pubnub_pub_key"
     pnconfig.ssl = True
 
-    pubnub = PubNub(pnconfig)
+    PUBNUB = PubNub(pnconfig)
 
