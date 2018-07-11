@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 import os
 from configurations import Configuration
 
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pubnub import PubNub
+
 
 class Base(Configuration):
     # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -91,4 +94,10 @@ class Base(Configuration):
         },
     }
 
+    pnconfig = PNConfiguration()
+    pnconfig.subscribe_key = "pubnub_sub_key"
+    pnconfig.publish_key = "pubnub_pub_key"
+    pnconfig.ssl = True
+
+    pubnub = PubNub(pnconfig)
 

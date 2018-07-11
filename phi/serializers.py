@@ -123,3 +123,15 @@ class UserEpisodeAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.UserEpisodeAccess
         fields = ('episode_id', 'user_id', 'organization_id', 'user_role')
+
+
+class PatientUpdateSerializer(serializers.ModelSerializer):
+    firstName = serializers.CharField(source='first_name', required=False)
+    lastName = serializers.CharField(source='last_name', required=False)
+    primaryContact = serializers.CharField(source='primary_contact', required=False)
+
+    class Meta:
+        model = models.Patient
+        fields = ('id', 'firstName', 'lastName', 'primaryContact',)
+
+

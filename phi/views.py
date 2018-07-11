@@ -1,24 +1,39 @@
-from rest_framework import viewsets
-from rest_framework import status
-from phi import models
-from user_auth.models import UserOrganizationAccess, UserProfile
-from phi.serializers import PatientSerializerWeb, PatientListSerializer, \
-    PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
-    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
-    PatientWithUsersSerializer
-from user_auth.serializers import AddressSerializer
+from django.db import transaction
 from rest_framework import generics
+from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from phi.constants import query_to_db_field_map
+
 from backend import errors
+from backend.settings.base import Base
+from phi import models
+from phi.constants import query_to_db_field_map
+from phi.serializers import PatientListSerializer, \
+    PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
+    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
+    PatientWithUsersSerializer, PatientUpdateSerializer
+from user_auth.models import UserOrganizationAccess
+from user_auth.serializers import AddressSerializer
+
+
+def my_publish_callback(envelope, status):
+    # Check whether request successfully completed or not
+    if not status.is_error():
+        print("# Message successfully published to specified channel.")
+    else:
+        print("# NOT Message successfully published to specified channel.")
+        pass  # Handle message publish error. Check 'category' property to find out possible issue
+        # because of which request did fail.
+        # Request can be resent using: [status retry];
 
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
     queryset = models.Patient.objects.all()
     permission_classes = (IsAuthenticated,)
+
+    local_counter = 1
 
     def parse_data(self, data):
         try:
@@ -76,11 +91,21 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
                     with transaction.atomic():
+                        # Update patient fields
+                        patient_obj = models.Patient.objects.get(id=data['id'])
+                        serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
+                        serializer.is_valid()
+                        serializer.save()
+
                         # Add the users sent in the payload
                         for user_id in users:
                             try:
                                 models.UserEpisodeAccess.objects \
                                     .get(organization_id=organization.id, episode_id=episode_id, user_id=user_id)
+                                Base.pubnub.publish().channel(str(user_id) + '_assignedPatients').message({
+                                    'actionType': 'UPDATE',
+                                    'patientID': patient.id,
+                                }).async(my_publish_callback)
                             except:
                                 access_serializer = UserEpisodeAccessSerializer(
                                     data={'organization_id': organization.id,
@@ -91,12 +116,36 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 access_serializer.save()
                                 print('new episode access created for userid:', user_id)
 
+                                Base.pubnub.publish().channel(str(user_id) + '_assignedPatients').message({
+                                    'actionType': 'ASSIGN',
+                                    'patientID': patient.id,
+                                    'pn_apns': {
+                                        "aps": {
+                                            "alert": {
+                                                "body": "You have a new Patient",
+                                            },
+                                            "sound": "default",
+                                            "content-available": 1
+                                        },
+                                        "payload": {
+                                            "messageCounter": AccessiblePatientViewSet.local_counter,
+                                            "patientID": patient.id
+                                        }
+                                    }
+                                }).async(my_publish_callback)
+
                         user_access_to_delete = models.UserEpisodeAccess.objects.filter(
                             organization_id=organization.id).filter(episode_id=episode_id).exclude(user_id__in=users)
                         print('to delete:', user_access_to_delete)
 
                         for user_episode_access in user_access_to_delete.iterator():
                             print('user access to delete:', user_episode_access)
+                            Base.pubnub.publish().channel(str(user_episode_access.user.id) + '_assignedPatients').message({
+                                'actionType': 'UNASSIGN',
+                                'patientID': patient.id,
+                            }).async(my_publish_callback)
+
+                        AccessiblePatientViewSet.local_counter += 1
 
                         user_access_to_delete.delete()
                     return Response({'success': True})
@@ -128,7 +177,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             organization = user_org.organization
             if user_org:
                 patient = models.Patient.objects.get(id=pk)
-                # episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
+                episode_ids = patient.episodes.values_list('id', flat=True)      # Choose is_active
 
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
@@ -138,6 +187,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         # models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id__in=episode_ids).delete()
                         # q = models.OrganizationPatientsMapping.objects.filter(patient_id=patient.id)
                         # if len(q) == 0:
+
+                        user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(
+                            episode_id__in=episode_ids)
+
+                        for user_episode_access in user_episode_accesses:
+                            Base.pubnub.publish().channel(
+                                str(user_episode_access.user.id) + '_assignedPatients').message({
+                                'actionType': 'UNASSIGN',
+                                'patientID': patient.id,
+                            }).async(my_publish_callback)
+
                         address = patient.address
                         patient.delete()    # this will also delete the episodes
                         address.delete()
@@ -316,6 +376,24 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                                                           'user_role': 'CareGiver'})
                     access_serializer.is_valid()
                     access_serializer.save()
+
+                    Base.pubnub.publish().channel(str(user_id) + '_assignedPatients').message({
+                        'actionType': 'ASSIGN',
+                        'patientID': patient_obj.id,
+                        'pn_apns': {
+                            "aps": {
+                                "alert": {
+                                    "body": "You have a new Patient",
+                                },
+                                "sound": "default",
+                                "content-available": 1
+                            },
+                            "payload": {
+                                "messageCounter": AccessiblePatientViewSet.local_counter,
+                                "patientID": patient_obj.id
+                            }
+                        }
+                    }).async(my_publish_callback)
 
                 return Response({'success': True, 'error': None})
 
