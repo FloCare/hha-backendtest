@@ -1,2 +1,2 @@
 before_release:
-  - python manage.py migrate
+  - python manage.py migrate --settings=backend.settings --configuration=Prod

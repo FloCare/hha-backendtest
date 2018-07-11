@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 import re
 import datetime
+from rest_framework import status
 from phi import models
 from user_auth.models import UserOrganizationAccess, UserProfile
 from phi.serializers import PatientSerializerWeb, PatientListSerializer, \
@@ -14,6 +15,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from phi.constants import query_to_db_field_map
+from backend import errors
 
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
@@ -46,7 +48,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             user = request.user
             data = request.data
             if 'users' not in data:
-                return Response(status=400, data={'error': 'Invalid data passed'})
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Invalid data passed'})
             users = data['users']
 
             # Check if caller is an admin
@@ -90,10 +92,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             access_serializer.save()
                     return Response({'success': True})
 
-            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def destroy(self, request, pk=None):
         """
@@ -135,10 +137,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     #     # TODO: IMP: Complete this before pushing to production
                     #     return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
-            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def retrieve(self, request, pk=None):
         """
@@ -164,10 +166,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     #users = UserProfile.objects.filter(id__in=user_profile_ids)
                     serializer = PatientWithUsersSerializer({'id': patient.id, 'patient': patient, 'userIds': list(user_profile_ids)})
                     return Response(serializer.data)
-            return Response(status=401, data={'success': False, 'error': 'Access denied'})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             print('Error:', str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def list(self, request):
         """
@@ -208,7 +210,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     return Response(serializer.data)
             except Exception as e:
                 print('Error: User is not admin: ', str(e))
-                return Response(status=400, data={'success': False, 'error': 'Something went wront'})
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
         #     # Todo: Don't go to this part of the API ???
         #     # Check if user has episodes to his name
@@ -222,7 +224,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         #     return Response(serializer.data)
         except Exception as e:
             print('Error:', e)
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def create(self, request, format=None):
         """
@@ -242,7 +244,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         data = request.data
         patient, address, users = self.parse_data(data)
         if (not patient) or (not address):
-            return Response(status=400, data={'error': 'Invalid data passed'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
         try:
             # Find this user's organization and Check if this user is the admin
             # Only admin should have write permissions
@@ -310,7 +312,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
         except Exception as e:
             print(e)
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
 
 # Being Used for app API
@@ -321,17 +323,16 @@ class AccessiblePatientListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        # todo: fix this before Prod
-        episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True)) # noqa
-        patient_ids = list()
-        for episode_id in episode_ids:
-            patient_ids.append(models.Episode.objects.get(id=episode_id).patient.id)
+        # Todo: Also pass Organization for filtering
+        accesses = models.UserEpisodeAccess.objects.filter(user__id=user.profile.id)
+        patient_ids = [access.episode.patient.id for access in accesses]
         return patient_ids
 
     def list(self, request):
-        patient_list = self.get_queryset()
-        serializer = PatientListSerializer({'patients': patient_list})
-        return Response(serializer.data)
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(data={'patients': queryset})
+        serializer.is_valid()
+        return Response(serializer.validated_data)
 
 
 # Being used for app API
@@ -365,7 +366,7 @@ class AccessiblePatientsDetailView(APIView):
         print('success:', success)
         failure = list()
         for id in failure_ids:
-            failure.append({'id': id, 'error': 'Access denied'})
+            failure.append({'id': id, 'error': errors.ACCESS_DENIED})
         resp = {'success': success, 'failure': failure}
         serializer = PatientDetailsResponseSerializer(resp)
         return Response(serializer.data)
