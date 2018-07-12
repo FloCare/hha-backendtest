@@ -24,9 +24,9 @@ class Patient(models.Model):
         null=True
     )
     primary_contact = models.CharField(max_length=15, null=True)
-    emergency_contact_name = models.CharField(max_length=15, null=True)
+    emergency_contact_name = models.CharField(max_length=100, null=True)
     emergency_contact_number = models.CharField(max_length=15, null=True)
-    emergency_contact_relationship = models.CharField(max_length=15, null=True)
+    emergency_contact_relationship = models.CharField(max_length=50, null=True)
     created_on = models.DateTimeField(auto_now_add=True)
     archived = models.BooleanField(default=False)
     address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE)

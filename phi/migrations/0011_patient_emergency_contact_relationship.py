@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='patient',
             name='emergency_contact_relationship',
-            field=models.CharField(max_length=15, null=True),
+            field=models.CharField(max_length=50, null=True),
         ),
     ]

@@ -13,11 +13,11 @@ class Migration(migrations.Migration):
         migrations.RenameField(
             model_name='patient',
             old_name='emergency_contact',
-            new_name='emergency_contact_name',
+            new_name='emergency_contact_number',
         ),
         migrations.AddField(
             model_name='patient',
-            name='emergency_contact_number',
-            field=models.CharField(max_length=15, null=True),
+            name='emergency_contact_name',
+            field=models.CharField(max_length=100, null=True),
         ),
     ]
