@@ -93,11 +93,12 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
                 if org_has_access:
                     with transaction.atomic():
-                        # Update patient fields
-                        patient_obj = models.Patient.objects.get(id=data['id'])
-                        serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
-                        serializer.is_valid()
-                        serializer.save()
+                        # Update patient fields if present
+                        if data.get('patient'):
+                            patient_obj = models.Patient.objects.get(id=data['id'])
+                            serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
+                            serializer.is_valid()
+                            serializer.save()
 
                         # Add the users sent in the payload
                         for user_id in users:
