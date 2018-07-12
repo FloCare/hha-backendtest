@@ -24,7 +24,9 @@ class Patient(models.Model):
         null=True
     )
     primary_contact = models.CharField(max_length=15, null=True)
-    emergency_contact = models.CharField(max_length=15, null=True)
+    emergency_contact_name = models.CharField(max_length=15, null=True)
+    emergency_contact_number = models.CharField(max_length=15, null=True)
+    emergency_contact_relationship = models.CharField(max_length=15, null=True)
     created_on = models.DateTimeField(auto_now_add=True)
     archived = models.BooleanField(default=False)
     address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE)
@@ -32,6 +34,15 @@ class Patient(models.Model):
     hic_no = models.CharField(max_length=50, null=True)
 
     organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
+
+
+class Physician(models.Model):
+    npi = models.CharField(max_length=10, unique=True)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    phone1 = models.CharField(max_length=15, null=True)
+    phone2 = models.CharField(max_length=15, null=True)
+    fax = models.CharField(max_length=15, null=True)
 
 
 # Todo: When to add episode
@@ -85,7 +96,7 @@ class Episode(models.Model):
 
     soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='soc_episodes', null=True)
     attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
-    primary_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
+    primary_physician = models.ForeignKey(Physician, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
 
 
 class UserEpisodeAccess(models.Model):
