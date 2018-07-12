@@ -79,7 +79,7 @@ class PatientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName'
+        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName', 'dob',
                   'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'archived', 'address',)
 
     def get_name(self, obj):
