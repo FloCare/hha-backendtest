@@ -35,8 +35,9 @@ class Patient(models.Model):
 
     organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
 
+
 class Physician(models.Model):
-    npi = models.CharField(max_length=10)
+    npi = models.CharField(max_length=10, unique=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     phone1 = models.CharField(max_length=15, null=True)
@@ -95,7 +96,7 @@ class Episode(models.Model):
 
     soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='soc_episodes', null=True)
     attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
-    primary_physician = models.ForeignKey(Physician , on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
+    primary_physician = models.ForeignKey(Physician, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
 
 
 class UserEpisodeAccess(models.Model):

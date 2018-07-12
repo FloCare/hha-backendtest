@@ -7,16 +7,17 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     primaryContact = serializers.CharField(source='primary_contact')
-    dob = serializers.DateField()
-    emergencyContactName = serializers.CharField(source='emergency_contact_name')
-    emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
-    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship')
+    dob = serializers.DateField(required=False)
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
     address_id = serializers.IntegerField()
 
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
         'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
+
 
 class PhysicianObjectSerializer(serializers.ModelSerializer):
     npi = serializers.CharField()

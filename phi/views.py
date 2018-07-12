@@ -20,7 +20,7 @@ from backend import errors
 
 class AccessiblePatientViewSet(viewsets.ViewSet):
     queryset = models.Patient.objects.all()
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
 
     def parse_data(self, data):
         try:
@@ -372,9 +372,11 @@ class AccessiblePatientsDetailView(APIView):
         return Response(serializer.data)
 
 
+# Todo: Revisit these when adding physician capabilities
 class PhysiciansViewSet(viewsets.ViewSet):
 
     queryset = models.Physician.objects.all()
+    permission_classes = (IsAuthenticated,)
 
     def parse_data(self, data):
             try:
@@ -384,15 +386,14 @@ class PhysiciansViewSet(viewsets.ViewSet):
                 return None
 
     def list(self, request):
-
         try:
             user = request.user
             try:
                 user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
-                if user_org :
+                if user_org:
                     print('User is admin')
 
-                    physicians = models.Physician.objects.all();
+                    physicians = models.Physician.objects.all()
                     serializer = PhysicianResponseSerializer(physicians, many=True)
                     headers = {'Content-Type': 'application/json'}
                     print(serializer.data)
@@ -405,7 +406,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
             print('Error:', e)
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
-
+    # Todo: Add admin permission check
     def create(self, request):
         user = request.user
         data = request.data
