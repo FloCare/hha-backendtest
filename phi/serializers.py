@@ -43,11 +43,11 @@ class PatientSerializerWeb(serializers.ModelSerializer):
     address = AddressSerializer()
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
-    dob = serializers.DateField()
+    dob = serializers.DateField(required=False)
     primaryContact = serializers.CharField(source='primary_contact')
-    emergencyContactName = serializers.CharField(source='emergency_contact_name')
-    emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
-    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship')
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
     timestamp = serializers.DateTimeField(source='created_on')
 
     class Meta:
