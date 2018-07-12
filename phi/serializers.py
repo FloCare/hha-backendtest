@@ -71,12 +71,12 @@ class PatientSerializer(serializers.ModelSerializer):
     address = AddressSerializerForApp()
     name = serializers.SerializerMethodField()
     primaryContact = serializers.CharField(source='primary_contact')
-    emergencyContact = serializers.CharField(source='emergency_contact')
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number')
     timestamp = serializers.DateTimeField(source='created_on')
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp',
+        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactNumber', 'timestamp',
                   'archived', 'address',)
 
     def get_name(self, obj):
