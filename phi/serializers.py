@@ -71,13 +71,16 @@ class PatientSerializer(serializers.ModelSerializer):
     address = AddressSerializerForApp()
     name = serializers.SerializerMethodField()
     primaryContact = serializers.CharField(source='primary_contact')
-    emergencyContact = serializers.CharField(source='emergency_contact')
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelation = serializers.CharField(source='emergency_contact_relationship', required=False)
+    dob = serializers.DateField(required=False)
     timestamp = serializers.DateTimeField(source='created_on')
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContact', 'timestamp',
-                  'archived', 'address',)
+        fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName', 'dob',
+                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'archived', 'address',)
 
     def get_name(self, obj):
         if obj.first_name and obj.last_name:
@@ -151,3 +154,20 @@ class UserEpisodeAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.UserEpisodeAccess
         fields = ('episode_id', 'user_id', 'organization_id', 'user_role')
+
+
+class PatientUpdateSerializer(serializers.ModelSerializer):
+    firstName = serializers.CharField(source='first_name', required=False)
+    lastName = serializers.CharField(source='last_name', required=False)
+    primaryContact = serializers.CharField(source='primary_contact', required=False)
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
+
+
+    class Meta:
+        model = models.Patient
+        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName',
+                  'emergencyContactNumber', 'emergencyContactRelationship')
+
+
