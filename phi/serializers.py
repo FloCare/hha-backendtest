@@ -163,11 +163,12 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
     emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
     emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
     emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
+    dob = serializers.CharField(required=False)
 
 
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName',
-                  'emergencyContactNumber', 'emergencyContactRelationship')
+                  'emergencyContactNumber', 'emergencyContactRelationship', 'dob')
 
 
