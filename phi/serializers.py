@@ -157,9 +157,14 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source='first_name', required=False)
     lastName = serializers.CharField(source='last_name', required=False)
     primaryContact = serializers.CharField(source='primary_contact', required=False)
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
+
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'primaryContact',)
+        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName',
+                  'emergencyContactNumber', 'emergencyContactRelationship')
 
 
