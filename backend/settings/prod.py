@@ -1,5 +1,7 @@
 import os
 from .base import Base
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pubnub import PubNub
 
 
 class Prod(Base):
@@ -53,3 +55,18 @@ class Prod(Base):
     # )
 
     # Todo: Add logging for prod
+
+    pnconfig = PNConfiguration()
+    subkey = os.environ.get("SUBKEY")
+    if subkey:
+        pnconfig.subscribe_key = subkey
+    else:
+        raise Exception('No pubnub subscribe key found')
+    pubkey = os.environ.get("PUBKEY")
+    if pubkey:
+        pnconfig.publish_key = pubkey
+    else:
+        raise Exception('No pubnub publish key found')
+    pnconfig.ssl = True
+
+    PUBNUB = PubNub(pnconfig)
