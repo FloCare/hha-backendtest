@@ -324,7 +324,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         user = request.user
         data = request.data
         patient, address, users = self.parse_data(data)
-        print(patient)
         if (not patient) or (not address):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
         try:
