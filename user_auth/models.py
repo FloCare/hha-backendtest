@@ -26,6 +26,9 @@ class Organization(models.Model):
     address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
     contact_no = models.CharField(max_length=15, null=True)
 
+    def __str__(self):
+        return self.name
+
 
 # Home Health Agency specific fields - if any
 # class HHAProfile(models.Model):
@@ -49,6 +52,9 @@ class UserProfile(models.Model):
     address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
     organizations = models.ManyToManyField(Organization, through='UserOrganizationAccess')
 
+    def __str__(self):
+        return str(self.id) + ' ' + self.user.username
+
 
 class UserOrganizationAccess(models.Model):
     """
@@ -58,6 +64,9 @@ class UserOrganizationAccess(models.Model):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
     user_role = models.CharField(max_length=100)   # Todo: Make enum
     is_admin = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.organization.name + '-' + str(self.user) + '-' + self.user_role
 
     class Meta:
         # A user can be an admin of 1 org only

@@ -5,6 +5,9 @@ from user_auth import models as user_models
 class Diagnosis(models.Model):
     name = models.CharField(max_length=50)
 
+    def __str__(self):
+        return self.name
+
 
 # Create your models here.
 class Patient(models.Model):
@@ -35,6 +38,14 @@ class Patient(models.Model):
 
     organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
 
+    def __str__(self):
+        patient_identifier = self.first_name
+        if self.last_name:
+            patient_identifier += (' ' + self.last_name)
+        if self.dob:
+            patient_identifier += (' ' + str(self.dob))
+        return patient_identifier
+
 
 class Physician(models.Model):
     npi = models.CharField(max_length=10, unique=True)
@@ -43,6 +54,14 @@ class Physician(models.Model):
     phone1 = models.CharField(max_length=15, null=True)
     phone2 = models.CharField(max_length=15, null=True)
     fax = models.CharField(max_length=15, null=True)
+
+    def __str__(self):
+        physician = self.first_name
+        if self.last_name:
+            physician += (' ' + self.last_name)
+        if self.npi:
+            physician += ('--' + self.npi)
+        return physician
 
 
 # Todo: When to add episode
@@ -98,6 +117,12 @@ class Episode(models.Model):
     attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
     primary_physician = models.ForeignKey(Physician, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
 
+    def __str__(self):
+        episode = str(self.patient)
+        if self.soc_date:
+            episode += (' ' + self.soc_date)
+        return episode
+
 
 class UserEpisodeAccess(models.Model):
     """
@@ -109,6 +134,9 @@ class UserEpisodeAccess(models.Model):
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     user_role = models.CharField(max_length=100)            # Todo: Make Enum
 
+    def __str__(self):
+        return str(self.organization) + '--' + str(self.user) + '--' + str(self.episode)
+
     class Meta:
         unique_together = ('episode', 'organization', 'user',)
 
@@ -116,6 +144,9 @@ class UserEpisodeAccess(models.Model):
 class OrganizationPatientsMapping(models.Model):
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.organization) + '--' + str(self.patient)
 
     class Meta:
         unique_together = ('organization', 'patient',)
