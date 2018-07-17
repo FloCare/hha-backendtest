@@ -33,7 +33,7 @@ class Command(BaseCommand):
         self.stdout.write('Publishing update message for ' + str(user_id) + ' - ' +  str(patient_id))
         settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
             'actionType': 'UPDATE',
-            'patientID': str(patient_id),
+            'patientID': patient_id,
         }).async(my_publish_callback)
 
     def process_row(self, row):
