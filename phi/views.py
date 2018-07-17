@@ -104,9 +104,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 value = data['patient']['dob']
                                 d = dateutil.parser.parse(value) + datetime.timedelta(days=1)
                                 data['patient']['dob'] = d.strftime('%Y-%m-%d')
-                            except KeyError:
+                            except KeyError as e:
                                 # Key is not present
-                                pass
+                                logger.warning('Key is not present: %s' % str(e))
                             patient_obj = models.Patient.objects.get(id=data['id'])
                             serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
                             serializer.is_valid()
@@ -354,9 +354,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     value = patient['dob']
                     d = dateutil.parser.parse(value) + datetime.timedelta(days=1)
                     patient['dob'] = d.strftime('%Y-%m-%d')
-                except KeyError:
+                except KeyError as e:
                     # Key is not present
-                    pass
+                    logger.warning('Key is not present: %s' % str(e))
 
                 patient['address_id'] = address_obj.id
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
