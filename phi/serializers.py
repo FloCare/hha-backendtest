@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from phi import models
+from user_auth import models as user_models
 from user_auth.serializers import AddressSerializer, AddressSerializerForApp
 
 
@@ -16,7 +17,7 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
-        'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
+                  'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
 
 
 class PhysicianObjectSerializer(serializers.ModelSerializer):
@@ -53,7 +54,7 @@ class PatientSerializerWeb(serializers.ModelSerializer):
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'dob', 'primaryContact', 'emergencyContactName',
-        'emergencyContactNumber', 'emergencyContactRelationship', 'timestamp', 'address',)
+                  'emergencyContactNumber', 'emergencyContactRelationship', 'timestamp', 'address',)
 
 
 class PatientWithUsersSerializer(serializers.ModelSerializer):
@@ -165,10 +166,24 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
     emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
     dob = serializers.CharField(required=False)
 
-
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName',
                   'emergencyContactNumber', 'emergencyContactRelationship', 'dob')
 
 
+class VisitSerializer(serializers.ModelSerializer):
+    user = serializers.IntegerField(required=False)
+    visitID = serializers.CharField(source='client_visit_id', required=False)
+    episodeId = serializers.IntegerField(source='episode_id', required=False)
+    scheduledAt = serializers.DateTimeField(source='scheduled_at', required=False, format='YYYY-MM-DD')
+    timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    isDone = serializers.BooleanField(source='is_done', required=False)
+    isDeleted = serializers.BooleanField(source='is_deleted', required=False)
+
+    def create(self, validated_data):
+        return self.Meta.model.objects.create(**validated_data)
+
+    class Meta:
+        model = models.Visit
+        fields = '__all__'

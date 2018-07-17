@@ -9,6 +9,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view
 from django.conf import settings
 
 from backend import errors
@@ -18,7 +19,7 @@ from phi.serializers import PatientListSerializer, \
     PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, PhysicianResponseSerializer
+    PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -587,3 +588,28 @@ def upload_file(request):
     else:
         raise Http404('Page does not exist')
 
+
+# Todo: Add permission classes - isAuthenticated, isMemberOfOrg
+# Bulk update visits for the requesting user
+@api_view(('POST',))
+def add_visit(request):
+    user = request.user
+    data = request.data
+    if not data.get('visits'):
+        # Todo: Return error response
+        return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+    else:
+        visits = data.get('visits')
+        serializer = VisitSerializer(data=visits, many=True)
+        if not serializer.is_valid():
+            for error in serializer.errors:
+                print(error)
+                # Todo: do something with that error
+            return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        else:
+            try:
+                serializer.save(user=user.profile)
+                return Response({'success': True, 'error': None})
+            except Exception as e:
+                print('Error in saving data:', str(e))
+                return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})

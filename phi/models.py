@@ -1,5 +1,7 @@
 from django.db import models
+from django.utils import timezone
 from user_auth import models as user_models
+import uuid
 
 
 class Diagnosis(models.Model):
@@ -45,6 +47,11 @@ class Patient(models.Model):
         if self.dob:
             patient_identifier += (' ' + str(self.dob))
         return patient_identifier
+
+
+# class Place(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     address = models.ForeignKey(user_models.Address, on_delete=models.CASCADE)
 
 
 class Physician(models.Model):
@@ -122,6 +129,42 @@ class Episode(models.Model):
         if self.soc_date:
             episode += (' ' + self.soc_date)
         return episode
+
+
+class Visit(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client_visit_id = models.CharField(max_length=50, null=True)
+
+    episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
+    # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
+
+    user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
+
+    # Todo: Should org be added?
+    # organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
+
+    scheduled_at = models.DateTimeField(null=True)
+    is_done = models.BooleanField(default=False)
+    # Todo: automatically updated when is_done is marked as True
+    time_of_completion = models.DateTimeField(null=True)
+    is_deleted = models.BooleanField(default=False)
+
+    # Todo: Confirm fields for the extended visit context
+    # visit_type = models.CharField()         # Todo: Or Enum ??
+    # duration = models.TimeField()           # Or estimated time etc.
+
+    def __str__(self):
+        visit = self.episode.patient.first_name
+        if self.episode.patient.last_name:
+            visit += (' ' + self.episode.patient.last_name)
+        visit += ('-' + self.user.user.username)
+        if self.scheduled_at:
+            visit += ('-' + str(self.scheduled_at))
+        return visit
+
+    def save(self, *args, **kwargs):
+        self.time_of_completion = timezone.now()
+        super().save(*args, **kwargs)
 
 
 class UserEpisodeAccess(models.Model):

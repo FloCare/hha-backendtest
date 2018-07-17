@@ -14,7 +14,8 @@ urlpatterns = [
             url(r'^', include(router.urls)),
             url(r'^my-patients/$', views.AccessiblePatientListView.as_view()),
             url(r'^my-patients-details/$', views.AccessiblePatientsDetailView.as_view()),
-            url(r'^upload/$', views.upload_file, name='upload')
+            url(r'^upload/$', views.upload_file, name='upload'),
+            url('visits/$', views.add_visit, name='add_visit')
         ])
     ),
 ]
