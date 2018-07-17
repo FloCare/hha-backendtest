@@ -2,6 +2,9 @@ from django.core.management.base import BaseCommand, CommandError
 import requests
 from django.db import transaction
 from user_auth.models import Address
+import logging
+
+logger = logging.getLogger(__name__)
 
 url = 'https://maps.googleapis.com/maps/api/geocode/json'
 key = 'AIzaSyDiWZ3198smjFepUa0ZAoHePSnSxuhTzRU'
@@ -30,10 +33,10 @@ class Command(BaseCommand):
         if country:
             addr = addr + ', ' + country
 
-        print('Hitting address:', addr)
+        logger.info('Hitting address: %s' % str(addr))
         params = {'address': addr, 'key': key}
         resp = requests.get(url, params=params, timeout=3)
-        print('Response is: ', resp)
+        logger.info('Response is: %s' % str(resp))
 
         # Parse resp and update lat long to db
         if 'results' in resp.json():
@@ -48,15 +51,14 @@ class Command(BaseCommand):
                         address.latitude = lat
                         address.longitude = long
                         address.save()
-                    print('Lat long Saved to db for addressId: %s' % (address.id))
+                    logger.info('Lat long Saved to db for addressId: %s' % str(address.id))
                 else:
-                    print('Location not found in geometry')
+                    logger.info('Location not found in geometry')
             else:
-                print('geometry not found in results')
+                logger.info('geometry not found in results')
         else:
-            print('results not found in response')
-        print('Done')
-
+            logger.info('results not found in response')
+        logger.info('Done')
 
     def handle(self, *args, **options):
         addresses = Address.objects.filter(latitude=None).filter(longitude=None)

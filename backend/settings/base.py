@@ -78,22 +78,24 @@ class Base(Configuration):
 
     USE_TZ = True
 
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-            },
+    # Logging related settings
+    LOGGING_HANDLERS = {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        }
+    }
+    LOGGING_FORMATTERS = {
+        'simple': {
+            'format': '%(levelname)s %(message)s',
         },
-        'loggers': {
-            'django': {
-                'handlers': ['console'],
-                'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-            },
-        },
+        'verbose': {
+            'format': '%(levelname)s (%(asctime)s)(%(module)s)(%(filename)s)(%(funcName)s)'
+                      '(%(lineno)d) %(message)s'
+        }
     }
 
+    # PubNub Specific Settings
     pnconfig = PNConfiguration()
     pnconfig.subscribe_key = "pubnub_sub_key"
     pnconfig.publish_key = "pubnub_pub_key"

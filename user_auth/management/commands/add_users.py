@@ -3,6 +3,9 @@ import pandas as pd
 from user_auth.management.commands.utils import constants
 from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
 from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
 
 # def add_error_file_header(timestamp, sheetname, header):
 #     filename = settings.ERROR_UPLOAD_DIR + sheetname + '_' + timestamp + '_errors.csv'
@@ -20,7 +23,7 @@ def _readfile(filepath):
         raise e
     headers = list(data.columns.values)
     print('')
-    print('Headers are:', headers)
+    logger.info('Headers are: %s' % str(headers))
     print('')
     return data
 
@@ -89,17 +92,17 @@ class Command(BaseCommand):
 
         org_name = options['org'][0]
         print('')
-        print('Organization Name is:', org_name)
+        logger.info('Organization Name is: %s' % str(org_name))
         print('')
 
         # 1. Insert or fetch the org
         orgs = Organization.objects.filter(name=org_name)
         if len(orgs) == 0:
             if options.get('add_org', 'False') == 'True':
-                print("Organization doesn't exist. Inserting it ...")
+                logger.info("Organization doesn't exist. Inserting it ...")
                 org = Organization(name=org_name, address=None, contact_no=None, type=constants.ORG_TYPE_HOME_HEALTH)
                 org.save()
-                print('Saved Organization')
+                logger.info('Saved Organization')
             else:
                 raise Exception('Matching organization not found ...')
         elif len(orgs) > 1:
