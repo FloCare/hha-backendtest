@@ -1,3 +1,5 @@
+import dateutil.parser
+import datetime
 from django.db import transaction
 from rest_framework import generics
 from rest_framework import status
@@ -95,6 +97,13 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     with transaction.atomic():
                         # Update patient fields if present
                         if data.get('patient'):
+                            try:
+                                value = data['patient']['dob']
+                                d = dateutil.parser.parse(value) + datetime.timedelta(days=1)
+                                data['patient']['dob'] = d.strftime('%Y-%m-%d')
+                            except KeyError:
+                                # Key is not present
+                                pass
                             patient_obj = models.Patient.objects.get(id=data['id'])
                             serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
                             serializer.is_valid()
@@ -338,6 +347,14 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 address_obj = serializer.save()
 
                 # # Save Patient
+                try:
+                    value = patient['dob']
+                    d = dateutil.parser.parse(value) + datetime.timedelta(days=1)
+                    patient['dob'] = d.strftime('%Y-%m-%d')
+                except KeyError:
+                    # Key is not present
+                    pass
+
                 patient['address_id'] = address_obj.id
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
                 patient_serializer.is_valid()
