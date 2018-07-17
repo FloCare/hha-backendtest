@@ -102,7 +102,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         if data.get('patient'):
                             try:
                                 value = data['patient']['dob']
-                                d = dateutil.parser.parse(value) + datetime.timedelta(days=1)
+                                d = dateutil.parser.parse(value)
                                 data['patient']['dob'] = d.strftime('%Y-%m-%d')
                             except KeyError as e:
                                 # Key is not present
@@ -352,7 +352,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 # # Save Patient
                 try:
                     value = patient['dob']
-                    d = dateutil.parser.parse(value) + datetime.timedelta(days=1)
+                    d = dateutil.parser.parse(value)
                     patient['dob'] = d.strftime('%Y-%m-%d')
                 except KeyError as e:
                     # Key is not present
