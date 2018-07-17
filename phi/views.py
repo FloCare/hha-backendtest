@@ -19,15 +19,18 @@ from phi.serializers import PatientListSerializer, \
     PhysicianObjectSerializer, PhysicianResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def my_publish_callback(envelope, status):
     # Check whether request successfully completed or not
     if not status.is_error():
-        print("# Message successfully published to specified channel.")
+        logger.info("# Message successfully published to specified channel.")
     else:
-        print("# NOT Message successfully published to specified channel.")
-        pass  # Handle message publish error. Check 'category' property to find out possible issue
+        logger.error("# NOT Message successfully published to specified channel.")
+        # Handle message publish error. Check 'category' property to find out possible issue
         # because of which request did fail.
         # Request can be resent using: [status retry];
 
@@ -50,7 +53,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 users = []
             return patient, address, users
         except Exception as e:
-            print('Incorrect or Incomplete data passed:', e)
+            logger.error('Incorrect or Incomplete data passed: %s' % str(e))
             return None, None, None
 
     def update(self, request, pk=None):
@@ -88,8 +91,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 if len(episode_ids) == 0:
                     raise Exception('No episodes registered for this patient')
                 episode_id = list(episode_ids)[-1]
-                print('org-id:', organization.id)
-                print('patient-id:', patient.id)
+                logger.debug('org-id: %s' % str(organization.id))
+                logger.debug('patient-id: %s' % str(patient.id))
 
                 # Check if org has access to this patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).get(patient_id=patient.id)
@@ -126,7 +129,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                           'user_role': 'CareGiver'})
                                 access_serializer.is_valid()
                                 access_serializer.save()
-                                print('new episode access created for userid:', user_id)
+                                logger.debug('new episode access created for userid: %s' % str(user_id))
 
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'ASSIGN',
@@ -148,10 +151,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                         user_access_to_delete = models.UserEpisodeAccess.objects.filter(
                             organization_id=organization.id).filter(episode_id=episode_id).exclude(user_id__in=users)
-                        print('to delete:', user_access_to_delete)
+                        logger.debug('to delete: %s' % str(user_access_to_delete))
 
                         for user_episode_access in user_access_to_delete.iterator():
-                            print('user access to delete:', user_episode_access)
+                            logger.debug('user access to delete: %s' % str(user_episode_access))
                             settings.PUBNUB.publish().channel(str(user_episode_access.user.id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': patient.id,
@@ -164,7 +167,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
-            print('Error:', str(e))
+            logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def destroy(self, request, pk=None):
@@ -213,14 +216,14 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         address = patient.address
                         patient.delete()    # this will also delete the episodes
                         address.delete()
-                    print('Delete successful')
+                    logger.info('Delete successful')
                     # else:
                     #     # TODO: IMP: Complete this before pushing to production
                     #     return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
-            print('Error:', str(e))
+            logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def retrieve(self, request, pk=None):
@@ -249,7 +252,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     return Response(serializer.data)
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
-            print('Error:', str(e))
+            logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def list(self, request):
@@ -277,7 +280,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             try:
                 user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
                 if user_org :
-                    print('User is admin')
+                    logger.debug('User is admin: %s' % str(user))
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization_id=user_org.organization.id).values_list('patient_id')
                     patients = models.Patient.objects.filter(id__in=patient_ids).order_by(sort_field)
                     patient_list = list()
@@ -290,7 +293,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     serializer = PatientWithUsersSerializer(patient_list, many=True)
                     return Response(serializer.data)
             except Exception as e:
-                print('Error: User is not admin: ', str(e))
+                logger.error('User is not admin: %s' % str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
         #     # Todo: Don't go to this part of the API ???
@@ -304,7 +307,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         #     serializer = PatientSerializerWeb(patients, many=True)
         #     return Response(serializer.data)
         except Exception as e:
-            print('Error:', e)
+            logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def create(self, request, format=None):
@@ -418,7 +421,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 return Response({'success': True, 'error': None})
 
         except Exception as e:
-            print(e)
+            logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
 
@@ -470,7 +473,7 @@ class AccessiblePatientsDetailView(APIView):
 
     def post(self, request):
         success, failure_ids = self.get_results(request)
-        print('success:', success)
+        logger.debug('success: %s' % str(success))
         failure = list()
         for id in failure_ids:
             failure.append({'id': id, 'error': errors.ACCESS_DENIED})
@@ -498,19 +501,19 @@ class PhysiciansViewSet(viewsets.ViewSet):
             try:
                 user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
                 if user_org:
-                    print('User is admin')
+                    logger.debug('User is admin')
 
                     physicians = models.Physician.objects.all()
                     serializer = PhysicianResponseSerializer(physicians, many=True)
                     headers = {'Content-Type': 'application/json'}
-                    print(serializer.data)
+                    logger.debug(str(serializer.data))
                     return Response(serializer.data, headers=headers)
             except Exception as e:
-                print(e)
+                logger.error(str(e))
                 return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
         except Exception as e:
-            print('Error:', e)
+            logger.error(str(e))
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     # Todo: Add admin permission check
@@ -530,7 +533,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
             return Response({'success': True, 'error': None})
 
         except Exception as e:
-            print(e)
+            logger.error(str(e))
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def retrieve(self, request, pk=None):
@@ -542,10 +545,10 @@ class PhysiciansViewSet(viewsets.ViewSet):
             physician = models.Physician.objects.get(id=pk)
             serializer = PhysicianResponseSerializer(physician)
             headers = {'Content-Type': 'application/json'}
-            print(serializer.data)
+            logger.debug(str(serializer.data))
             return Response(serializer.data, headers=headers)
         except Exception as e:
-            print('Error:', str(e))
+            logger.error(str(e))
             return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
 
     def update(self, request, pk=None):

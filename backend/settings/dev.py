@@ -35,11 +35,32 @@ class Dev(Base):
         # )
     }
 
+    # Static file management settings
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.normpath(os.path.join(Base.BASE_DIR, 'static'))
     # STATICFILES_DIRS = (
     #     os.path.join(BASE_DIR, 'staticfiles'),
     # )
 
-    # Todo: Add logging for dev
+    # Logging related settings
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': 'INFO'
+            },
+            'phi': {
+                'handlers': ['console'],
+                'level': 'DEBUG'
+            },
+            'user_auth': {
+                'handlers': ['console'],
+                'level': 'DEBUG'
+            }
+        },
+        'handlers': Base.LOGGING_HANDLERS,
+        'formatters': Base.LOGGING_FORMATTERS
+    }
 

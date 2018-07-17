@@ -5,6 +5,9 @@ from phi.models import Patient, Episode, OrganizationPatientsMapping
 from user_auth.models import Organization, Address
 from django.db import transaction
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 # def add_error_file_header(timestamp, sheetname, header):
 #     filename = settings.ERROR_UPLOAD_DIR + sheetname + '_' + timestamp + '_errors.csv'
@@ -22,7 +25,7 @@ def _readfile(filepath):
         raise e
     headers = list(data.columns.values)
     print('')
-    print('Headers are:', headers)
+    logger.info('Headers are: %s' % str(headers))
     print('')
     return data
 
@@ -129,7 +132,7 @@ class Command(BaseCommand):
 
         org_name = options['org'][0]
         print('')
-        print('Organization Name is:', org_name)
+        logger.info('Organization Name is: %s' % str(org_name))
         print('')
 
         # 1. Fetch the org
@@ -142,7 +145,7 @@ class Command(BaseCommand):
             org = orgs[0]
 
         shape = data.shape
-        print('No of patients:', shape[0])
+        logger.info('No of patients: %s' % str(shape[0]))
         for i in data.index[:]:
             row = data.loc[i]
             self.process_row(org, row)

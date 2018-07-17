@@ -7,6 +7,9 @@ from rest_framework import status
 from user_auth.constants import query_to_db_field_map
 from user_auth.permissions import IsAdminForOrg
 from backend import errors
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Being used for web API
@@ -42,14 +45,14 @@ class UserOrganizationView(APIView):
                 try:
                     filters = list(eval(filters))
                 except Exception as e:
-                    print('Error. Filters not a list:', str(e))
+                    logger.warning('Filters not a list: %s' % str(e))
                     filters = [int(filters)]
                 accesses = accesses.filter(user_id__in=filters)
             serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': accesses})
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
         except Exception as e:
-            print("Error:", e)
+            logger.error(str(e))
             headers = {'Content-Type': 'application/json'}
             return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
 
@@ -67,5 +70,5 @@ class UserProfileView(APIView):
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
         except Exception as e:
-            print('Error:', str(e))
+            logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.UNKNOWN_ERROR})

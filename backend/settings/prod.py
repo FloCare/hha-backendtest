@@ -31,6 +31,7 @@ class Prod(Base):
         },
     ]
 
+    # Todo: Revisit these
     CORS_ORIGIN_ALLOW_ALL = True
     # CORS_ORIGIN_WHITELIST = (
     #     'dashboard.flocare.health:80',
@@ -47,15 +48,15 @@ class Prod(Base):
         # )
     }
 
-    # Todo: Revisit the static file settings for prod
+    # Todo: Revisit these
+    # Static file management settings
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.normpath(os.path.join(Base.BASE_DIR, 'static'))
     # STATICFILES_DIRS = (
     #     os.path.join(BASE_DIR, 'staticfiles'),
     # )
 
-    # Todo: Add logging for prod
-
+    # PubNub Specific Settings
     pnconfig = PNConfiguration()
     subkey = os.environ.get("SUBKEY")
     if subkey:
@@ -70,3 +71,25 @@ class Prod(Base):
     pnconfig.ssl = True
 
     PUBNUB = PubNub(pnconfig)
+
+    # Logging related settings
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': 'INFO'
+            },
+            'phi': {
+                'handlers': ['console'],
+                'level': 'INFO'
+            },
+            'user_auth': {
+                'handlers': ['console'],
+                'level': 'INFO'
+            }
+        },
+        'handlers': Base.LOGGING_HANDLERS,
+        'formatters': Base.LOGGING_FORMATTERS
+    }
