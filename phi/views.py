@@ -1,5 +1,7 @@
 import dateutil.parser
-import datetime
+from django.shortcuts import render
+from django.http import Http404
+from django.http import JsonResponse
 from django.db import transaction
 from rest_framework import generics
 from rest_framework import status
@@ -20,6 +22,7 @@ from phi.serializers import PatientListSerializer, \
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
+from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
 
@@ -559,3 +562,28 @@ class PhysiciansViewSet(viewsets.ViewSet):
 
     def destroy(self, request, pk=None):
         pass
+
+
+def handle_uploaded_file(f, filename):
+    with open(settings.MEDIA_ROOT + str(filename) + '.csv', 'wb+') as destination:
+        for chunk in f.chunks():
+            destination.write(chunk)
+    return
+
+
+def upload_file(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        if request.method == 'POST':
+            form = UploadFileForm(request.POST, request.FILES)
+            if form.is_valid():
+                filename = form.data['title']
+                handle_uploaded_file(request.FILES['file'], filename)
+                return JsonResponse({'success': True, 'msg': 'File uploaded successfully'})
+            else:
+                return JsonResponse({'success': False, 'msg': 'Form not valid'})
+        else:
+            form = UploadFileForm()
+        return render(request, 'upload.html', {'form': form})
+    else:
+        raise Http404('Page does not exist')
+

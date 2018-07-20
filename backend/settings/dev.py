@@ -64,3 +64,4 @@ class Dev(Base):
         'formatters': Base.LOGGING_FORMATTERS
     }
 
+    MEDIA_ROOT = '/Users/pymd/flo/backend/media/'

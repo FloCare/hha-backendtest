@@ -93,3 +93,5 @@ class Prod(Base):
         'handlers': Base.LOGGING_HANDLERS,
         'formatters': Base.LOGGING_FORMATTERS
     }
+
+    MEDIA_ROOT = '/app/media/'
