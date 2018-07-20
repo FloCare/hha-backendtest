@@ -10,7 +10,8 @@ class Address(models.Model):
     Generic Address Format
     Can be a patient-address/organization-address etc.
     """
-    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     apartment_no = models.CharField(max_length=10, null=True)
     street_address = models.CharField(max_length=255, null=True)
     zip = models.CharField(max_length=20, null=True)
@@ -23,7 +24,8 @@ class Address(models.Model):
 
 # Create your models here.
 class Organization(models.Model):
-    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=50)      # Todo: Make Enum
     # address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
@@ -49,7 +51,8 @@ class Organization(models.Model):
 
 
 class UserProfile(models.Model):
-    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     title = models.CharField(max_length=50)
     contact_no = models.CharField(max_length=15, null=True)
@@ -68,7 +71,8 @@ class UserOrganizationAccess(models.Model):
     """
     Lists out the users of an organization
     """
-    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     organization = models.CharField(max_length=10)
     # user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
