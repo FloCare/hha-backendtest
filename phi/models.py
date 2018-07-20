@@ -38,12 +38,11 @@ class Patient(models.Model):
     emergency_contact_relationship = models.CharField(max_length=50, null=True)
     created_on = models.DateTimeField(auto_now_add=True)
     archived = models.BooleanField(default=False)
-    # address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE)
-    address = models.CharField(max_length=10, null=True)
+    address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE)
     medical_record_no = models.CharField(max_length=50, null=True)
     hic_no = models.CharField(max_length=50, null=True)
 
-    # organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
+    organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
 
     def __str__(self):
         patient_identifier = self.first_name
@@ -83,14 +82,13 @@ class Physician(models.Model):
 class Episode(models.Model):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='episodes')
-    patient = models.CharField(max_length=10)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='episodes')
     soc_date = models.DateField(null=True)
     end_date = models.DateField(null=True)
     period = models.IntegerField(null=True)                     # In Days
     is_active = models.BooleanField(default=True)
 
-    # diagnosis = models.ManyToManyField(Diagnosis)
+    diagnosis = models.ManyToManyField(Diagnosis)
     CPR = (
         ('DNR', 'DNR'),
         ('FULL', 'FULL_CODE'),
@@ -128,15 +126,11 @@ class Episode(models.Model):
     classification = models.CharField(max_length=100, null=True)
     allergies = models.CharField(max_length=100, null=True)
 
-    # pharmacy = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
-    pharmacy = models.CharField(max_length=10, null=True)
+    pharmacy = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
 
-    # soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='soc_episodes', null=True)
-    soc_clinician = models.CharField(max_length=10, null=True)
-    # attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
-    attending_physician = models.CharField(max_length=10, null=True)
-    # primary_physician = models.ForeignKey(Physician, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
-    primary_physician = models.CharField(max_length=10, null=True)
+    soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='soc_episodes', null=True)
+    attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
+    primary_physician = models.ForeignKey(Physician, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
 
     def __str__(self):
         episode = str(self.patient)
@@ -149,12 +143,10 @@ class Visit(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client_visit_id = models.CharField(max_length=50, null=True)
 
-    # episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
-    episode = models.CharField(max_length=10, null=True)
+    episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
     # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
 
-    # user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
-    user = models.CharField(max_length=10)
+    user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
 
     # Todo: Should org be added?
     # organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
@@ -190,12 +182,9 @@ class UserEpisodeAccess(models.Model):
     """
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # episode = models.ForeignKey(Episode, on_delete=models.CASCADE)
-    episode = models.CharField(max_length=10)
-    # user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
-    user = models.CharField(max_length=10)
-    # organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
-    organization = models.CharField(max_length=10)
+    episode = models.ForeignKey(Episode, on_delete=models.CASCADE)
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     user_role = models.CharField(max_length=100)            # Todo: Make Enum
 
     def __str__(self):
@@ -208,10 +197,8 @@ class UserEpisodeAccess(models.Model):
 class OrganizationPatientsMapping(models.Model):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
-    organization = models.CharField(max_length=10)
-    # patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    patient = models.CharField(max_length=10)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.organization) + '--' + str(self.patient)
