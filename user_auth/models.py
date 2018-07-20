@@ -26,7 +26,8 @@ class Organization(models.Model):
     uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=50)      # Todo: Make Enum
-    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
+    # address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
+    address = models.CharField(max_length=10, null=True)
     contact_no = models.CharField(max_length=15, null=True)
 
     def __str__(self):
@@ -53,8 +54,9 @@ class UserProfile(models.Model):
     title = models.CharField(max_length=50)
     contact_no = models.CharField(max_length=15, null=True)
     qualification = models.CharField(max_length=40, null=True)
-    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
-    organizations = models.ManyToManyField(Organization, through='UserOrganizationAccess')
+    # address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
+    address = models.CharField(max_length=10, null=True)
+    # organizations = models.ManyToManyField(Organization, through='UserOrganizationAccess')
 
     def __str__(self):
         return str(self.id) + ' ' + self.user.username
@@ -67,8 +69,10 @@ class UserOrganizationAccess(models.Model):
     Lists out the users of an organization
     """
     uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
+    # organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    organization = models.CharField(max_length=10)
+    # user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
+    user = models.CharField(max_length=10)
     user_role = models.CharField(max_length=100)   # Todo: Make enum
     is_admin = models.BooleanField(default=False)
 
