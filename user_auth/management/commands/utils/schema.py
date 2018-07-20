@@ -7,7 +7,7 @@ sheet_schema = {
         constants.FIRSTNAME,
         constants.SUFFIX,
         constants.PHONE1,
-        constants.PHONE2
+        constants.PHONE2,
         constants.ADDRESS1,
         constants.ADDRESS2,
         constants.CITY,
