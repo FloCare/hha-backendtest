@@ -8,7 +8,7 @@ class AddressSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Address
-        fields = ('id', 'apartment_no', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
+        fields = ('apartment_no', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
 
     def create(self, validated_data):
         """
@@ -40,9 +40,11 @@ class AddressSerializerForApp(serializers.ModelSerializer):
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid')
+
     class Meta:
         model = models.Organization
-        fields = '__all__'
+        fields = ('id', 'name', 'type', 'contact_no', 'address')
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -54,17 +56,23 @@ class RoleSerializer(serializers.ModelSerializer):
         fields = ('org', 'role')
 
 
-class UserProfileForAppSerializer(serializers.ModelSerializer):
-    id = serializers.CharField()
+class UserProfileForAppSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
     roles = RoleSerializer(many=True)
 
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+
     class Meta:
-        model = models.UserProfile
         fields = ('id', 'roles')
 
 
 class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='user.id')
+    id = serializers.UUIDField(source='user.uuid')
+    old_id = serializers.IntegerField(source='user.id')
     first_name = serializers.CharField(source='user.user.first_name')
     last_name = serializers.CharField(source='user.user.last_name')
     username = serializers.CharField(source='user.user.username')
@@ -74,7 +82,7 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.UserOrganizationAccess
-        fields = ('id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
+        fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
 
 
 class AdminUserResponseSerializer(serializers.Serializer):
