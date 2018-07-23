@@ -7,7 +7,8 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('user_auth', '0009_update_data'),
+        ('phi', '0018_update_data'),
+        ('user_auth', '0009_update_data')
     ]
 
     operations = [

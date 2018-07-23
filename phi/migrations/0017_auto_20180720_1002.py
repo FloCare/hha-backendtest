@@ -8,6 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('phi', '0016_auto_20180720_0957'),
+        ('user_auth', '0007_auto_20180720_0957')
     ]
 
     operations = [
