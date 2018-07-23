@@ -34,10 +34,11 @@ class PhysicianObjectSerializer(serializers.ModelSerializer):
 
 
 class PhysicianResponseSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid')
 
     class Meta:
         model = models.Physician
-        fields = ('npi', 'first_name', 'last_name', 'phone1', 'phone2', 'fax')
+        fields = ('id', 'npi', 'first_name', 'last_name', 'phone1', 'phone2', 'fax')
 
 
 class PatientSerializerWeb(serializers.ModelSerializer):
@@ -68,6 +69,7 @@ class PatientWithUsersSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid')
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     address = AddressSerializerForApp()
@@ -94,7 +96,7 @@ class PatientSerializer(serializers.ModelSerializer):
 
 
 class PatientListSerializer(serializers.ModelSerializer):
-    patients = serializers.ListField(child=serializers.IntegerField())
+    patients = serializers.ListField(child=serializers.UUIDField())
 
     class Meta:
         model = models.Patient
@@ -103,7 +105,7 @@ class PatientListSerializer(serializers.ModelSerializer):
 
 class PatientFailureSerializer(serializers.Serializer):
     error = serializers.CharField()
-    id = serializers.IntegerField()
+    id = serializers.UUIDField()
 
     class Meta:
         fields = ('id', 'error',)

@@ -450,8 +450,8 @@ class AccessiblePatientListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         # Todo: Also pass Organization for filtering
-        accesses = models.UserEpisodeAccess.objects.filter(user__id=user.profile.id)
-        patient_ids = [access.episode.patient.id for access in accesses]
+        accesses = models.UserEpisodeAccess.objects.filter(user=user.profile)
+        patient_ids = [access.episode.patient.uuid for access in accesses]
         return patient_ids
 
     def list(self, request):
@@ -477,14 +477,15 @@ class AccessiblePatientsDetailView(APIView):
             patient_list = data['patients']
 
             # Todo: Improve Queries
-            episode_ids = list(models.UserEpisodeAccess.objects.filter(user__id=user.profile.id).values_list('episode_id', flat=True)) # noqa
+            episode_ids = list(models.UserEpisodeAccess.objects.filter(user=user.profile).values_list('episode_id', flat=True)) # noqa
             valid_ids = list()
             for episode_id in episode_ids:
-                valid_ids.append(models.Episode.objects.get(id=episode_id).patient.id)
-
+                uuid = models.Episode.objects.get(uuid=episode_id).patient.uuid
+                if uuid:
+                    valid_ids.append(str(uuid))
             success_ids = list(set(valid_ids).intersection(patient_list))
             failure_ids = list(set(patient_list) - set(success_ids))
-            return models.Patient.objects.all().filter(id__in=success_ids), failure_ids
+            return models.Patient.objects.all().filter(uuid__in=success_ids), failure_ids
         return None
 
     def post(self, request):
@@ -505,17 +506,17 @@ class PhysiciansViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def parse_data(self, data):
-            try:
-                physician = data['physician']
-                return physician;
-            except Exception as e:
-                return None
+        try:
+            physician = data['physician']
+            return physician
+        except Exception as e:
+            return None
 
     def list(self, request):
         try:
             user = request.user
             try:
-                user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+                user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
                 if user_org:
                     logger.debug('User is admin')
 
@@ -544,7 +545,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
         try:
             physician_serializer = PhysicianObjectSerializer(data=physician)
             physician_serializer.is_valid()
-            physician_obj = physician_serializer.save()
+            physician_serializer.save()
 
             return Response({'success': True, 'error': None})
 
@@ -556,9 +557,9 @@ class PhysiciansViewSet(viewsets.ViewSet):
         # Check if user is admin of this org
         try:
             user = request.user
-            user_org = UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             organization = user_org.organization
-            physician = models.Physician.objects.get(id=pk)
+            physician = models.Physician.objects.get(uuid=pk)
             serializer = PhysicianResponseSerializer(physician)
             headers = {'Content-Type': 'application/json'}
             logger.debug(str(serializer.data))
