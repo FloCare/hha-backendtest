@@ -23,7 +23,7 @@ class UserOrganizationView(APIView):
         try:
             user = request.user
             # Get the organization for this user
-            qs = models.UserOrganizationAccess.objects.filter(user__id=user.profile.id).get(is_admin=True)
+            qs = models.UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             org = qs.organization
 
             # Todo: Improve Sorting logic - use DRF builtin
@@ -39,14 +39,14 @@ class UserOrganizationView(APIView):
 
             # Get list of all users in that org
             filters = request.query_params.get('ids', None)
-            accesses = models.UserOrganizationAccess.objects.filter(organization_id=org.id).order_by(sort_field)
+            accesses = models.UserOrganizationAccess.objects.filter(organization=org).order_by(sort_field)
             # TODO: Don't use eval
             if filters:
                 try:
                     filters = list(eval(filters))
                 except Exception as e:
                     logger.warning('Filters not a list: %s' % str(e))
-                    filters = [int(filters)]
+                    filters = [filters]
                 accesses = accesses.filter(user_id__in=filters)
             serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': accesses})
             headers = {'Content-Type': 'application/json'}
@@ -64,9 +64,9 @@ class UserProfileView(APIView):
     def get(self, request):
         user = request.user
         try:
-            user_id = user.profile.id
-            accesses = models.UserOrganizationAccess.objects.filter(user_id=user_id)
-            serializer = UserProfileForAppSerializer({'id': user_id, 'roles': accesses})
+            profile = user.profile
+            accesses = models.UserOrganizationAccess.objects.filter(user=profile)
+            serializer = UserProfileForAppSerializer({'id': profile.uuid, 'roles': accesses})
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
         except Exception as e:

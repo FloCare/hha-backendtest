@@ -12,11 +12,11 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
     emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
     emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
     emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
-    address_id = serializers.IntegerField()
+    address_id = serializers.UUIDField()
 
     class Meta:
         model = models.Patient
-        fields = ('id', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
+        fields = ('firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
                   'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
 
 
@@ -41,6 +41,7 @@ class PhysicianResponseSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializerWeb(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid')
     address = AddressSerializer()
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
@@ -59,7 +60,7 @@ class PatientSerializerWeb(serializers.ModelSerializer):
 
 class PatientWithUsersSerializer(serializers.ModelSerializer):
     patient = PatientSerializerWeb()
-    userIds = serializers.ListField(child=serializers.IntegerField())
+    userIds = serializers.ListField(child=serializers.UUIDField())
 
     class Meta:
         model = models.Patient
@@ -129,8 +130,8 @@ class PatientDetailsResponseSerializer(serializers.Serializer):
 
 
 class OrganizationPatientMappingSerializer(serializers.ModelSerializer):
-    organization_id = serializers.IntegerField()
-    patient_id = serializers.IntegerField()
+    organization_id = serializers.UUIDField()
+    patient_id = serializers.UUIDField()
 
     class Meta:
         model = models.OrganizationPatientsMapping
@@ -138,26 +139,28 @@ class OrganizationPatientMappingSerializer(serializers.ModelSerializer):
 
 
 class EpisodeSerializer(serializers.ModelSerializer):
-    patient_id = serializers.IntegerField()
+    patient_id = serializers.UUIDField()
 
     class Meta:
         model = models.Episode
-        fields = ('id', 'patient_id', 'soc_date', 'end_date', 'period', 'is_active',
+        fields = ('patient_id', 'soc_date', 'end_date', 'period', 'is_active',
                   'transportation_level', 'acuity_type', 'classification', 'allergies', 'pharmacy',
                   'soc_clinician', 'attending_physician', 'primary_physician')
 
 
 class UserEpisodeAccessSerializer(serializers.ModelSerializer):
-    episode_id = serializers.IntegerField()
-    user_id = serializers.IntegerField()
-    organization_id = serializers.IntegerField()
+    episode_id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    organization_id = serializers.UUIDField()
 
     class Meta:
         model = models.UserEpisodeAccess
         fields = ('episode_id', 'user_id', 'organization_id', 'user_role')
 
 
+# Todo: Allow for Address Update
 class PatientUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid', required=False)
     firstName = serializers.CharField(source='first_name', required=False)
     lastName = serializers.CharField(source='last_name', required=False)
     primaryContact = serializers.CharField(source='primary_contact', required=False)
