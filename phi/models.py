@@ -5,7 +5,7 @@ import uuid
 
 
 class Diagnosis(models.Model):
-    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
 
@@ -15,7 +15,7 @@ class Diagnosis(models.Model):
 
 # Create your models here.
 class Patient(models.Model):
-    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -59,7 +59,7 @@ class Patient(models.Model):
 
 
 class Physician(models.Model):
-    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     npi = models.CharField(max_length=10, unique=True)
     first_name = models.CharField(max_length=100)
@@ -80,7 +80,7 @@ class Physician(models.Model):
 # Todo: When to add episode
 # Todo: Create Episode at the time of assigning patient to a user ???
 class Episode(models.Model):
-    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='episodes')
     soc_date = models.DateField(null=True)
@@ -180,7 +180,7 @@ class UserEpisodeAccess(models.Model):
     Used for faster querying - finding all episodes/patients for a particular user,
     through an organization
     """
-    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     episode = models.ForeignKey(Episode, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
@@ -195,7 +195,7 @@ class UserEpisodeAccess(models.Model):
 
 
 class OrganizationPatientsMapping(models.Model):
-    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID')
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
