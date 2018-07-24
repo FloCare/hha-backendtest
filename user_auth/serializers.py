@@ -4,9 +4,12 @@ from user_auth import models
 
 class AddressSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid', required=False)
-    zipCode = serializers.CharField(source='zip')
+    zipCode = serializers.CharField(source='zip', required=False)
     streetAddress = serializers.CharField(source='street_address')
-    apartmentNo = serializers.CharField(source='apartment_no')
+    apartmentNo = serializers.CharField(source='apartment_no', required=False)
+    city = serializers.CharField(required=False)
+    state = serializers.CharField(required=False)
+    country = serializers.CharField(required=False)
 
     class Meta:
         model = models.Address
