@@ -231,12 +231,12 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
             if 'apartment_no' in address:
                 instance.address.apartment_no = address.get('apartment_no', None)
             instance.address.save()
-        instance.first_name = validated_data.get('firstName', instance.first_name)
-        instance.last_name = validated_data.get('lastName', instance.last_name)
-        instance.primary_contact = validated_data.get('primaryContact', instance.primary_contact)
-        instance.emergency_contact_name = validated_data.get('emergencyContactName', instance.emergency_contact_name)
-        instance.emergency_contact_number = validated_data.get('emergencyContactNumber', instance.emergency_contact_number)
-        instance.emergency_contact_relationship = validated_data.get('emergencyContactRelationship', instance.emergency_contact_relationship)
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.primary_contact = validated_data.get('primary_contact', instance.primary_contact)
+        instance.emergency_contact_name = validated_data.get('emergency_contact_name', instance.emergency_contact_name)
+        instance.emergency_contact_number = validated_data.get('emergency_contact_number', instance.emergency_contact_number)
+        instance.emergency_contact_relationship = validated_data.get('emergency_contact_relationship', instance.emergency_contact_relationship)
         instance.dob = validated_data.get('dob', instance.dob)
         return instance
 
