@@ -217,7 +217,7 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Patient
         fields = ('id', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName',
-                  'emergencyContactNumber', 'emergencyContactRelationship', 'dob')
+                  'emergencyContactNumber', 'emergencyContactRelationship', 'dob', 'address')
 
 
 class VisitSerializer(serializers.ModelSerializer):

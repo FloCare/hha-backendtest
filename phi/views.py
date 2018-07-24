@@ -92,7 +92,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 try:
                     # Get the active Episode ID for this patient
-                    episode_id = patient.episodes.get(is_active=True).id
+                    episode_id = patient.episodes.get(is_active=True).uuid
                 except Exception as e:
                     logger.error('Error in fetching active episode: %s' % str(e))
                     raise e
