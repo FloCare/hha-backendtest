@@ -1,9 +1,10 @@
-from user_auth.serializers import AdminUserResponseSerializer, UserProfileForAppSerializer
+from user_auth.serializers import AdminUserResponseSerializer, RoleSerializer, UserProfileSerializer
 from user_auth import models
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import viewsets
 from user_auth.constants import query_to_db_field_map
 from user_auth.permissions import IsAdminForOrg
 from backend import errors
@@ -57,18 +58,62 @@ class UserOrganizationView(APIView):
             return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
 
 
-# Being used by app API
-class UserProfileView(APIView):
+# Being used by app APIs
+class UserProfileViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
+    queryset = models.UserOrganizationAccess.objects.all()
 
-    def get(self, request):
+    def list(self, request):
+        """
+        Used to retrieve self User Profile data
+        :param request:
+        :return:
+        """
         user = request.user
         try:
             profile = user.profile
             accesses = models.UserOrganizationAccess.objects.filter(user=profile)
-            serializer = UserProfileForAppSerializer({'id': profile.uuid, 'roles': accesses})
+            if not accesses.exists():
+                roles = []
+            else:
+                s = RoleSerializer(accesses, many=True)
+                roles = s.data
+            s = UserProfileSerializer(profile)
+            resp = dict(s.data)
+            resp.update({'roles': roles})
             headers = {'Content-Type': 'application/json'}
-            return Response(serializer.data, headers=headers)
+            return Response(resp, headers=headers)
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.UNKNOWN_ERROR})
+
+    def retrieve(self, request, pk=None):
+        """
+        Used to retrieve UserProfileData of any other user
+        :param request:
+        :param pk:
+        :return:
+        """
+        user = request.user
+        try:
+            profile = models.UserProfile.objects.get(pk=pk)
+            # Get all orgs for logged in user
+            orgs = models.UserOrganizationAccess.objects.filter(user=user.profile).values_list('organization', flat=True)
+            # Check if passed user belongs to any of these orgs
+            accesses = models.UserOrganizationAccess.objects.filter(organization_id__in=orgs).filter(user=profile)
+            if not accesses.exists():
+                roles = []
+            else:
+                s = RoleSerializer(accesses, many=True)
+                roles = s.data
+            s = UserProfileSerializer(profile)
+            resp = dict(s.data)
+            resp.update({'roles': roles})
+            headers = {'Content-Type': 'application/json'}
+            return Response(resp, headers=headers)
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.UNKNOWN_ERROR})
+
+
+

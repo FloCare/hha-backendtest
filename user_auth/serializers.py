@@ -41,20 +41,6 @@ class RoleSerializer(serializers.ModelSerializer):
         fields = ('org', 'role')
 
 
-class UserProfileForAppSerializer(serializers.Serializer):
-    id = serializers.UUIDField()
-    roles = RoleSerializer(many=True)
-
-    def create(self, validated_data):
-        pass
-
-    def update(self, instance, validated_data):
-        pass
-
-    class Meta:
-        fields = ('id', 'roles')
-
-
 class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='user.uuid')
     old_id = serializers.IntegerField(source='user.id')
