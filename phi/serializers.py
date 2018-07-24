@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from phi import models
-from user_auth import models as user_models
-from user_auth.serializers import AddressSerializer
+from user_auth.serializers import AddressSerializer, UserProfileSerializer
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -80,11 +79,12 @@ class PatientSerializer(serializers.ModelSerializer):
     emergencyContactRelation = serializers.CharField(source='emergency_contact_relationship', required=False)
     dob = serializers.DateField(required=False)
     timestamp = serializers.DateTimeField(source='created_on')
+    episodeId = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Patient
         fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName', 'dob',
-                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'archived', 'address',)
+                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'archived', 'address', 'episodeId')
 
     def get_name(self, obj):
         if obj.first_name and obj.last_name:
@@ -93,6 +93,9 @@ class PatientSerializer(serializers.ModelSerializer):
             return obj.first_name
         else:
             return obj.last_name
+
+    def get_episodeId(self, obj):
+        return obj.episodes.get(is_active=True).uuid
 
 
 class PatientListSerializer(serializers.ModelSerializer):
@@ -103,7 +106,7 @@ class PatientListSerializer(serializers.ModelSerializer):
         fields = ('patients',)
 
 
-class PatientFailureSerializer(serializers.Serializer):
+class FailureResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
     id = serializers.UUIDField()
 
@@ -119,7 +122,7 @@ class PatientFailureSerializer(serializers.Serializer):
 
 class PatientDetailsResponseSerializer(serializers.Serializer):
     success = PatientSerializer(many=True)
-    failure = PatientFailureSerializer(many=True)
+    failure = FailureResponseSerializer(many=True)
 
     class Meta:
         fields = ('success', 'failure')
@@ -141,13 +144,35 @@ class OrganizationPatientMappingSerializer(serializers.ModelSerializer):
 
 
 class EpisodeSerializer(serializers.ModelSerializer):
-    patient_id = serializers.UUIDField()
+    id = serializers.UUIDField(source='uuid')
+    patientId = serializers.UUIDField(source='patient_id')
+    socDate = serializers.DateField(source='soc_date')
+    endDate = serializers.DateField(source='end_date')
+    transportationLevel = serializers.CharField(source='transportation_level')
+    acuityType = serializers.CharField(source='acuity_type')
+    socClinician = UserProfileSerializer(source='soc_clinician')
+    attendingPhysician = UserProfileSerializer(source='attending_physician')
+    primaryPhysician = PhysicianObjectSerializer(source='primary_physician')
 
     class Meta:
         model = models.Episode
-        fields = ('patient_id', 'soc_date', 'end_date', 'period', 'is_active',
-                  'transportation_level', 'acuity_type', 'classification', 'allergies', 'pharmacy',
-                  'soc_clinician', 'attending_physician', 'primary_physician')
+        fields = ('id', 'patientId', 'socDate', 'endDate', 'period', 'allergies',
+                  'transportationLevel', 'acuityType', 'classification', 'pharmacy',
+                  'socClinician', 'attendingPhysician', 'primaryPhysician')
+
+
+class EpisodeDetailsResponseSerializer(serializers.Serializer):
+    success = EpisodeSerializer(many=True)
+    failure = FailureResponseSerializer(many=True)
+
+    class Meta:
+        fields = ('success', 'failure')
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
 
 
 class UserEpisodeAccessSerializer(serializers.ModelSerializer):
@@ -160,7 +185,6 @@ class UserEpisodeAccessSerializer(serializers.ModelSerializer):
         fields = ('episode_id', 'user_id', 'organization_id', 'user_role')
 
 
-# Todo: Allow for Address Update
 class PatientUpdateSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid', required=False)
     firstName = serializers.CharField(source='first_name', required=False)
@@ -170,6 +194,8 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
     emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
     emergencyContactRelationship = serializers.CharField(source='emergency_contact_relationship', required=False)
     dob = serializers.CharField(required=False)
+    # Todo: Address Updates Untested
+    address = AddressSerializer(required=False)
 
     class Meta:
         model = models.Patient
