@@ -3,25 +3,7 @@ from user_auth import models
 
 
 class AddressSerializer(serializers.ModelSerializer):
-    zipCode = serializers.CharField(source='zip')
-    streetAddress = serializers.CharField(source='street_address')
-
-    class Meta:
-        model = models.Address
-        fields = ('apartment_no', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
-
-    def create(self, validated_data):
-        """
-        Create and return a new Address instance, given the validated data
-        :param validated_data:
-        :return:
-        """
-        return models.Address.objects.create(**validated_data)
-
-
-# Todo: Make same as AddressSerializer, and delete this: Only difference apartment_no field.
-# Todo: This serializer is created just to avoid change in web frontend the time being
-class AddressSerializerForApp(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid', required=False)
     zipCode = serializers.CharField(source='zip')
     streetAddress = serializers.CharField(source='street_address')
     apartmentNo = serializers.CharField(source='apartment_no')
@@ -98,3 +80,15 @@ class AdminUserResponseSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid')
+    firstName = serializers.CharField(source='user.first_name')
+    lastName = serializers.CharField(source='user.last_name')
+    username = serializers.CharField(source='user.username')
+    contactNo = serializers.CharField(source='contact_no')
+
+    class Meta:
+        model = models.UserProfile
+        fields = ('id', 'firstName', 'lastName', 'username', 'contactNo', 'address')

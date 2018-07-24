@@ -19,7 +19,8 @@ from phi.serializers import PatientListSerializer, \
     PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer
+    PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer, \
+    EpisodeDetailsResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -88,13 +89,14 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         raise Exception('Invalid user passed')
 
                 patient = models.Patient.objects.get(uuid=pk)
-                episode_ids = patient.episodes.values_list('uuid', flat=True)      # Choose is_active
 
-                # Todo: Remove this hack
-                # Get the last Episode ID
-                if len(episode_ids) == 0:
-                    raise Exception('No episodes registered for this patient')
-                episode_id = list(episode_ids)[-1]
+                try:
+                    # Get the active Episode ID for this patient
+                    episode_id = patient.episodes.get(is_active=True).id
+                except Exception as e:
+                    logger.error('Error in fetching active episode: %s' % str(e))
+                    raise e
+
                 logger.debug('org-id: %s' % str(organization.uuid))
                 logger.debug('patient-id: %s' % str(patient.uuid))
 
@@ -262,6 +264,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
+    # Todo: also send the active episodeId with each patient
     def list(self, request):
         """
         Return list of details of patients this user has access to.
@@ -352,11 +355,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             with transaction.atomic():
                 # Save Address
-                print('ADdress is:', address)
+                # logger.debug('ADdress is: %s' % str(address))
                 serializer = AddressSerializer(data=address)
                 serializer.is_valid()
                 address_obj = serializer.save()
-                print('Address object is:', address_obj)
+                logger.debug('Address object is: %s' % str(address_obj))
 
                 # # Save Patient
                 try:
@@ -368,11 +371,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     logger.warning('Key is not present: %s' % str(e))
 
                 patient['address_id'] = address_obj.uuid
-                print('Patient data is:', patient)
+                logger.debug('Patient data is: %s' % str(patient))
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
                 patient_serializer.is_valid()
                 patient_obj = patient_serializer.save()
-                print('Patient object saved successfully:', patient_obj)
+                logger.debug('Patient object saved successfully: %s' % str(patient_obj))
 
                 # Save Episode
                 episode = {
@@ -394,17 +397,16 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 episode_serializer = EpisodeSerializer(data=episode)
                 episode_serializer.is_valid()
                 episode_obj = episode_serializer.save()
-                print('Episode Object saved successfully:', episode_obj)
+                logger.debug('Episode Object saved successfully: %s' % str(episode_obj))
 
                 # Link Patient to Org
                 mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
                                                                                 'patient_id': patient_obj.uuid})
                 mapping_serializer.is_valid()
                 mapping_serializer.save()
-                print('Mapping object saved successfully:', mapping_serializer.validated_data)
+                logger.debug('Mapping object saved successfully: %s' % str(mapping_serializer.validated_data))
 
-
-                print('Saving USerEpisodeAccess Serializer')
+                logger.debug('Saving USerEpisodeAccess Serializer')
                 # Link Episode to Users passed
                 # Todo: Do a bulk update
                 for user_id in users:
@@ -414,7 +416,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                                                           'user_role': 'CareGiver'})
                     access_serializer.is_valid()
                     access_serializer.save()
-                    print('USerEpisodeAccess saved successfully')
+                    logger.debug('USerEpisodeAccess saved successfully')
 
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
@@ -464,38 +466,45 @@ class AccessiblePatientListView(generics.ListAPIView):
 # Being used for app API
 # Todo: Errors have been hardcoded
 class AccessiblePatientsDetailView(APIView):
-    # Todo: Add permissions classes + check for access etc
     queryset = models.Patient.objects.all()
     serializer_class = PatientDetailsResponseSerializer
     permission_classes = (IsAuthenticated,)
 
-    # Todo: Check if user has access to those ids first
     def get_results(self, request):
         user = request.user
         data = request.data
         if 'patients' in data:
             patient_list = data['patients']
 
-            # Todo: Improve Queries
-            episode_ids = list(models.UserEpisodeAccess.objects.filter(user=user.profile).values_list('episode_id', flat=True)) # noqa
-            valid_ids = list()
-            for episode_id in episode_ids:
-                uuid = models.Episode.objects.get(uuid=episode_id).patient.uuid
-                if uuid:
-                    valid_ids.append(str(uuid))
-            success_ids = list(set(valid_ids).intersection(patient_list))
-            failure_ids = list(set(patient_list) - set(success_ids))
-            return models.Patient.objects.all().filter(uuid__in=success_ids), failure_ids
-        return None
+            success_ids = list()
+            failure_ids = list()
+            for patient_id in patient_list:
+                try:
+                    episode = models.Patient.objects.get(uuid=patient_id).episodes.get(is_active=True)
+                    access = models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode=episode)
+                    if access.exists():
+                        success_ids.append(patient_id)
+                    else:
+                        failure_ids.append(patient_id)
+                except Exception as e:
+                    logger.error(str(e))
+                    failure_ids.append(patient_id)
+            return success_ids, failure_ids
+        return None, None
+
+    def get_objects_by_ids(self, ids):
+        # These patients exist, along-with 1 active episode
+        patients = models.Patient.objects.filter(uuid__in=ids)
+        return patients
 
     def post(self, request):
-        success, failure_ids = self.get_results(request)
-        logger.debug('success: %s' % str(success))
+        success_ids, failure_ids = self.get_results(request)
+        success = self.get_objects_by_ids(success_ids)
         failure = list()
         for id in failure_ids:
             failure.append({'id': id, 'error': errors.ACCESS_DENIED})
         resp = {'success': success, 'failure': failure}
-        serializer = PatientDetailsResponseSerializer(resp)
+        serializer = self.serializer_class(resp)
         return Response(serializer.data)
 
 
@@ -616,7 +625,7 @@ def add_visit(request):
         serializer = VisitSerializer(data=visits, many=True)
         if not serializer.is_valid():
             for error in serializer.errors:
-                print(error)
+                logger.error(str(error))
                 # Todo: do something with that error
             return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         else:
@@ -624,5 +633,48 @@ def add_visit(request):
                 serializer.save(user=user.profile)
                 return Response({'success': True, 'error': None})
             except Exception as e:
-                print('Error in saving data:', str(e))
+                logger.error('Error in saving data: %s' % str(e))
                 return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class EpisodeViewSet(APIView):
+    queryset = models.Episode.objects.all()
+    serializer_class = EpisodeDetailsResponseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_results(self, request):
+        user = request.user
+        data = request.data
+        if 'episodes' in data:
+            episode_list = data['episodes']
+
+            success_ids = list()
+            failure_ids = list()
+            for episode_id in episode_list:
+                try:
+                    episode = models.Episode.objects.filter(uuid=episode_id).get(is_active=True)
+                    access = models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode=episode)
+                    if access.exists():
+                        success_ids.append(episode_id)
+                    else:
+                        failure_ids.append(episode_id)
+                except Exception as e:
+                    logger.error(str(e))
+                    failure_ids.append(episode_id)
+            return success_ids, failure_ids
+        return None, None
+
+    def get_objects_by_ids(self, ids):
+        # These episodes exist and are active
+        episodes = models.Episode.objects.filter(uuid__in=ids)
+        return episodes
+
+    def post(self, request):
+        success_ids, failure_ids = self.get_results(request)
+        success = self.get_objects_by_ids(success_ids)
+        failure = list()
+        for id in failure_ids:
+            failure.append({'id': id, 'error': errors.ACCESS_DENIED})
+        resp = {'success': success, 'failure': failure}
+        serializer = self.serializer_class(resp)
+        return Response(serializer.data)
