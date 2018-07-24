@@ -5,7 +5,7 @@ from user_auth import models
 class AddressSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid', required=False)
     zipCode = serializers.CharField(source='zip', required=False)
-    streetAddress = serializers.CharField(source='street_address')
+    streetAddress = serializers.CharField(source='street_address', required=False)
     apartmentNo = serializers.CharField(source='apartment_no', required=False)
     city = serializers.CharField(required=False)
     state = serializers.CharField(required=False)
