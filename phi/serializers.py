@@ -144,15 +144,32 @@ class OrganizationPatientMappingSerializer(serializers.ModelSerializer):
 
 
 class EpisodeSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(source='uuid')
-    patientId = serializers.UUIDField(source='patient_id')
-    socDate = serializers.DateField(source='soc_date')
-    endDate = serializers.DateField(source='end_date')
-    transportationLevel = serializers.CharField(source='transportation_level')
-    acuityType = serializers.CharField(source='acuity_type')
-    socClinician = UserProfileSerializer(source='soc_clinician')
-    attendingPhysician = UserProfileSerializer(source='attending_physician')
-    primaryPhysician = PhysicianObjectSerializer(source='primary_physician')
+    id = serializers.UUIDField(source='uuid', required=False)
+    socDate = serializers.DateField(source='soc_date', required=False)
+    endDate = serializers.DateField(source='end_date', required=False)
+    transportationLevel = serializers.CharField(source='transportation_level', required=False)
+    acuityType = serializers.CharField(source='acuity_type', required=False)
+    socClinician = UserProfileSerializer(source='soc_clinician', required=False)
+    attendingPhysician = UserProfileSerializer(source='attending_physician', required=False)
+    primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
+
+    class Meta:
+        model = models.Episode
+        fields = ('id', 'patient', 'socDate', 'endDate', 'period', 'allergies',
+                  'transportationLevel', 'acuityType', 'classification', 'pharmacy',
+                  'socClinician', 'attendingPhysician', 'primaryPhysician')
+
+
+class EpisodeResponseSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source='uuid', required=False)
+    patientId = serializers.UUIDField(source='patient_id', required=False)
+    socDate = serializers.DateField(source='soc_date', required=False)
+    endDate = serializers.DateField(source='end_date', required=False)
+    transportationLevel = serializers.CharField(source='transportation_level', required=False)
+    acuityType = serializers.CharField(source='acuity_type', required=False)
+    socClinician = UserProfileSerializer(source='soc_clinician', required=False)
+    attendingPhysician = UserProfileSerializer(source='attending_physician', required=False)
+    primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
 
     class Meta:
         model = models.Episode
@@ -162,7 +179,7 @@ class EpisodeSerializer(serializers.ModelSerializer):
 
 
 class EpisodeDetailsResponseSerializer(serializers.Serializer):
-    success = EpisodeSerializer(many=True)
+    success = EpisodeResponseSerializer(many=True)
     failure = FailureResponseSerializer(many=True)
 
     class Meta:

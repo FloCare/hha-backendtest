@@ -355,7 +355,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             with transaction.atomic():
                 # Save Address
-                # logger.debug('ADdress is: %s' % str(address))
+                logger.debug('ADdress is: %s' % str(address))
                 serializer = AddressSerializer(data=address)
                 serializer.is_valid()
                 address_obj = serializer.save()
@@ -379,11 +379,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 # Save Episode
                 episode = {
-                    'patient_id': patient_obj.uuid,
+                    'patient': patient_obj.uuid,
                     'soc_date': patient.get('soc_date') or None,
                     'end_date': patient.get('end_date') or None,
                     'period': patient.get('period') or None,
-                    'is_active': True,
                     'cpr_code': patient.get('cpr_code') or None,
                     'transportation_level': patient.get('transportation_level') or None,
                     'acuity_type': patient.get('acuity_type') or None,
