@@ -79,12 +79,12 @@ class PatientSerializer(serializers.ModelSerializer):
     emergencyContactRelation = serializers.CharField(source='emergency_contact_relationship', required=False)
     dob = serializers.DateField(required=False)
     timestamp = serializers.DateTimeField(source='created_on')
-    episodeId = serializers.SerializerMethodField()
+    episodeID = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Patient
         fields = ('id', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName', 'dob',
-                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'archived', 'address', 'episodeId')
+                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'archived', 'address', 'episodeID')
 
     def get_name(self, obj):
         if obj.first_name and obj.last_name:
@@ -94,7 +94,7 @@ class PatientSerializer(serializers.ModelSerializer):
         else:
             return obj.last_name
 
-    def get_episodeId(self, obj):
+    def get_episodeID(self, obj):
         return obj.episodes.get(is_active=True).uuid
 
 

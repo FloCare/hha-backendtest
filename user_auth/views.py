@@ -114,6 +114,3 @@ class UserProfileViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.UNKNOWN_ERROR})
-
-
-
