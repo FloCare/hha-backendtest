@@ -219,18 +219,24 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
                   'emergencyContactNumber', 'emergencyContactRelationship', 'dob', 'address')
 
     def update(self, instance, validated_data):
+        print('validated data is:', validated_data)
         if 'address' in validated_data:
             address = validated_data.get('address')
-            instance.address.street_address = address.get('street_address', None)
-            instance.address.zip = address.get('zip', None)
-            instance.address.city = address.get('city', None)
-            instance.address.state = address.get('state', None)
-            instance.address.country = address.get('country', None)
-            instance.address.latitude = address.get('latitude', None)
-            instance.address.longitude = address.get('longitude', None)
+            # Todo: Hacky!
+            if ('street_address' in address) and ('zip' in address) and ('city' in address) and \
+                ('state' in address) and ('country' in address):
+                instance.address.street_address = address.get('street_address', None)
+                instance.address.zip = address.get('zip', None)
+                instance.address.city = address.get('city', None)
+                instance.address.state = address.get('state', None)
+                instance.address.country = address.get('country', None)
+                instance.address.latitude = address.get('latitude', None)
+                instance.address.longitude = address.get('longitude', None)
             if 'apartment_no' in address:
                 instance.address.apartment_no = address.get('apartment_no', None)
             instance.address.save()
+        else:
+            instance.address = instance.address
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.primary_contact = validated_data.get('primary_contact', instance.primary_contact)
@@ -238,6 +244,7 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
         instance.emergency_contact_number = validated_data.get('emergency_contact_number', instance.emergency_contact_number)
         instance.emergency_contact_relationship = validated_data.get('emergency_contact_relationship', instance.emergency_contact_relationship)
         instance.dob = validated_data.get('dob', instance.dob)
+        instance.save()
         return instance
 
 
