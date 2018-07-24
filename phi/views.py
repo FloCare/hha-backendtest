@@ -352,11 +352,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             with transaction.atomic():
                 # Save Address
-                print('ADdress is:', address)
+                # logger.debug('ADdress is: %s' % str(address))
                 serializer = AddressSerializer(data=address)
                 serializer.is_valid()
                 address_obj = serializer.save()
-                print('Address object is:', address_obj)
+                logger.debug('Address object is: %s' % str(address_obj))
 
                 # # Save Patient
                 try:
@@ -368,11 +368,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     logger.warning('Key is not present: %s' % str(e))
 
                 patient['address_id'] = address_obj.uuid
-                print('Patient data is:', patient)
+                logger.debug('Patient data is: %s' % str(patient))
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
                 patient_serializer.is_valid()
                 patient_obj = patient_serializer.save()
-                print('Patient object saved successfully:', patient_obj)
+                logger.debug('Patient object saved successfully: %s' % str(patient_obj))
 
                 # Save Episode
                 episode = {
@@ -394,17 +394,16 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 episode_serializer = EpisodeSerializer(data=episode)
                 episode_serializer.is_valid()
                 episode_obj = episode_serializer.save()
-                print('Episode Object saved successfully:', episode_obj)
+                logger.debug('Episode Object saved successfully: %s' % str(episode_obj))
 
                 # Link Patient to Org
                 mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
                                                                                 'patient_id': patient_obj.uuid})
                 mapping_serializer.is_valid()
                 mapping_serializer.save()
-                print('Mapping object saved successfully:', mapping_serializer.validated_data)
+                logger.debug('Mapping object saved successfully: %s' % str(mapping_serializer.validated_data))
 
-
-                print('Saving USerEpisodeAccess Serializer')
+                logger.debug('Saving USerEpisodeAccess Serializer')
                 # Link Episode to Users passed
                 # Todo: Do a bulk update
                 for user_id in users:
@@ -414,7 +413,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                                                           'user_role': 'CareGiver'})
                     access_serializer.is_valid()
                     access_serializer.save()
-                    print('USerEpisodeAccess saved successfully')
+                    logger.debug('USerEpisodeAccess saved successfully')
 
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
@@ -469,7 +468,6 @@ class AccessiblePatientsDetailView(APIView):
     serializer_class = PatientDetailsResponseSerializer
     permission_classes = (IsAuthenticated,)
 
-    # Todo: Check if user has access to those ids first
     def get_results(self, request):
         user = request.user
         data = request.data
@@ -616,7 +614,7 @@ def add_visit(request):
         serializer = VisitSerializer(data=visits, many=True)
         if not serializer.is_valid():
             for error in serializer.errors:
-                print(error)
+                logger.error(str(error))
                 # Todo: do something with that error
             return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         else:
@@ -624,5 +622,5 @@ def add_visit(request):
                 serializer.save(user=user.profile)
                 return Response({'success': True, 'error': None})
             except Exception as e:
-                print('Error in saving data:', str(e))
+                logger.error('Error in saving data: %s' % str(e))
                 return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})

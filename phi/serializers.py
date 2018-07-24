@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from phi import models
 from user_auth import models as user_models
-from user_auth.serializers import AddressSerializer, AddressSerializerForApp
+from user_auth.serializers import AddressSerializer
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -72,7 +72,7 @@ class PatientSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid')
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
-    address = AddressSerializerForApp()
+    address = AddressSerializer()
     name = serializers.SerializerMethodField()
     primaryContact = serializers.CharField(source='primary_contact')
     emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
