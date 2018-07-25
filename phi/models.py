@@ -135,7 +135,7 @@ class Episode(models.Model):
     def __str__(self):
         episode = str(self.patient)
         if self.soc_date:
-            episode += (' ' + self.soc_date)
+            episode += (' ' + str(self.soc_date))
         return episode
 
 

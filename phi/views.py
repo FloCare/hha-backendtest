@@ -124,7 +124,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                     .get(organization=organization, episode_id=episode_id, user_id=user_id)
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'UPDATE',
-                                    'patientID': patient.uuid,
+                                    'patientID': str(patient.uuid),
                                 }).async(my_publish_callback)
                             except Exception as e:
                                 logger.warning(str(e))
@@ -141,7 +141,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'ASSIGN',
-                                    'patientID': patient.uuid,
+                                    'patientID': str(patient.uuid),
                                     'pn_apns': {
                                         "aps": {
                                             "alert": {
@@ -152,7 +152,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                         },
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
-                                            "patientID": patient.uuid
+                                            "patientID": str(patient.uuid)
                                         }
                                     }
                                 }).async(my_publish_callback)
@@ -165,7 +165,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             logger.debug('user access to delete: %s' % str(user_episode_access))
                             settings.PUBNUB.publish().channel(str(user_episode_access.user_id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
-                                'patientID': patient.uuid,
+                                'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
 
                         AccessiblePatientViewSet.local_counter += 1
@@ -218,7 +218,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             settings.PUBNUB.publish().channel(
                                 str(user_episode_access.user.uuid) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
-                                'patientID': patient.uuid,
+                                'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
 
                         address = patient.address
@@ -418,7 +418,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
-                        'patientID': patient_obj.uuid,
+                        'patientID': str(patient_obj.uuid),
                         'pn_apns': {
                             "aps": {
                                 "alert": {
@@ -429,7 +429,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             },
                             "payload": {
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
-                                "patientID": patient_obj.uuid
+                                "patientID": str(patient_obj.uuid)
                             }
                         }
                     }).async(my_publish_callback)
