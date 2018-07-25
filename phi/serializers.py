@@ -2,6 +2,8 @@ from rest_framework import serializers
 from phi import models
 from user_auth.serializers import AddressSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer
+import datetime
+import dateutil
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -157,10 +159,29 @@ class VisitSerializer(serializers.ModelSerializer):
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
-    # scheduledAt = serializers.DateTimeField(source='scheduled_at', required=False, format='YYYY-MM-DD')
-    midnightEpochOfVisit = serializers.IntegerField(source='midnight_epoch', required=False)
-    # Todo: This field needs to be improved
-    plannedStartTime = serializers.TimeField(source='planned_start_time', required=False)
+    midnightEpochOfVisit = serializers.CharField(source='midnight_epoch', required=False)
+    plannedStartTime = serializers.CharField(source='planned_start_time', required=False)
+
+    def validate_midnightEpochOfVisit(self, obj):
+        try:
+            if obj:
+                ms = int(obj)
+                datetime.datetime.fromtimestamp(ms/1000.0)
+                return obj
+        except Exception as e:
+            print('Error in parsing midnightEpochOfVisit:', str(e))
+            raise serializers.ValidationError('midnightEpochOfVisit format is not correct')
+        return None
+
+    def validate_plannedStartTime(self, obj):
+        if obj:
+            try:
+                ts = dateutil.parser.parse(obj)
+                return ts
+            except Exception as e:
+                print('Parse error in plannedStartTime:', str(e))
+                raise serializers.ValidationError('plannedStartTime format is not ISO 8601')
+        return None
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)

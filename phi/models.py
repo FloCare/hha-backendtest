@@ -146,8 +146,8 @@ class Visit(models.Model):
     # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
 
-    midnight_epoch = models.IntegerField(null=True)
-    planned_start_time = models.TimeField(null=True)
+    midnight_epoch = models.CharField(max_length=20, null=True)
+    planned_start_time = models.DateTimeField(null=True)
 
     is_done = models.BooleanField(default=False)
     time_of_completion = models.DateTimeField(null=True)

@@ -111,12 +111,26 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
-    midnightEpochOfVisit = serializers.IntegerField(source='midnight_epoch', required=False)
-    # Todo: This field needs to be improved
-    plannedStartTime = serializers.TimeField(source='planned_start_time', required=False)
+    midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
+    plannedStartTime = serializers.SerializerMethodField(required=False)
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
+
+    def get_midnightEpochOfVisit(self, obj):
+        t = obj.midnight_epoch
+        if t:
+            try:
+                return int(t)
+            except Exception as e:
+                print('Error in fetching timestamp:', str(e))
+        return None
+
+    def get_plannedStartTime(self, obj):
+        t = obj.planned_start_time
+        if t:
+            return t.isoformat()
+        return None
 
     class Meta:
         model = models.Visit
