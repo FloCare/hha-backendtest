@@ -684,6 +684,15 @@ class VisitsViewSet(viewsets.ViewSet):
             return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
         else:
             visits = data.get('visits')
+            # try:
+            #     episode = visits.get('episode', None)
+            #     if not episode:
+            #         raise Exception('episode key not passed')
+            #     if not models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode_id=episode).exists():
+            #         raise Exception('User does not have access to this Episode')
+            # except Exception as e:
+            #     logger.error('User doesnt have access to this episode: %s' % str(e))
+            #     return Response(status=400, data={'success': False, 'error': errors.ACCESS_DENIED})
             serializer = VisitSerializer(data=visits, many=True)
             if not serializer.is_valid():
                 for error in serializer.errors:
@@ -706,6 +715,7 @@ class VisitsViewSet(viewsets.ViewSet):
         """
         user = request.user
         try:
+            # Visit should belong to that user
             visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
         except Exception as e:
             logger.error('Visit not found: %s' % (str(e)))

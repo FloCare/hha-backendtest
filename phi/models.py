@@ -140,8 +140,7 @@ class Episode(models.Model):
 
 
 class Visit(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    client_visit_id = models.CharField(max_length=50, null=True)
+    id = models.UUIDField(primary_key=True, editable=False)
 
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
     # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
@@ -164,9 +163,6 @@ class Visit(models.Model):
         if self.planned_start_time:
             visit += ('-' + str(self.planned_start_time))
         return visit
-
-    class Meta:
-        unique_together = ('client_visit_id', 'episode', 'user')
 
 
 class UserEpisodeAccess(models.Model):

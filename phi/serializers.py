@@ -250,9 +250,9 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
 
 
 class VisitSerializer(serializers.ModelSerializer):
-    user = serializers.UUIDField(required=False)    # gets populated with logged in user
-    visitID = serializers.CharField(source='client_visit_id', required=False)
-    episode = serializers.UUIDField(source="episode_id", required=False)
+    id = serializers.UUIDField()
+    userID = serializers.UUIDField(required=False)    # gets populated with logged in user
+    episodeID = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
@@ -266,14 +266,13 @@ class VisitSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'user', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted',
+        fields = ('id', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
                   'midnightEpochOfVisit', 'plannedStartTime')
 
 
 class VisitResponseSerializer(serializers.ModelSerializer):
-    user = serializers.UUIDField(source='user_id', required=False)
-    visitID = serializers.CharField(source='client_visit_id', required=False)
-    episode = serializers.UUIDField(source="episode_id", required=False)
+    userID = serializers.UUIDField(source='user_id')
+    episodeID = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
@@ -286,5 +285,5 @@ class VisitResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('id', 'visitID', 'user', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted',
+        fields = ('id', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
                   'midnightEpochOfVisit', 'plannedStartTime')
