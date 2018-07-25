@@ -12,8 +12,8 @@ router.register(r'visits', views.VisitsViewSet)
 urlpatterns = [
     url(r'^v1.0/', include([
             url(r'^', include(router.urls)),
-            url(r'^my-patients/$', views.AccessiblePatientListView.as_view()),
-            url(r'^my-patients-details/$', views.AccessiblePatientsDetailView.as_view()),
+            url(r'^get-assigned-patient-ids/$', views.AccessiblePatientListView.as_view()),
+            url(r'^get-patients-for-ids/$', views.AccessiblePatientsDetailView.as_view()),
             url(r'^episodes/$', views.EpisodeViewSet.as_view()),
             url(r'^upload/$', views.upload_file, name='upload'),
             # url('visits/$', views.add_visit, name='add_visit')

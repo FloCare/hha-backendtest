@@ -14,12 +14,12 @@ from django.conf import settings
 from backend import errors
 from phi import models
 from phi.constants import query_to_db_field_map
-from phi.serializers import PatientListSerializer, \
-    PatientDetailsResponseSerializer, OrganizationPatientMappingSerializer, \
+from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
     PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer, \
     EpisodeDetailsResponseSerializer, VisitResponseSerializer
+from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -471,8 +471,8 @@ class AccessiblePatientsDetailView(APIView):
     def get_results(self, request):
         user = request.user
         data = request.data
-        if 'patients' in data:
-            patient_list = data['patients']
+        if 'patientIDs' in data:
+            patient_list = data['patientIDs']
 
             success_ids = list()
             failure_ids = list()
