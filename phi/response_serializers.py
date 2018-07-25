@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from user_auth.serializers import AddressSerializer
+from user_auth.serializers import AddressSerializer, UserProfileSerializer
+from phi.serializers import PhysicianObjectSerializer
 from phi import models
 
 
@@ -68,3 +69,36 @@ class PatientDetailsResponseSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+
+
+class EpisodeResponseSerializer(serializers.ModelSerializer):
+    episodeID = serializers.UUIDField(source='uuid', required=False)
+    patientID = serializers.UUIDField(source='patient_id', required=False)
+    socDate = serializers.DateField(source='soc_date', required=False)
+    endDate = serializers.DateField(source='end_date', required=False)
+    transportationLevel = serializers.CharField(source='transportation_level', required=False)
+    acuityType = serializers.CharField(source='acuity_type', required=False)
+    socClinician = UserProfileSerializer(source='soc_clinician', required=False)
+    attendingPhysician = UserProfileSerializer(source='attending_physician', required=False)
+    primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
+
+    class Meta:
+        model = models.Episode
+        fields = ('episodeID', 'patientID', 'socDate', 'endDate', 'period', 'allergies',
+                  'transportationLevel', 'acuityType', 'classification', 'pharmacy',
+                  'socClinician', 'attendingPhysician', 'primaryPhysician')
+
+
+class EpisodeDetailsResponseSerializer(serializers.Serializer):
+    success = EpisodeResponseSerializer(many=True)
+    failure = FailureResponseSerializer(many=True)
+
+    class Meta:
+        fields = ('success', 'failure')
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+

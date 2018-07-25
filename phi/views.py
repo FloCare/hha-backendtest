@@ -18,8 +18,9 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
     PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer, \
-    EpisodeDetailsResponseSerializer, VisitResponseSerializer
-from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer
+    VisitResponseSerializer
+from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
+    EpisodeDetailsResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -617,8 +618,8 @@ class EpisodeViewSet(APIView):
     def get_results(self, request):
         user = request.user
         data = request.data
-        if 'episodes' in data:
-            episode_list = data['episodes']
+        if 'episodeIDs' in data:
+            episode_list = data['episodeIDs']
 
             success_ids = list()
             failure_ids = list()

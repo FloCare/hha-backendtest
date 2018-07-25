@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from phi import models
 from user_auth.serializers import AddressSerializer, UserProfileSerializer
-from phi.response_serializers import FailureResponseSerializer
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -92,38 +91,6 @@ class EpisodeSerializer(serializers.ModelSerializer):
         fields = ('id', 'patient', 'socDate', 'endDate', 'period', 'allergies',
                   'transportationLevel', 'acuityType', 'classification', 'pharmacy',
                   'socClinician', 'attendingPhysician', 'primaryPhysician')
-
-
-class EpisodeResponseSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(source='uuid', required=False)
-    patientId = serializers.UUIDField(source='patient_id', required=False)
-    socDate = serializers.DateField(source='soc_date', required=False)
-    endDate = serializers.DateField(source='end_date', required=False)
-    transportationLevel = serializers.CharField(source='transportation_level', required=False)
-    acuityType = serializers.CharField(source='acuity_type', required=False)
-    socClinician = UserProfileSerializer(source='soc_clinician', required=False)
-    attendingPhysician = UserProfileSerializer(source='attending_physician', required=False)
-    primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
-
-    class Meta:
-        model = models.Episode
-        fields = ('id', 'patientId', 'socDate', 'endDate', 'period', 'allergies',
-                  'transportationLevel', 'acuityType', 'classification', 'pharmacy',
-                  'socClinician', 'attendingPhysician', 'primaryPhysician')
-
-
-class EpisodeDetailsResponseSerializer(serializers.Serializer):
-    success = EpisodeResponseSerializer(many=True)
-    failure = FailureResponseSerializer(many=True)
-
-    class Meta:
-        fields = ('success', 'failure')
-
-    def create(self, validated_data):
-        pass
-
-    def update(self, instance, validated_data):
-        pass
 
 
 class UserEpisodeAccessSerializer(serializers.ModelSerializer):
