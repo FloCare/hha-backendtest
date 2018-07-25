@@ -7,6 +7,7 @@ router = DefaultRouter()
 
 router.register(r'patients', views.AccessiblePatientViewSet)
 router.register(r'physicians', views.PhysiciansViewSet)
+router.register(r'visits', views.VisitsViewSet)
 
 urlpatterns = [
     url(r'^v1.0/', include([
@@ -15,7 +16,7 @@ urlpatterns = [
             url(r'^my-patients-details/$', views.AccessiblePatientsDetailView.as_view()),
             url(r'^episodes/$', views.EpisodeViewSet.as_view()),
             url(r'^upload/$', views.upload_file, name='upload'),
-            url('visits/$', views.add_visit, name='add_visit')
+            # url('visits/$', views.add_visit, name='add_visit')
         ])
     ),
 ]

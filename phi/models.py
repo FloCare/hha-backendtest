@@ -145,34 +145,28 @@ class Visit(models.Model):
 
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
     # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
-
     user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
 
-    # Todo: Should org be added?
-    # organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
+    midnight_epoch = models.IntegerField(null=True)
+    planned_start_time = models.TimeField(null=True)
 
-    scheduled_at = models.DateTimeField(null=True)
     is_done = models.BooleanField(default=False)
-    # Todo: automatically updated when is_done is marked as True
     time_of_completion = models.DateTimeField(null=True)
-    is_deleted = models.BooleanField(default=False)
-
-    # Todo: Confirm fields for the extended visit context
-    # visit_type = models.CharField()         # Todo: Or Enum ??
-    # duration = models.TimeField()           # Or estimated time etc.
+    is_deleted = models.NullBooleanField(default=False, null=True)
 
     def __str__(self):
         visit = self.episode.patient.first_name
         if self.episode.patient.last_name:
             visit += (' ' + self.episode.patient.last_name)
         visit += ('-' + self.user.user.username)
-        if self.scheduled_at:
-            visit += ('-' + str(self.scheduled_at))
+        if self.midnight_epoch:
+            visit += ('-' + str(self.midnight_epoch))
+        if self.planned_start_time:
+            visit += ('-' + str(self.planned_start_time))
         return visit
 
-    def save(self, *args, **kwargs):
-        self.time_of_completion = timezone.now()
-        super().save(*args, **kwargs)
+    class Meta:
+        unique_together = ('client_visit_id', 'episode', 'user')
 
 
 class UserEpisodeAccess(models.Model):

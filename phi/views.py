@@ -2,14 +2,13 @@ import dateutil.parser
 from django.shortcuts import render
 from django.http import Http404
 from django.http import JsonResponse
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
 from django.conf import settings
 
 from backend import errors
@@ -20,7 +19,7 @@ from phi.serializers import PatientListSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
     PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer, \
-    EpisodeDetailsResponseSerializer
+    EpisodeDetailsResponseSerializer, VisitResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -610,32 +609,6 @@ def upload_file(request):
         raise Http404('Page does not exist')
 
 
-# Todo: Add permission classes - isAuthenticated, isMemberOfOrg
-# Bulk update visits for the requesting user
-@api_view(('POST',))
-def add_visit(request):
-    user = request.user
-    data = request.data
-    if not data.get('visits'):
-        # Todo: Return error response
-        return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-    else:
-        visits = data.get('visits')
-        serializer = VisitSerializer(data=visits, many=True)
-        if not serializer.is_valid():
-            for error in serializer.errors:
-                logger.error(str(error))
-                # Todo: do something with that error
-            return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-        else:
-            try:
-                serializer.save(user=user.profile)
-                return Response({'success': True, 'error': None})
-            except Exception as e:
-                logger.error('Error in saving data: %s' % str(e))
-                return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-
-
 class EpisodeViewSet(APIView):
     queryset = models.Episode.objects.all()
     serializer_class = EpisodeDetailsResponseSerializer
@@ -677,3 +650,90 @@ class EpisodeViewSet(APIView):
         resp = {'success': success, 'failure': failure}
         serializer = self.serializer_class(resp)
         return Response(serializer.data)
+
+
+class VisitsViewSet(viewsets.ViewSet):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request):
+        """
+        List all visits for requesting user
+        :param request:
+        :return:
+        """
+        user = request.user
+        data = request.data
+        try:
+            visits = models.Visit.objects.filter(user=user.profile)
+        except Exception as e:
+            logger.error('Error in fetching visits: %s' % str(e))
+            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+        visits_response = VisitResponseSerializer(visits, many=True)
+        return Response(visits_response.data)
+
+    def create(self, request):
+        """
+        Bulk create visits for the requesting user
+        :param request:
+        :return:
+        """
+        user = request.user
+        data = request.data
+        if not data.get('visits'):
+            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+        else:
+            visits = data.get('visits')
+            serializer = VisitSerializer(data=visits, many=True)
+            if not serializer.is_valid():
+                for error in serializer.errors:
+                    logger.error(str(error))
+                return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+            else:
+                try:
+                    serializer.save(user=user.profile)
+                    return Response({'success': True, 'error': None})
+                except Exception as e:
+                    logger.error('Error in saving data: %s' % str(e))
+                    return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+    def update(self, request, pk=None):
+        """
+        Update a visit
+        :param request:
+        :param pk:
+        :return:
+        """
+        user = request.user
+        try:
+            visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
+        except Exception as e:
+            logger.error('Visit not found: %s' % (str(e)))
+            return Response(status=400, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+        serializer = VisitSerializer(instance=visit, data=request.data)
+        if not serializer.is_valid():
+            logger.error(str(serializer.errors))
+            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+        try:
+            serializer.save(user=user.profile)
+        except IntegrityError as e:
+            logger.error('IntegrityError. Cannot update visit: %s' % str(e))
+            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+        except Exception as e:
+            logger.error('Cannot update visit: %s' % str(e))
+            return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        return Response({'success': True, 'error': None})
+
+    def destroy(self, request, pk=None):
+        user = request.user
+        try:
+            visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
+        except Exception as e:
+            logger.error('Visit not found: %s' % (str(e)))
+            return Response(status=400, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+        try:
+            visit.delete()
+        except Exception as e:
+            logger.error('Cannot delete visit: %s' % str(e))
+            return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        return Response({'success': True, 'error': None})

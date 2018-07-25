@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from phi import models
 from user_auth.serializers import AddressSerializer, UserProfileSerializer
+from datetime import datetime
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -249,17 +250,41 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
 
 
 class VisitSerializer(serializers.ModelSerializer):
-    user = serializers.IntegerField(required=False)
+    user = serializers.UUIDField(required=False)    # gets populated with logged in user
     visitID = serializers.CharField(source='client_visit_id', required=False)
-    episodeId = serializers.IntegerField(source='episode_id', required=False)
-    scheduledAt = serializers.DateTimeField(source='scheduled_at', required=False, format='YYYY-MM-DD')
+    episode = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
+    # scheduledAt = serializers.DateTimeField(source='scheduled_at', required=False, format='YYYY-MM-DD')
+    midnightEpochOfVisit = serializers.IntegerField(source='midnight_epoch', required=False)
+    # Todo: This field needs to be improved
+    plannedStartTime = serializers.TimeField(source='planned_start_time', required=False)
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
 
     class Meta:
         model = models.Visit
-        fields = '__all__'
+        fields = ('visitID', 'user', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted',
+                  'midnightEpochOfVisit', 'plannedStartTime')
+
+
+class VisitResponseSerializer(serializers.ModelSerializer):
+    user = serializers.UUIDField(source='user_id', required=False)
+    visitID = serializers.CharField(source='client_visit_id', required=False)
+    episode = serializers.UUIDField(source="episode_id", required=False)
+    timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    isDone = serializers.BooleanField(source='is_done', required=False)
+    isDeleted = serializers.BooleanField(source='is_deleted', required=False)
+    midnightEpochOfVisit = serializers.IntegerField(source='midnight_epoch', required=False)
+    # Todo: This field needs to be improved
+    plannedStartTime = serializers.TimeField(source='planned_start_time', required=False)
+
+    def create(self, validated_data):
+        return self.Meta.model.objects.create(**validated_data)
+
+    class Meta:
+        model = models.Visit
+        fields = ('id', 'visitID', 'user', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted',
+                  'midnightEpochOfVisit', 'plannedStartTime')
