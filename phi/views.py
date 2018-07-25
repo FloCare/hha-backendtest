@@ -535,11 +535,11 @@ class PhysiciansViewSet(viewsets.ViewSet):
                     return Response(serializer.data, headers=headers)
             except Exception as e:
                 logger.error(str(e))
-                return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
         except Exception as e:
             logger.error(str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     # Todo: Add admin permission check
     def create(self, request):
@@ -548,7 +548,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
 
         physician = self.parse_data(data)
         if (not physician):
-            return Response(status=400, data={'error': 'Invalid data passed'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Invalid data passed'})
 
         try:
             physician_serializer = PhysicianObjectSerializer(data=physician)
@@ -559,7 +559,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
 
         except Exception as e:
             logger.error(str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     def retrieve(self, request, pk=None):
         # Check if user is admin of this org
@@ -574,7 +574,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
             return Response(serializer.data, headers=headers)
         except Exception as e:
             logger.error(str(e))
-            return Response(status=400, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
 
     def update(self, request, pk=None):
         pass
@@ -610,7 +610,7 @@ def upload_file(request):
         raise Http404('Page does not exist')
 
 
-class EpisodeViewSet(APIView):
+class EpisodeView(APIView):
     queryset = models.Episode.objects.all()
     serializer_class = EpisodeDetailsResponseSerializer
     permission_classes = (IsAuthenticated,)
@@ -669,7 +669,7 @@ class VisitsViewSet(viewsets.ViewSet):
             visits = models.Visit.objects.filter(user=user.profile)
         except Exception as e:
             logger.error('Error in fetching visits: %s' % str(e))
-            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         visits_response = VisitResponseSerializer(visits, many=True)
         return Response(visits_response.data)
 
@@ -682,7 +682,7 @@ class VisitsViewSet(viewsets.ViewSet):
         user = request.user
         data = request.data
         if not data.get('visits'):
-            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         else:
             visits = data.get('visits')
             # try:
@@ -698,14 +698,14 @@ class VisitsViewSet(viewsets.ViewSet):
             if not serializer.is_valid():
                 for error in serializer.errors:
                     logger.error(str(error))
-                return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
             else:
                 try:
                     serializer.save(user=user.profile)
                     return Response({'success': True, 'error': None})
                 except Exception as e:
                     logger.error('Error in saving data: %s' % str(e))
-                    return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def update(self, request, pk=None):
         """
@@ -720,19 +720,19 @@ class VisitsViewSet(viewsets.ViewSet):
             visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
         except Exception as e:
             logger.error('Visit not found: %s' % (str(e)))
-            return Response(status=400, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
         serializer = VisitSerializer(instance=visit, data=request.data)
         if not serializer.is_valid():
             logger.error(str(serializer.errors))
-            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
             serializer.save(user=user.profile)
         except IntegrityError as e:
             logger.error('IntegrityError. Cannot update visit: %s' % str(e))
-            return Response(status=400, data={'success': False, 'error': errors.DATA_INVALID})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         except Exception as e:
             logger.error('Cannot update visit: %s' % str(e))
-            return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': True, 'error': None})
 
     def destroy(self, request, pk=None):
@@ -741,10 +741,10 @@ class VisitsViewSet(viewsets.ViewSet):
             visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
         except Exception as e:
             logger.error('Visit not found: %s' % (str(e)))
-            return Response(status=400, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
         try:
             visit.delete()
         except Exception as e:
             logger.error('Cannot delete visit: %s' % str(e))
-            return Response(status=400, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': True, 'error': None})

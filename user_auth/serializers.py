@@ -70,14 +70,3 @@ class AdminUserResponseSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         pass
 
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(source='uuid')
-    firstName = serializers.CharField(source='user.first_name')
-    lastName = serializers.CharField(source='user.last_name')
-    username = serializers.CharField(source='user.username')
-    contactNo = serializers.CharField(source='contact_no')
-
-    class Meta:
-        model = models.UserProfile
-        fields = ('id', 'firstName', 'lastName', 'username', 'contactNo', 'address')

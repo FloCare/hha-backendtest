@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from phi import models
-from user_auth.serializers import AddressSerializer, UserProfileSerializer
+from user_auth.serializers import AddressSerializer
+from user_auth.response_serializers import UserProfileResponseSerializer
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -82,8 +83,8 @@ class EpisodeSerializer(serializers.ModelSerializer):
     endDate = serializers.DateField(source='end_date', required=False)
     transportationLevel = serializers.CharField(source='transportation_level', required=False)
     acuityType = serializers.CharField(source='acuity_type', required=False)
-    socClinician = UserProfileSerializer(source='soc_clinician', required=False)
-    attendingPhysician = UserProfileSerializer(source='attending_physician', required=False)
+    socClinician = UserProfileResponseSerializer(source='soc_clinician', required=False)
+    attendingPhysician = UserProfileResponseSerializer(source='attending_physician', required=False)
     primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
 
     class Meta:
