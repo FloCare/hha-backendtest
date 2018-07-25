@@ -103,3 +103,36 @@ class EpisodeDetailsResponseSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         pass
 
+
+class VisitResponseSerializer(serializers.ModelSerializer):
+    visitID = serializers.UUIDField(source='id')
+    userID = serializers.UUIDField(source='user_id')
+    episodeID = serializers.UUIDField(source="episode_id", required=False)
+    timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    isDone = serializers.BooleanField(source='is_done', required=False)
+    isDeleted = serializers.BooleanField(source='is_deleted', required=False)
+    midnightEpochOfVisit = serializers.IntegerField(source='midnight_epoch', required=False)
+    # Todo: This field needs to be improved
+    plannedStartTime = serializers.TimeField(source='planned_start_time', required=False)
+
+    def create(self, validated_data):
+        return self.Meta.model.objects.create(**validated_data)
+
+    class Meta:
+        model = models.Visit
+        fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
+                  'midnightEpochOfVisit', 'plannedStartTime')
+
+
+class VisitDetailsResponseSerializer(serializers.Serializer):
+    success = VisitResponseSerializer(many=True)
+    failure = FailureResponseSerializer(many=True)
+
+    class Meta:
+        fields = ('success', 'failure')
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass

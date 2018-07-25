@@ -17,10 +17,9 @@ from phi.constants import query_to_db_field_map
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer, \
-    VisitResponseSerializer
+    PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
-    EpisodeDetailsResponseSerializer
+    EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -653,38 +652,54 @@ class EpisodeView(APIView):
         return Response(serializer.data)
 
 
-class VisitsViewSet(viewsets.ViewSet):
+class GetVisitsView(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = VisitDetailsResponseSerializer
+
+    def get_results(self, request):
+        data = request.data
+        if 'visitIDs' in data:
+            visit_ids = data['visitIDs']
+
+            success = list()
+            failure_ids = list()
+            for visit_id in visit_ids:
+                try:
+                    # Todo: Add permission check. Visit should belong to that user? Or other user in the org?
+                    visit = models.Visit.objects.get(pk=visit_id)
+                    success.append(visit)
+                except Exception as e:
+                    logger.error('Visit not found: %s' % (str(e)))
+                    failure_ids.append(visit_id)
+            return success, failure_ids
+        return None, None
+
+    # def get_objects_by_ids(self, ids):
+    #     visits = models.Visit.objects.filter(id__in=ids)
+    #     return visits
+
+    def post(self, request):
+        success, failure_ids = self.get_results(request)
+        failure = list()
+        for id in failure_ids:
+            failure.append({'id': id, 'error': errors.ACCESS_DENIED})
+        resp = {'success': success, 'failure': failure}
+        serializer = self.serializer_class(resp)
+        return Response(serializer.data)
+
+
+class AddVisitsView(APIView):
     queryset = models.Visit.objects.all()
     permission_classes = (IsAuthenticated,)
 
-    def list(self, request):
-        """
-        List all visits for requesting user
-        :param request:
-        :return:
-        """
-        user = request.user
-        data = request.data
-        try:
-            visits = models.Visit.objects.filter(user=user.profile)
-        except Exception as e:
-            logger.error('Error in fetching visits: %s' % str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
-        visits_response = VisitResponseSerializer(visits, many=True)
-        return Response(visits_response.data)
-
-    def create(self, request):
-        """
-        Bulk create visits for the requesting user
-        :param request:
-        :return:
-        """
-        user = request.user
+    def get_results(self, request):
         data = request.data
         if not data.get('visits'):
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
+            return None
         else:
             visits = data.get('visits')
+            # Todo: Check permissions for visits
             # try:
             #     episode = visits.get('episode', None)
             #     if not episode:
@@ -694,39 +709,57 @@ class VisitsViewSet(viewsets.ViewSet):
             # except Exception as e:
             #     logger.error('User doesnt have access to this episode: %s' % str(e))
             #     return Response(status=400, data={'success': False, 'error': errors.ACCESS_DENIED})
-            serializer = VisitSerializer(data=visits, many=True)
-            if not serializer.is_valid():
-                for error in serializer.errors:
-                    logger.error(str(error))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
-            else:
-                try:
-                    serializer.save(user=user.profile)
-                    return Response({'success': True, 'error': None})
-                except Exception as e:
-                    logger.error('Error in saving data: %s' % str(e))
-                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            return visits
 
-    def update(self, request, pk=None):
-        """
-        Update a visit
-        :param request:
-        :param pk:
-        :return:
-        """
+    # Todo: Return a per visit success/failure response
+    # Todo: Trigger notifications to other users with visits on same day for same episode
+    def post(self, request):
+        visits = self.get_results(request)
+        if not visits:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
+
+        serializer = VisitSerializer(data=visits, many=True)
+        if not serializer.is_valid():
+            for error in serializer.errors:
+                logger.error(str(error))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
+        else:
+            try:
+                serializer.save(user=request.user.profile)
+                return Response({'success': True, 'error': None})
+            except Exception as e:
+                logger.error('Error in saving data: %s' % str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class UpdateVisitView(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def get_results(self, request):
         user = request.user
-        try:
-            # Visit should belong to that user
-            visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
-        except Exception as e:
-            logger.error('Visit not found: %s' % (str(e)))
+        data = request.data
+        if 'visitID' in data:
+            visit_id = data['visitID']
+            try:
+                # Visit should belong to that user
+                visit = models.Visit.objects.filter(user=user.profile).get(pk=visit_id)
+                return visit
+            except Exception as e:
+                logger.error('Visit not found: %s' % (str(e)))
+        return None
+
+    def put(self, request):
+        visit = self.get_results(request)
+        if not visit:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+
         serializer = VisitSerializer(instance=visit, data=request.data)
         if not serializer.is_valid():
             logger.error(str(serializer.errors))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
-            serializer.save(user=user.profile)
+            serializer.save(user=request.user.profile)
         except IntegrityError as e:
             logger.error('IntegrityError. Cannot update visit: %s' % str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
@@ -735,12 +768,26 @@ class VisitsViewSet(viewsets.ViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': True, 'error': None})
 
-    def destroy(self, request, pk=None):
+
+class DeleteVisitView(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def get_results(self, request):
         user = request.user
-        try:
-            visit = models.Visit.objects.filter(user=user.profile).get(pk=pk)
-        except Exception as e:
-            logger.error('Visit not found: %s' % (str(e)))
+        data = request.data
+        if 'visitID' in data:
+            visitID = data['visitID']
+            try:
+                visit = models.Visit.objects.filter(user=user.profile).get(pk=visitID)
+                return visit
+            except Exception as e:
+                logger.error('Visit not found: %s' % (str(e)))
+        return None
+
+    def delete(self, request):
+        visit = self.get_results(request)
+        if not visit:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
         try:
             visit.delete()

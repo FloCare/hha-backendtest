@@ -151,7 +151,7 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
 
 
 class VisitSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField()
+    visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(required=False)    # gets populated with logged in user
     episodeID = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
@@ -167,24 +167,5 @@ class VisitSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('id', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime')
-
-
-class VisitResponseSerializer(serializers.ModelSerializer):
-    userID = serializers.UUIDField(source='user_id')
-    episodeID = serializers.UUIDField(source="episode_id", required=False)
-    timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
-    isDone = serializers.BooleanField(source='is_done', required=False)
-    isDeleted = serializers.BooleanField(source='is_deleted', required=False)
-    midnightEpochOfVisit = serializers.IntegerField(source='midnight_epoch', required=False)
-    # Todo: This field needs to be improved
-    plannedStartTime = serializers.TimeField(source='planned_start_time', required=False)
-
-    def create(self, validated_data):
-        return self.Meta.model.objects.create(**validated_data)
-
-    class Meta:
-        model = models.Visit
-        fields = ('id', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
+        fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
                   'midnightEpochOfVisit', 'plannedStartTime')
