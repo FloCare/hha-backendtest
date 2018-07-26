@@ -19,7 +19,8 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
     PhysicianObjectSerializer, VisitSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
-    EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer
+    EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
+    VisitResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -646,6 +647,22 @@ class EpisodeView(APIView):
         resp = {'success': success, 'failure': failure}
         serializer = self.serializer_class(resp)
         return Response(serializer.data)
+
+
+class GetMyVisits(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = VisitResponseSerializer
+
+    def get(self, request):
+        user = request.user.profile
+        try:
+            visits = models.Visit.objects.filter(user=user)
+            serializer = self.serializer_class(visits, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Error in fetching visits for this user: %s' % str(user))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
 
 class GetVisitsView(APIView):

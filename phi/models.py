@@ -145,6 +145,8 @@ class Visit(models.Model):
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
     # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
+    # Organization is added to Visit to make Querying Visits from same Org easier.
+    # This is reduntant info, otherwise can be obtained using UserEpisodeAccess Model
     organization = models.ForeignKey(user_models.Organization, related_name='visits', on_delete=models.CASCADE, null=True)
 
     midnight_epoch = models.CharField(max_length=20, null=True)
