@@ -506,74 +506,64 @@ class AccessiblePatientsDetailView(APIView):
         return Response(serializer.data)
 
 
-# Todo: Revisit these when adding physician capabilities
 class PhysiciansViewSet(viewsets.ViewSet):
-
     queryset = models.Physician.objects.all()
     permission_classes = (IsAuthenticated,)
-
-    def parse_data(self, data):
-        try:
-            physician = data['physician']
-            return physician
-        except Exception as e:
-            return None
 
     def list(self, request):
         try:
             user = request.user
             try:
-                user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
-                if user_org:
+                user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
+                if user_org.exists():
                     logger.debug('User is admin')
-
+                    # Todo: Add notion of Physicians being associated to Orgs
                     physicians = models.Physician.objects.all()
                     serializer = PhysicianResponseSerializer(physicians, many=True)
-                    headers = {'Content-Type': 'application/json'}
                     logger.debug(str(serializer.data))
-                    return Response(serializer.data, headers=headers)
+                    return Response(serializer.data)
+                else:
+                    return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
             except Exception as e:
                 logger.error(str(e))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
-
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         except Exception as e:
             logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
-    # Todo: Add admin permission check
     def create(self, request):
-        user = request.user
-        data = request.data
-
-        physician = self.parse_data(data)
-        if (not physician):
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Invalid data passed'})
-
-        try:
-            physician_serializer = PhysicianObjectSerializer(data=physician)
-            physician_serializer.is_valid()
-            physician_serializer.save()
-
-            return Response({'success': True, 'error': None})
-
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
+        user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
+        if user_org.exists():
+            physician = request.data.get('physician', None)
+            if not physician:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
+            try:
+                physician_serializer = PhysicianObjectSerializer(data=physician)
+                physician_serializer.is_valid()
+                physician_serializer.save()
+                return Response({'success': True, 'error': None})
+            except Exception as e:
+                logger.error(str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        else:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
 
     def retrieve(self, request, pk=None):
         # Check if user is admin of this org
         try:
             user = request.user
-            user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
-            organization = user_org.organization
-            physician = models.Physician.objects.get(uuid=pk)
-            serializer = PhysicianResponseSerializer(physician)
-            headers = {'Content-Type': 'application/json'}
-            logger.debug(str(serializer.data))
-            return Response(serializer.data, headers=headers)
+            user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
+            if user_org.exists():
+                # Todo: Add notion of Physicians being associated to Orgs; Do permission checks
+                physician = models.Physician.objects.get(uuid=pk)
+                serializer = PhysicianResponseSerializer(physician)
+                logger.debug(str(serializer.data))
+                return Response(serializer.data)
+            else:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'Something went wrong'})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def update(self, request, pk=None):
         pass

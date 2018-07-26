@@ -26,9 +26,9 @@ class PhysicianObjectSerializer(serializers.ModelSerializer):
     npi = serializers.CharField()
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
-    phone1 = serializers.CharField()
-    phone2 = serializers.CharField()
-    fax = serializers.CharField()
+    phone1 = serializers.CharField(required=False)
+    phone2 = serializers.CharField(required=False)
+    fax = serializers.CharField(required=False)
 
     class Meta:
         model = models.Physician
