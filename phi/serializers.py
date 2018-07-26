@@ -27,7 +27,7 @@ class PhysicianObjectSerializer(serializers.ModelSerializer):
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     phone1 = serializers.CharField(required=False)
-    phone2 = serializers.CharField(required=False)
+    phone2 = serializers.CharField(required=False, allow_null=True)
     fax = serializers.CharField(required=False)
 
     class Meta:

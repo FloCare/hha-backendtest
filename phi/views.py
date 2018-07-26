@@ -539,9 +539,12 @@ class PhysiciansViewSet(viewsets.ViewSet):
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
             try:
                 physician_serializer = PhysicianObjectSerializer(data=physician)
-                physician_serializer.is_valid()
-                physician_serializer.save()
-                return Response({'success': True, 'error': None})
+                if physician_serializer.is_valid():
+                    physician_serializer.save()
+                    return Response({'success': True, 'error': None})
+                else:
+                    logger.error('Error in creating physician: %s' % str(physician_serializer.errors))
+                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
             except Exception as e:
                 logger.error(str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
