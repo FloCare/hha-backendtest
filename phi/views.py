@@ -17,10 +17,10 @@ from phi.constants import query_to_db_field_map
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, VisitSerializer
+    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
-    VisitResponseSerializer
+    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -252,15 +252,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             organization = user_org.organization
             if user_org :
                 patient = models.Patient.objects.get(uuid=pk)
-                episode_ids = patient.episodes.values_list('uuid', flat=True)      # Choose is_active
+
+                # Assumption: A patient can only have 1 active episode at a time
+                # Get the active episodes for that patient
+                episode = patient.episodes.get(is_active=True)
+                physician_id = episode.primary_physician.uuid
 
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
                 if org_has_access.exists():
-                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization=organization).values_list('user_id', flat=True)
-                    # print('users registered for this patient:', list(user_profile_ids))
-                    #users = UserProfile.objects.filter(id__in=user_profile_ids)
-                    serializer = PatientWithUsersSerializer({'id': patient.uuid, 'patient': patient, 'userIds': list(user_profile_ids)})
+                    user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id=episode.uuid).filter(organization=organization).values_list('user_id', flat=True)
+                    serializer = PatientWithUsersAndPhysiciansSerializer({'id': patient.uuid, 'patient': patient, 'userIds': list(user_profile_ids), 'physicianId': physician_id})
                     return Response(serializer.data)
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
@@ -466,7 +468,6 @@ class AccessiblePatientListView(generics.ListAPIView):
 
 
 # Being used for app API
-# Todo: Errors have been hardcoded
 class AccessiblePatientsDetailView(APIView):
     queryset = models.Patient.objects.all()
     serializer_class = PatientDetailsResponseSerializer
@@ -497,6 +498,50 @@ class AccessiblePatientsDetailView(APIView):
     def get_objects_by_ids(self, ids):
         # These patients exist, along-with 1 active episode
         patients = models.Patient.objects.filter(uuid__in=ids)
+        return patients
+
+    def post(self, request):
+        success_ids, failure_ids = self.get_results(request)
+        success = self.get_objects_by_ids(success_ids)
+        failure = list()
+        for id in failure_ids:
+            failure.append({'id': id, 'error': errors.ACCESS_DENIED})
+        resp = {'success': success, 'failure': failure}
+        serializer = self.serializer_class(resp)
+        return Response(serializer.data)
+
+
+# Todo: Temporary EndPoint to support migrating apps from 0.2.0 to Next Version
+class GetPatientsByOldIds(APIView):
+    queryset = models.Patient.objects.all()
+    serializer_class = PatientDetailsWithOldIdsResponseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_results(self, request):
+        user = request.user
+        data = request.data
+        if 'patientIDs' in data:
+            patient_list = data['patientIDs']
+
+            success_ids = list()
+            failure_ids = list()
+            for patient_id in patient_list:
+                try:
+                    episode = models.Patient.objects.get(id=patient_id).episodes.get(is_active=True)
+                    access = models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode=episode)
+                    if access.exists():
+                        success_ids.append(patient_id)
+                    else:
+                        failure_ids.append(patient_id)
+                except Exception as e:
+                    logger.error(str(e))
+                    failure_ids.append(patient_id)
+            return success_ids, failure_ids
+        return None, None
+
+    def get_objects_by_ids(self, ids):
+        # These patients exist, along-with 1 active episode
+        patients = models.Patient.objects.filter(id__in=ids)
         return patients
 
     def post(self, request):

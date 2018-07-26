@@ -3,7 +3,7 @@ from user_auth import models
 
 
 class AddressSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(source='uuid', required=False)
+    addressID = serializers.UUIDField(source='uuid', required=False)
     zipCode = serializers.CharField(source='zip', required=False)
     streetAddress = serializers.CharField(source='street_address', required=False)
     apartmentNo = serializers.CharField(source='apartment_no', required=False)
@@ -13,7 +13,7 @@ class AddressSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Address
-        fields = ('id', 'apartmentNo', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
+        fields = ('addressID', 'apartmentNo', 'streetAddress', 'zipCode', 'city', 'state', 'country', 'latitude', 'longitude',)
 
     def create(self, validated_data):
         """

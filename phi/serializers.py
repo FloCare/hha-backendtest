@@ -65,6 +65,16 @@ class PatientWithUsersSerializer(serializers.ModelSerializer):
         fields = ('patient', 'userIds')
 
 
+class PatientWithUsersAndPhysiciansSerializer(serializers.ModelSerializer):
+    patient = PatientSerializerWeb()
+    userIds = serializers.ListField(child=serializers.UUIDField())
+    physicianId = serializers.UUIDField()
+
+    class Meta:
+        model = models.Patient
+        fields = ('patient', 'userIds', 'physicianId')
+
+
 class OrganizationPatientMappingSerializer(serializers.ModelSerializer):
     organization_id = serializers.UUIDField()
     patient_id = serializers.UUIDField()
