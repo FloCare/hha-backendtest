@@ -145,6 +145,7 @@ class Visit(models.Model):
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
     # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
+    organization = models.ForeignKey(user_models.Organization, related_name='visits', on_delete=models.CASCADE, null=True)
 
     midnight_epoch = models.CharField(max_length=20, null=True)
     planned_start_time = models.DateTimeField(null=True)

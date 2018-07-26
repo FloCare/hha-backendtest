@@ -157,6 +157,7 @@ class VisitSerializer(serializers.ModelSerializer):
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     midnightEpochOfVisit = serializers.CharField(source='midnight_epoch', required=False)
     plannedStartTime = serializers.CharField(source='planned_start_time', required=False)
+    organizationID = serializers.UUIDField(source='organization_id', required=False)
 
     def validate_midnightEpochOfVisit(self, obj):
         try:
@@ -185,4 +186,4 @@ class VisitSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Visit
         fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime')
+                  'midnightEpochOfVisit', 'plannedStartTime', 'organizationID')

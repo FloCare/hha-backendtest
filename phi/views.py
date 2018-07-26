@@ -662,18 +662,15 @@ class GetVisitsView(APIView):
             failure_ids = list()
             for visit_id in visit_ids:
                 try:
-                    # Todo: Add permission check. Visit should belong to that user? Or other user in the org?
-                    visit = models.Visit.objects.get(pk=visit_id)
+                    # Allow users to query all visits from the same Org
+                    orgs = UserOrganizationAccess.objects.filter(user=request.user.profile).values_list('organization', flat=True)
+                    visit = models.Visit.objects.filter(organization__in=orgs).get(pk=visit_id)
                     success.append(visit)
                 except Exception as e:
                     logger.error('Visit not found: %s' % (str(e)))
                     failure_ids.append(visit_id)
             return success, failure_ids
         return None, None
-
-    # def get_objects_by_ids(self, ids):
-    #     visits = models.Visit.objects.filter(id__in=ids)
-    #     return visits
 
     def post(self, request):
         success, failure_ids = self.get_results(request)
@@ -694,10 +691,11 @@ class AddVisitsView(APIView):
     queryset = models.Visit.objects.all()
     permission_classes = (IsAuthenticated,)
 
-    # Todo: Trigger notifications to other users with visits on same day for same episode
-    def publish_events(self, visit_id, episode_id):
-        logger.debug('Events being published for visit_id: %s' % str(visit_id))
-        return
+    # Doing this from the app
+    # Trigger notifications to other users with visits on same day for same episode
+    # def publish_events(self, visit_id, episode_id):
+    #     logger.debug('Events being published for visit_id: %s' % str(visit_id))
+    #     return
 
     def post(self, request):
         # Check user permissions for that episode
@@ -714,20 +712,23 @@ class AddVisitsView(APIView):
             episode_id = visit.get('episodeID')
             if not episode_id:
                 logger.warning('Not saving. EpisodeID not received for visit: %s' % str(visit))
-                failure.append(serializer.initial_data)
+                failure.append(visit)
                 continue
-            if not models.UserEpisodeAccess.objects.filter(user=request.user.profile).filter(episode_id=episode_id).exists():
-                logger.warning('Not saving visit. User does not have access to this episode: %s' % str(episode_id))
-                failure.append(serializer.initial_data)
+            # Todo: Handle case of same-user-multiple-orgs
+            try:
+                org = models.UserEpisodeAccess.objects.filter(user=request.user.profile).get(episode_id=episode_id).organization
+            except Exception as e:
+                logger.warning('Not saving visit. Error: %s' % str(e))
+                failure.append(visit)
                 continue
 
             serializer = VisitSerializer(data=visit)
             if serializer.is_valid():
                 try:
-                    serializer.save(user=request.user.profile)
+                    serializer.save(user=request.user.profile, organization=org)
                     visit_id = serializer.validated_data.get('id')
                     success.append(visit_id)
-                    self.publish_events(visit_id, episode_id)
+                    # self.publish_events(visit_id, episode_id)
                 except Exception as e:
                     logger.error('Error in saving visit: %s' % str(e))
                     failure.append(serializer.initial_data)
@@ -760,12 +761,20 @@ class UpdateVisitView(APIView):
         if not visit:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
 
+        # Todo: Handle case of same-user-multiple-orgs
+        # Get organization of requesting user
+        try:
+            org = models.UserEpisodeAccess.objects.filter(user=request.user.profile).get(episode_id=visit.episode_id).organization
+        except Exception as e:
+            logger.error('Not saving visit. Error: %s' % str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+
         serializer = VisitSerializer(instance=visit, data=request.data)
         if not serializer.is_valid():
             logger.error(str(serializer.errors))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
-            serializer.save(user=request.user.profile)
+            serializer.save(user=request.user.profile, organization=org)
         except IntegrityError as e:
             logger.error('IntegrityError. Cannot update visit: %s' % str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
