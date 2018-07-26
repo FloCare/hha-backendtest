@@ -4,6 +4,9 @@ from user_auth.serializers import AddressSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer
 import datetime
 import dateutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
@@ -162,7 +165,7 @@ class VisitSerializer(serializers.ModelSerializer):
                 datetime.datetime.fromtimestamp(ms/1000.0)
                 return obj
         except Exception as e:
-            print('Error in parsing midnightEpochOfVisit:', str(e))
+            logger.error('Error in parsing midnightEpochOfVisit: %s' % str(e))
             raise serializers.ValidationError('midnightEpochOfVisit format is not correct')
         return None
 
@@ -172,7 +175,7 @@ class VisitSerializer(serializers.ModelSerializer):
                 ts = dateutil.parser.parse(obj)
                 return ts
             except Exception as e:
-                print('Parse error in plannedStartTime:', str(e))
+                logger.error('Parse error in plannedStartTime: %s' % str(e))
                 raise serializers.ValidationError('plannedStartTime format is not ISO 8601')
         return None
 

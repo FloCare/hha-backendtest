@@ -49,16 +49,15 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         try:
             patient = data['patient']
             address = patient.pop('address')
-            #physicianId = data['physicianId']
-            # address = patient['address']
+            physician = data.get('physicianId', None)
             if 'users' in data:
                 users = data['users']
             else:
                 users = []
-            return patient, address, users
+            return patient, address, users, physician
         except Exception as e:
             logger.error('Incorrect or Incomplete data passed: %s' % str(e))
-            return None, None, None
+            return None, None, None, None
 
     def update(self, request, pk=None):
         """
@@ -68,30 +67,29 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         :return:
         """
         try:
-            user = request.user
             data = request.data
-            if 'users' not in data:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': 'Invalid data passed'})
-            users = data['users']
+            users = data.get('users', [])
+            physician = data.get('physicianId', None)
 
             # Check if caller is an admin
-            user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
-            organization = user_org.organization
-            if user_org :
+            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            if user_org:
+                organization = user_org.organization
 
                 # Check if the passed users belong to this organization
                 # Someone might maliciously pass invalid users
                 # TODO: This IS BAAAAD. Change this ASAP to bulk API.
                 for userid in users:
-                    u = UserOrganizationAccess.objects.filter(organization=organization).get(user_id=userid)
-                    if not u:
+                    u = UserOrganizationAccess.objects.filter(organization=organization).filter(user_id=userid)
+                    if not u.exists():
                         raise Exception('Invalid user passed')
 
                 patient = models.Patient.objects.get(uuid=pk)
 
                 try:
                     # Get the active Episode ID for this patient
-                    episode_id = patient.episodes.get(is_active=True).uuid
+                    episode = patient.episodes.get(is_active=True)
+                    episode_id = episode.uuid
                 except Exception as e:
                     logger.error('Error in fetching active episode: %s' % str(e))
                     raise e
@@ -100,8 +98,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 logger.debug('patient-id: %s' % str(patient.uuid))
 
                 # Check if org has access to this patient
-                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).get(patient_id=patient.uuid)
-                if org_has_access:
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient_id=patient.uuid)
+                if org_has_access.exists():
                     with transaction.atomic():
                         # Update patient fields if present
                         if data.get('patient'):
@@ -116,6 +114,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
                             serializer.is_valid()
                             serializer.save()
+
+                        # Attach Physicians Passed to this Episode
+                        if physician:
+                            episode.primary_physician = physician
+                            episode.save()
 
                         # Add the users sent in the payload
                         for user_id in users:
@@ -203,8 +206,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 episode_ids = patient.episodes.values_list('uuid', flat=True)      # Choose is_active
 
                 # Org has access to patient
-                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).get(patient=patient)
-                if org_has_access:
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
+                if org_has_access.exists():
                     with transaction.atomic():
                         # models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
                         # models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id__in=episode_ids).delete()
@@ -251,8 +254,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 episode_ids = patient.episodes.values_list('uuid', flat=True)      # Choose is_active
 
                 # Org has access to patient
-                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).get(patient=patient)
-                if org_has_access:
+                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
+                if org_has_access.exists():
                     user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization=organization).values_list('user_id', flat=True)
                     # print('users registered for this patient:', list(user_profile_ids))
                     #users = UserProfile.objects.filter(id__in=user_profile_ids)
@@ -335,7 +338,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         user = request.user
         data = request.data
-        patient, address, users = self.parse_data(data)
+        patient, address, users, physician = self.parse_data(data)
         if (not patient) or (not address):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
         try:
@@ -390,7 +393,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     'pharmacy': None,
                     'soc_clinician': None,
                     'attending_physician': None,
-                    'primary_physician': None
+                    'primary_physician': physician
                 }
                 episode_serializer = EpisodeSerializer(data=episode)
                 episode_serializer.is_valid()
