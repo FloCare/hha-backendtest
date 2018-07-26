@@ -35,14 +35,6 @@ class PhysicianObjectSerializer(serializers.ModelSerializer):
         fields = ('npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
 
 
-class PhysicianResponseSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(source='uuid')
-
-    class Meta:
-        model = models.Physician
-        fields = ('id', 'npi', 'first_name', 'last_name', 'phone1', 'phone2', 'fax')
-
-
 class PatientSerializerWeb(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid')
     address = AddressSerializer()

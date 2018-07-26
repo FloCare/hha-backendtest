@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from user_auth.serializers import AddressSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer
-from phi.serializers import PhysicianObjectSerializer
 from phi import models
 
 
@@ -72,6 +71,16 @@ class PatientDetailsResponseSerializer(serializers.Serializer):
         pass
 
 
+class PhysicianResponseSerializer(serializers.ModelSerializer):
+    physicianID = serializers.UUIDField(source='uuid')
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+
+    class Meta:
+        model = models.Physician
+        fields = ('physicianID', 'npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
+
+
 class EpisodeResponseSerializer(serializers.ModelSerializer):
     episodeID = serializers.UUIDField(source='uuid', required=False)
     patientID = serializers.UUIDField(source='patient_id', required=False)
@@ -81,7 +90,7 @@ class EpisodeResponseSerializer(serializers.ModelSerializer):
     acuityType = serializers.CharField(source='acuity_type', required=False)
     socClinician = UserProfileResponseSerializer(source='soc_clinician', required=False)
     attendingPhysician = UserProfileResponseSerializer(source='attending_physician', required=False)
-    primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
+    primaryPhysician = PhysicianResponseSerializer(source='primary_physician', required=False)
 
     class Meta:
         model = models.Episode

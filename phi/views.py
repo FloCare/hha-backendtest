@@ -17,9 +17,9 @@ from phi.constants import query_to_db_field_map
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, PhysicianResponseSerializer, VisitSerializer
+    PhysicianObjectSerializer, VisitSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
-    EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer
+    EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
