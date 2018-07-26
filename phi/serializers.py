@@ -150,7 +150,7 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
 
 class VisitSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
-    userID = serializers.UUIDField(required=False)    # gets populated with logged in user
+    userID = serializers.UUIDField(source="user_id", required=False)
     episodeID = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)

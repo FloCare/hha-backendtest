@@ -686,46 +686,56 @@ class GetVisitsView(APIView):
 
 
 class AddVisitsView(APIView):
+    """
+    Create multiple visits for a user.
+    Only a user with access to an episode can create visit for that episode.
+    Return a per visit success/failure response
+    """
     queryset = models.Visit.objects.all()
     permission_classes = (IsAuthenticated,)
 
-    def get_results(self, request):
-        data = request.data
-        if not data.get('visits'):
-            return None
-        else:
-            visits = data.get('visits')
-            # Todo: Check permissions for visits
-            # try:
-            #     episode = visits.get('episode', None)
-            #     if not episode:
-            #         raise Exception('episode key not passed')
-            #     if not models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode_id=episode).exists():
-            #         raise Exception('User does not have access to this Episode')
-            # except Exception as e:
-            #     logger.error('User doesnt have access to this episode: %s' % str(e))
-            #     return Response(status=400, data={'success': False, 'error': errors.ACCESS_DENIED})
-            return visits
-
-    # Todo: Return a per visit success/failure response
     # Todo: Trigger notifications to other users with visits on same day for same episode
+    def publish_events(self, visit_id, episode_id):
+        logger.debug('Events being published for visit_id: %s' % str(visit_id))
+        return
+
     def post(self, request):
-        visits = self.get_results(request)
+        # Check user permissions for that episode
+        visits = request.data.get('visits')
         if not visits:
+            logger.error('"visits" not present in request')
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
 
-        serializer = VisitSerializer(data=visits, many=True)
-        if not serializer.is_valid():
-            for error in serializer.errors:
-                logger.error(str(error))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
-        else:
-            try:
-                serializer.save(user=request.user.profile)
-                return Response({'success': True, 'error': None})
-            except Exception as e:
-                logger.error('Error in saving data: %s' % str(e))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        success = list()
+        failure = list()
+
+        # Check permission for, validate and save each visit
+        for visit in visits:
+            episode_id = visit.get('episodeID')
+            if not episode_id:
+                logger.warning('Not saving. EpisodeID not received for visit: %s' % str(visit))
+                failure.append(serializer.initial_data)
+                continue
+            if not models.UserEpisodeAccess.objects.filter(user=request.user.profile).filter(episode_id=episode_id).exists():
+                logger.warning('Not saving visit. User does not have access to this episode: %s' % str(episode_id))
+                failure.append(serializer.initial_data)
+                continue
+
+            serializer = VisitSerializer(data=visit)
+            if serializer.is_valid():
+                try:
+                    serializer.save(user=request.user.profile)
+                    visit_id = serializer.validated_data.get('id')
+                    success.append(visit_id)
+                    self.publish_events(visit_id, episode_id)
+                except Exception as e:
+                    logger.error('Error in saving visit: %s' % str(e))
+                    failure.append(serializer.initial_data)
+            else:
+                logger.warning('Not saving. Invalid data received for visit: %s' % str(visit))
+                failure.append(serializer.initial_data)
+        logger.debug('Success: %s, Failure: %s' % (str(success), str(failure)))
+        return Response({'success': success, 'failure': failure})
 
 
 class UpdateVisitView(APIView):
