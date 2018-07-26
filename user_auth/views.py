@@ -1,5 +1,5 @@
-from user_auth.serializers import AdminUserResponseSerializer, RoleSerializer
-from user_auth.response_serializers import UserProfileResponseSerializer
+from user_auth.serializers import RoleSerializer
+from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer
 from user_auth import models
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
