@@ -853,22 +853,23 @@ class DeleteVisitView(APIView):
     def get_results(self, request):
         user = request.user
         data = request.data
-        if 'visitID' in data:
-            visitID = data['visitID']
-            try:
-                visit = models.Visit.objects.filter(user=user.profile).get(pk=visitID)
-                return visit
-            except Exception as e:
-                logger.error('Visit not found: %s' % (str(e)))
-        return None
+        success_ids = list()
+        failure_ids = list()
+        if 'visitIDs' in data:
+            visit_ids = data['visitIDs']
+            for visit_id in visit_ids:
+                try:
+                    visit = models.Visit.objects.filter(user=user.profile).get(pk=visit_id)
+                    visit.delete()
+                    success_ids.append(visit_id)
+                except Exception as e:
+                    logger.error('Visit not found or cannot delete: %s' % (str(e)))
+                    failure_ids.append(visit_id)
+            return success_ids, failure_ids
+        return None, None
 
     def delete(self, request):
-        visit = self.get_results(request)
-        if not visit:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
-        try:
-            visit.delete()
-        except Exception as e:
-            logger.error('Cannot delete visit: %s' % str(e))
+        success_ids, failure_ids = self.get_results(request)
+        if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-        return Response({'success': True, 'error': None})
+        return Response({'success': success_ids, 'failure': failure_ids})
