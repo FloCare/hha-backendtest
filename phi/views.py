@@ -256,7 +256,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 # Assumption: A patient can only have 1 active episode at a time
                 # Get the active episodes for that patient
                 episode = patient.episodes.get(is_active=True)
-                physician_id = episode.primary_physician.uuid
+                physician_id = None
+                if episode.primary_physician:
+                    physician_id = episode.primary_physician.uuid
 
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
@@ -702,6 +704,7 @@ class GetMyVisits(APIView):
     def get(self, request):
         user = request.user.profile
         try:
+            # Todo: Can check in UserEpisodeAccess, and only return visits for episodes user currently has access to
             visits = models.Visit.objects.filter(user=user)
             serializer = self.serializer_class(visits, many=True)
             return Response(serializer.data)
@@ -846,6 +849,8 @@ class UpdateVisitView(APIView):
         return Response({'success': True, 'error': None})
 
 
+# Todo: When an episode access is removed, deleteAPI is also fired to corresponding remove visits.
+# Todo: What if network call fails. Should the visits be deleted directly from server?
 class DeleteVisitView(APIView):
     queryset = models.Visit.objects.all()
     permission_classes = (IsAuthenticated,)
