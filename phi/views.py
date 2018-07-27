@@ -149,15 +149,27 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                     'patientID': str(patient.uuid),
                                     'pn_apns': {
                                         "aps": {
-                                            "alert": {
-                                                "body": "You have a new Patient",
-                                            },
-                                            "sound": "default",
                                             "content-available": 1
                                         },
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
                                             "patientID": str(patient.uuid)
+                                        }
+                                    }
+                                }).async(my_publish_callback)
+
+                                settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                                    'pn_apns': {
+                                        "aps": {
+                                            "alert": {
+                                                "body": "You have a new Patient",
+                                            },
+                                            "sound": "default",
+                                        },
+                                        "payload": {
+                                            "messageCounter": AccessiblePatientViewSet.local_counter,
+                                            "patientID": str(patient.uuid),
+                                            "navigateTo": 'patient_list'
                                         }
                                     }
                                 }).async(my_publish_callback)
@@ -434,18 +446,30 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
-                        'patientID': str(patient_obj.uuid),
+                        'patientID': str(patient.uuid),
+                        'pn_apns': {
+                            "aps": {
+                                "content-available": 1
+                            },
+                            "payload": {
+                                "messageCounter": AccessiblePatientViewSet.local_counter,
+                                "patientID": str(patient.uuid)
+                            }
+                        }
+                    }).async(my_publish_callback)
+
+                    settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'pn_apns': {
                             "aps": {
                                 "alert": {
                                     "body": "You have a new Patient",
                                 },
                                 "sound": "default",
-                                "content-available": 1
                             },
                             "payload": {
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
-                                "patientID": str(patient_obj.uuid)
+                                "patientID": str(patient.uuid),
+                                "navigateTo": 'patient_list'
                             }
                         }
                     }).async(my_publish_callback)
