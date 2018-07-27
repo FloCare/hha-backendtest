@@ -118,7 +118,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                         # Attach Physicians Passed to this Episode
                         if physician:
-                            episode.primary_physician = physician
+                            episode.primary_physician_id = physician
                             episode.save()
 
                         # Add the users sent in the payload
