@@ -86,14 +86,13 @@ class OrganizationPatientMappingSerializer(serializers.ModelSerializer):
 
 class EpisodeSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid', required=False)
-    socDate = serializers.DateField(source='soc_date', required=False)
-    endDate = serializers.DateField(source='end_date', required=False)
-    transportationLevel = serializers.CharField(source='transportation_level', required=False)
-    acuityType = serializers.CharField(source='acuity_type', required=False)
-    # Todo: Do not use a ResponseSerializer for creating database entry
-    socClinician = UserProfileResponseSerializer(source='soc_clinician', required=False)
-    attendingPhysician = UserProfileResponseSerializer(source='attending_physician', required=False)
-    primaryPhysician = PhysicianObjectSerializer(source='primary_physician', required=False)
+    socDate = serializers.DateField(source='soc_date', required=False, allow_null=True)
+    endDate = serializers.DateField(source='end_date', required=False, allow_null=True)
+    transportationLevel = serializers.CharField(source='transportation_level', required=False, allow_null=True)
+    acuityType = serializers.CharField(source='acuity_type', required=False, allow_null=True)
+    socClinician = serializers.UUIDField(source='soc_clinician_id', required=False, allow_null=True)
+    attendingPhysician = serializers.UUIDField(source='attending_physician_id', required=False, allow_null=True)
+    primaryPhysician = serializers.UUIDField(source='primary_physician_id', required=False, allow_null=True)
 
     class Meta:
         model = models.Episode

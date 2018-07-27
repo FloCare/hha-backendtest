@@ -343,7 +343,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         user = request.user
         data = request.data
-        patient, address, users, physician = self.parse_data(data)
+        patient, address, users, physicianId = self.parse_data(data)
         if (not patient) or (not address):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
         try:
@@ -360,6 +360,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 if not u:
                     raise Exception('Invalid user passed')
 
+            if physicianId:
+                if not models.Physician.objects.filter(pk=physicianId).exists():
+                    logger.debug('PhysicianId is: invalid')
+                    raise Exception('Invalid physician passed')
+
             with transaction.atomic():
                 # Save Address
                 logger.debug('ADdress is: %s' % str(address))
@@ -368,7 +373,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 address_obj = serializer.save()
                 logger.debug('Address object is: %s' % str(address_obj))
 
-                # # Save Patient
                 try:
                     value = patient['dob']
                     d = dateutil.parser.parse(value)
@@ -377,6 +381,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     # Key is not present
                     logger.warning('Key is not present: %s' % str(e))
 
+                # # Save Patient
                 patient['address_id'] = address_obj.uuid
                 logger.debug('Patient data is: %s' % str(patient))
                 patient_serializer = PatientPlainObjectSerializer(data=patient)
@@ -387,23 +392,25 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 # Save Episode
                 episode = {
                     'patient': patient_obj.uuid,
-                    'soc_date': patient.get('soc_date') or None,
-                    'end_date': patient.get('end_date') or None,
+                    'socDate': patient.get('soc_date') or None,
+                    'endDate': patient.get('end_date') or None,
                     'period': patient.get('period') or None,
-                    'cpr_code': patient.get('cpr_code') or None,
-                    'transportation_level': patient.get('transportation_level') or None,
-                    'acuity_type': patient.get('acuity_type') or None,
+                    'cprCode': patient.get('cpr_code') or None,
+                    'transportationLevel': patient.get('transportation_level') or None,
+                    'acuityType': patient.get('acuity_type') or None,
                     'classification': None,
                     'allergies': None,
                     'pharmacy': None,
-                    'soc_clinician': None,
-                    'attending_physician': None,
-                    'primary_physician': physician
+                    'socClinician': None,
+                    'attendingPhysician': None,
+                    'primaryPhysician': physicianId
                 }
+                logger.debug('Saving episode: %s' % str(episode))
                 episode_serializer = EpisodeSerializer(data=episode)
                 episode_serializer.is_valid()
                 episode_obj = episode_serializer.save()
                 logger.debug('Episode Object saved successfully: %s' % str(episode_obj))
+                logger.debug('Episode Object saved successfully: %s' % episode_obj.primary_physician)
 
                 # Link Patient to Org
                 mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
@@ -422,7 +429,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                                                           'user_role': 'CareGiver'})
                     access_serializer.is_valid()
                     access_serializer.save()
-                    logger.debug('USerEpisodeAccess saved successfully')
+                    logger.debug('UserEpisodeAccess saved successfully')
 
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
