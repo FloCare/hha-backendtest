@@ -446,14 +446,14 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'actionType': 'ASSIGN',
-                        'patientID': str(patient.uuid),
+                        'patientID': str(patient_obj.uuid),
                         'pn_apns': {
                             "aps": {
                                 "content-available": 1
                             },
                             "payload": {
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
-                                "patientID": str(patient.uuid)
+                                "patientID": str(patient_obj.uuid)
                             }
                         }
                     }).async(my_publish_callback)
@@ -468,7 +468,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             },
                             "payload": {
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
-                                "patientID": str(patient.uuid),
+                                "patientID": str(patient_obj.uuid),
                                 "navigateTo": 'patient_list'
                             }
                         }
