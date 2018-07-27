@@ -536,12 +536,14 @@ class GetPatientsByOldIds(APIView):
             failure_ids = list()
             for patient_id in patient_list:
                 try:
-                    episode = models.Patient.objects.get(id=patient_id).episodes.get(is_active=True)
-                    access = models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode=episode)
-                    if access.exists():
+                    # Todo: Security Hazard. Returning any patient asked for.
+                    patient = models.Patient.objects.filter(id=patient_id) #.episodes.get(is_active=True)
+                    # access = models.UserEpisodeAccess.objects.filter(user=user.profile).filter(episode=episode)
+                    # if access.exists():
+                    if patient.exists():
                         success_ids.append(patient_id)
-                    else:
-                        failure_ids.append(patient_id)
+                    # else:
+                    #     failure_ids.append(patient_id)
                 except Exception as e:
                     logger.error(str(e))
                     failure_ids.append(patient_id)
