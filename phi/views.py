@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
+from django.db.models import Q
 
 from backend import errors
 from phi import models
@@ -563,6 +564,51 @@ class GetPatientsByOldIds(APIView):
             failure.append({'id': id, 'error': errors.ACCESS_DENIED})
         resp = {'success': success, 'failure': failure}
         serializer = self.serializer_class(resp)
+        return Response(serializer.data)
+
+
+class SearchPhysicianView(APIView):
+    model = models.Physician
+    queryset = models.Physician.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def parse_query_params(self, query_params):
+        if not query_params:
+            return None
+        sort = query_params.get('sort', None)
+        if sort:
+            if getattr(self.model, sort, None):
+                sort_field = sort
+            else:
+                sort_field = 'last_name'
+        else:
+            sort_field = 'last_name'
+        query = query_params.get('query', None)
+        size = query_params.get('size', None)
+        if size:
+            try:
+                size = min(int(size), 10)
+            except Exception as e:
+                size = None
+        return query, sort_field, size
+
+    def get_queryset(self, query, sort_field, size):
+        if query:
+            queryset = models.Physician.objects.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
+        else:
+            queryset = models.Physician.objects.all()
+        if sort_field:
+            queryset = queryset.order_by(sort_field)
+        if size:
+            queryset = queryset[:int(size)]
+        return queryset
+
+    def get(self, request):
+        query_params = request.query_params
+        logger.debug('Query Params are: %s' % str(query_params))
+        query, sort_field, size = self.parse_query_params(query_params)
+        physicians = self.get_queryset(query, sort_field, size)
+        serializer = PhysicianResponseSerializer(physicians, many=True)
         return Response(serializer.data)
 
 
