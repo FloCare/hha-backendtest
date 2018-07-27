@@ -12,7 +12,6 @@ router.register(r'physicians', views.PhysiciansViewSet)                         
 urlpatterns = [
     url(r'^v1.0/', include([
             url(r'^', include(router.urls)),
-            url(r'^search-physician/$', views.SearchPhysicianView.as_view()),                  # admin
             url(r'^get-assigned-patient-ids/$', views.AccessiblePatientListView.as_view()),     # app
             url(r'^get-patients-for-ids/$', views.AccessiblePatientsDetailView.as_view()),      # app
             # Todo: Temporary EndPoint to support migrating apps from 0.2.0 to Next Version

@@ -567,14 +567,14 @@ class GetPatientsByOldIds(APIView):
         return Response(serializer.data)
 
 
-class SearchPhysicianView(APIView):
+class PhysiciansViewSet(viewsets.ViewSet):
     model = models.Physician
     queryset = models.Physician.objects.all()
     permission_classes = (IsAuthenticated,)
 
     def parse_query_params(self, query_params):
         if not query_params:
-            return None
+            return None, None, None
         sort = query_params.get('sort', None)
         if sort:
             if getattr(self.model, sort, None):
@@ -587,12 +587,12 @@ class SearchPhysicianView(APIView):
         size = query_params.get('size', None)
         if size:
             try:
-                size = min(int(size), 10)
+                size = int(size)
             except Exception as e:
                 size = None
         return query, sort_field, size
 
-    def get_queryset(self, query, sort_field, size):
+    def get_results(self, query, sort_field, size):
         if query:
             queryset = models.Physician.objects.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
         else:
@@ -603,19 +603,6 @@ class SearchPhysicianView(APIView):
             queryset = queryset[:int(size)]
         return queryset
 
-    def get(self, request):
-        query_params = request.query_params
-        logger.debug('Query Params are: %s' % str(query_params))
-        query, sort_field, size = self.parse_query_params(query_params)
-        physicians = self.get_queryset(query, sort_field, size)
-        serializer = PhysicianResponseSerializer(physicians, many=True)
-        return Response(serializer.data)
-
-
-class PhysiciansViewSet(viewsets.ViewSet):
-    queryset = models.Physician.objects.all()
-    permission_classes = (IsAuthenticated,)
-
     def list(self, request):
         try:
             user = request.user
@@ -624,7 +611,10 @@ class PhysiciansViewSet(viewsets.ViewSet):
                 if user_org.exists():
                     logger.debug('User is admin')
                     # Todo: Add notion of Physicians being associated to Orgs
-                    physicians = models.Physician.objects.all()
+                    query_params = request.query_params
+                    logger.debug('Query Params are: %s' % str(query_params))
+                    query, sort_field, size = self.parse_query_params(query_params)
+                    physicians = self.get_results(query, sort_field, size)
                     serializer = PhysicianResponseSerializer(physicians, many=True)
                     logger.debug(str(serializer.data))
                     return Response(serializer.data)
