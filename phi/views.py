@@ -14,7 +14,7 @@ from django.db.models import Q
 
 from backend import errors
 from phi import models
-from phi.constants import query_to_db_field_map
+from phi.constants import query_to_db_field_map, NPI_DATA_URL
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
@@ -26,6 +26,7 @@ from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
+import requests
 from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
@@ -968,3 +969,20 @@ class DeleteVisitView(APIView):
         if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': success_ids, 'failure': failure_ids})
+
+
+# Todo: Protect this API
+def fetch_physician(request):
+    npi_id = request.GET.get('npi_id', '')
+    url = NPI_DATA_URL + str(npi_id) + '.json'
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            logger.debug('Response: %s' % str(data))
+            return JsonResponse(data)
+        else:
+            return JsonResponse({'success': False, 'error': 'Incorrect NPI Id'})
+    except Exception as e:
+        logger.error('Error in fetching Physician data using NPI ID. Error: %s' % str(e))
+        return JsonResponse({'success': False, 'error': errors.UNKNOWN_ERROR})

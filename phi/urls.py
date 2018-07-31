@@ -23,6 +23,7 @@ urlpatterns = [
             url(r'^delete-visit-for-id/$', views.DeleteVisitView.as_view()),                    # app
             url(r'^update-visit-for-id/$', views.UpdateVisitView.as_view()),                    # app
             url(r'^upload/$', views.upload_file, name='upload'),
+            url(r'^get-physician-for-npi/$', views.fetch_physician, name='npi'),        # admin,
         ])
     ),
 ]
