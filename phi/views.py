@@ -25,6 +25,7 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
+import datetime
 from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
@@ -179,15 +180,35 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         logger.debug('to delete: %s' % str(user_access_to_delete))
 
                         for user_episode_access in user_access_to_delete.iterator():
-                            logger.debug('user access to delete: %s' % str(user_episode_access))
-                            settings.PUBNUB.publish().channel(str(user_episode_access.user_id) + '_assignedPatients').message({
+                            user_id = user_episode_access.user_id
+                            logger.debug('User Access to delete: %s' % str(user_episode_access))
+                            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
+                            # Also send out User-Unassigned Msg to that episode's channel
+                            settings.PUBNUB.publish().channel('episode_' + str(episode_id)).message({
+                                'actionType': 'USER_UNASSIGNED',
+                                'userID': str(user_id),
+                            }).async(my_publish_callback)
+
+                            try:
+                                # Delete visits for that user
+                                logger.debug('Deleting visits for this user: %s' % str(user_id))
+                                # Get midNightEpoch for today
+                                today_midnight_epoch = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000
+                                future_visits = models.Visit.objects.filter(episode_id=episode_id).filter(user_id=user_id).filter(midnight_epoch__gte=today_midnight_epoch)
+                                future_visits.delete()
+                                logger.debug('%s Visits deleted successfully' % str(len(future_visits)))
+                            except Exception as e:
+                                logger.warning('Could not delete visits for user_id: %s, episode_id: %s. Error: %s' % (str(user_id), str(episode_id), str(e)))
 
                         AccessiblePatientViewSet.local_counter += 1
-
-                        user_access_to_delete.delete()
+                        try:
+                            user_access_to_delete.delete()
+                        except Exception as e:
+                            logger.error('Error Deleting UserEpisodeAccesses: %s' % str(e))
+                            return Response({'success': False})
                     return Response({'success': True})
 
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
@@ -239,7 +260,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             }).async(my_publish_callback)
 
                         address = patient.address
-                        patient.delete()    # this will also delete the episodes
+                        patient.delete()    # this will also delete the episodes and visits
                         address.delete()
                     logger.info('Delete successful')
                     # else:
