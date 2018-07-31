@@ -1,13 +1,22 @@
 from django.db import models
+from django.utils import timezone
 from user_auth import models as user_models
+import uuid
 
 
 class Diagnosis(models.Model):
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
 
 
 # Create your models here.
 class Patient(models.Model):
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     title = models.CharField(max_length=10)
@@ -35,8 +44,23 @@ class Patient(models.Model):
 
     organizations = models.ManyToManyField(user_models.Organization, through='OrganizationPatientsMapping')
 
+    def __str__(self):
+        patient_identifier = self.first_name
+        if self.last_name:
+            patient_identifier += (' ' + self.last_name)
+        if self.dob:
+            patient_identifier += (' ' + str(self.dob))
+        return patient_identifier
+
+
+# class Place(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     address = models.ForeignKey(user_models.Address, on_delete=models.CASCADE)
+
 
 class Physician(models.Model):
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     npi = models.CharField(max_length=10, unique=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -44,10 +68,20 @@ class Physician(models.Model):
     phone2 = models.CharField(max_length=15, null=True)
     fax = models.CharField(max_length=15, null=True)
 
+    def __str__(self):
+        physician = self.first_name
+        if self.last_name:
+            physician += (' ' + self.last_name)
+        if self.npi:
+            physician += ('--' + self.npi)
+        return physician
+
 
 # Todo: When to add episode
 # Todo: Create Episode at the time of assigning patient to a user ???
 class Episode(models.Model):
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='episodes')
     soc_date = models.DateField(null=True)
     end_date = models.DateField(null=True)
@@ -98,24 +132,69 @@ class Episode(models.Model):
     attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
     primary_physician = models.ForeignKey(Physician, on_delete=models.CASCADE, related_name='primary_episodes', null=True)          # noqa
 
+    def __str__(self):
+        episode = str(self.patient)
+        if self.soc_date:
+            episode += (' ' + str(self.soc_date))
+        return episode
+
+
+class Visit(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False)
+
+    episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
+    # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
+    # Organization is added to Visit to make Querying Visits from same Org easier.
+    # This is reduntant info, otherwise can be obtained using UserEpisodeAccess Model
+    organization = models.ForeignKey(user_models.Organization, related_name='visits', on_delete=models.CASCADE, null=True)
+
+    midnight_epoch = models.CharField(max_length=20, null=True)
+    planned_start_time = models.DateTimeField(null=True)
+
+    is_done = models.BooleanField(default=False)
+    time_of_completion = models.DateTimeField(null=True)
+    is_deleted = models.NullBooleanField(default=False, null=True)
+
+    def __str__(self):
+        visit = self.episode.patient.first_name
+        if self.episode.patient.last_name:
+            visit += (' ' + self.episode.patient.last_name)
+        visit += ('-' + self.user.user.username)
+        if self.midnight_epoch:
+            visit += ('-' + str(self.midnight_epoch))
+        if self.planned_start_time:
+            visit += ('-' + str(self.planned_start_time))
+        return visit
+
 
 class UserEpisodeAccess(models.Model):
     """
     Used for faster querying - finding all episodes/patients for a particular user,
     through an organization
     """
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     episode = models.ForeignKey(Episode, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     user_role = models.CharField(max_length=100)            # Todo: Make Enum
+
+    def __str__(self):
+        return str(self.organization) + '--' + str(self.user) + '--' + str(self.episode)
 
     class Meta:
         unique_together = ('episode', 'organization', 'user',)
 
 
 class OrganizationPatientsMapping(models.Model):
+    id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.organization) + '--' + str(self.patient)
 
     class Meta:
         unique_together = ('organization', 'patient',)
