@@ -68,7 +68,7 @@ class Command(BaseCommand):
                                                            user_episode_access_list]
                                 for user_id in users_linked_to_patient:
                                     self.stdout.write('USER ID: %s' % str(user_id))
-                                    # self.publish_update_message(user_id, patient.id)
+                                    self.publish_update_message(user_id, patient.id)
                         except Physician.DoesNotExist as e:
                             self.stderr.write('Physician not found for npi : %s' % str(npi))
                             raise e
