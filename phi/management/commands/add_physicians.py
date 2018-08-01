@@ -29,11 +29,11 @@ def my_publish_callback(envelope, status):
 class Command(BaseCommand):
     help = 'Update users data in the DB from the CSV'
 
-    def publish_update_message(self, user_id, patient_id):
-        self.stdout.write('Publishing update message for ' + str(user_id) + ' - ' +  str(patient_id))
-        settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+    def publish_update_message(self, user_uuid, patient_uuid):
+        self.stdout.write('Publishing update message for ' + str(user_uuid) + ' - ' + str(patient_uuid))
+        settings.PUBNUB.publish().channel(str(user_uuid) + '_assignedPatients').message({
             'actionType': 'UPDATE',
-            'patientID': patient_id,
+            'patientID': str(patient_uuid),
         }).async(my_publish_callback)
 
     def process_row(self, row):
@@ -62,13 +62,13 @@ class Command(BaseCommand):
                             episode.primary_physician = physician
                             episode.save()
                             self.stdout.write('Saving physician for : %s %s %s' % (first_name, last_name, npi))
-                            user_episode_access_list = UserEpisodeAccess.objects.filter(episode_id=episode.id)
+                            user_episode_access_list = UserEpisodeAccess.objects.filter(episode=episode)
                             if user_episode_access_list.count() > 0:
-                                users_linked_to_patient = [user_episode_access.user.id for user_episode_access in
+                                users_linked_to_patient = [user_episode_access.user.uuid for user_episode_access in
                                                            user_episode_access_list]
-                                for user_id in users_linked_to_patient:
-                                    self.stdout.write('USER ID: %s' % str(user_id))
-                                    self.publish_update_message(user_id, patient.id)
+                                for user_uuid in users_linked_to_patient:
+                                    self.stdout.write('USER ID: %s' % str(user_uuid))
+                                    self.publish_update_message(user_uuid, patient.uuid)
                         except Physician.DoesNotExist as e:
                             self.stderr.write('Physician not found for npi : %s' % str(npi))
                             raise e
