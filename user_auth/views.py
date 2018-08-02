@@ -1,13 +1,16 @@
-from user_auth.serializers import RoleSerializer
-from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer
+from user_auth.serializers import RoleSerializer, UserProfileUpdateSerializer
+from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer, UserProfileWithOrgAccessSerializer, UserProfileResponseSerializer
 from user_auth import models
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import viewsets
 from user_auth.constants import query_to_db_field_map
 from user_auth.permissions import IsAdminForOrg
 from backend import errors
+from django.db import transaction
+from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
 import logging
 
 logger = logging.getLogger(__name__)
@@ -106,3 +109,91 @@ class UserProfileView(APIView):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.UNKNOWN_ERROR})
+
+
+class UsersViewSet(viewsets.ViewSet):
+    queryset = User.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request):
+        user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+        if user_org:
+            userRequest = request.data.get('user', None)
+            organization = user_org.organization
+            if not userRequest:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
+            try:
+                with transaction.atomic():
+                    # Save user to db
+                    username = str(userRequest['firstName']).strip().lower() + '.' + str(userRequest['lastName']).strip().lower()
+                    user = User.objects.create_user(first_name=userRequest['firstName'], last_name=userRequest['lastName'],
+                                                    username=username, password=userRequest['password'], email=userRequest['email'])
+                    user.save()
+
+                    # Save user profile to db
+                    profile = UserProfile(user=user, title='', contact_no=userRequest['phone'])
+                    profile.save()
+
+                    # Add entry to UserOrganizationAccess: For that org, add all users, and their 'roles'
+                    access = UserOrganizationAccess(user=profile, organization=user_org.organization, user_role=userRequest['role'])
+                    access.save()
+
+                    return Response({'success': True, 'error': None})
+            except Exception as e:
+                print(e)
+                self.stderr.write('Could not write user: %s %s' % (first_name, last_name))
+
+        else:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+
+    def retrieve(self, request, pk=None):
+        # Check if user is admin of this org
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
+            if user_org.exists():
+                userProfile = models.UserProfile.objects.get(uuid=pk)
+                user_org1 = UserOrganizationAccess.objects.filter(user=userProfile).get()
+                serializer = UserProfileResponseSerializer({'user': user_org1})
+                headers = {'Content-Type': 'application/json'}
+                return Response(serializer.data, headers=headers)
+            else:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+    def update(self, request, pk=None):
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
+            print('inside')
+            if user_org.exists():
+                up_obj = models.UserProfile.objects.get(uuid=pk)
+                serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
+                serializer.is_valid()
+                serializer.save()
+                return Response({'success': True, 'error': None})
+            else:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+    def destroy(self, request, pk=None):
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
+            if user_org:
+                userProfile = models.UserProfile.objects.get(uuid=pk)
+                user = userProfile.user
+                userOrgAccess = models.UserOrganizationAccess.objects.get(user=userProfile)
+                userProfile.delete()
+                user.delete()
+                userOrgAccess.delete()
+                return Response({'success': True, 'error': None})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
