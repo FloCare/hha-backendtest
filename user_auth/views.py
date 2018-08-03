@@ -140,7 +140,7 @@ class UsersViewSet(viewsets.ViewSet):
 
                     return Response({'success': True, 'error': None})
             except Exception as e:
-                logger.error('Could not create user)
+                logger.error('Could not create user')
         else:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
 
