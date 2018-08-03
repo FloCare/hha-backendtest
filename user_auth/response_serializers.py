@@ -28,8 +28,6 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
     old_id = serializers.IntegerField(source='user.id')
     first_name = serializers.CharField(source='user.user.first_name')
     last_name = serializers.CharField(source='user.user.last_name')
-    #TODO check with Piyush on password sending
-    password = serializers.CharField(source='user.user.password')
     username = serializers.CharField(source='user.user.username')
     email = serializers.CharField(source='user.user.email')
     title = serializers.CharField(source='user.title')
@@ -37,7 +35,7 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.UserOrganizationAccess
-        fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'password', 'username', 'contact_no', 'email', 'user_role')
+        fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
 
 class UserProfileResponseSerializer(serializers.Serializer):
     user = UserProfileWithOrgAccessSerializer()
