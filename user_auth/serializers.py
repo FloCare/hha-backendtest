@@ -51,7 +51,6 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         fields = ('id', 'phone', 'firstName', 'lastName', 'password', 'role', 'email')
 
     def update(self, instance, validated_data):
-        print('validated data is:', validated_data)
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.password = validated_data.get('password', instance.password)

@@ -140,9 +140,7 @@ class UsersViewSet(viewsets.ViewSet):
 
                     return Response({'success': True, 'error': None})
             except Exception as e:
-                print(e)
-                self.stderr.write('Could not write user: %s %s' % (first_name, last_name))
-
+                logger.error('Could not write user: %s %s' % (first_name, last_name))
         else:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
 
@@ -167,7 +165,6 @@ class UsersViewSet(viewsets.ViewSet):
         try:
             user = request.user
             user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
-            print('inside')
             if user_org.exists():
                 up_obj = models.UserProfile.objects.get(uuid=pk)
                 serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
