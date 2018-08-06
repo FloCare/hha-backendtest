@@ -62,10 +62,10 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
         user_profile = models.UserProfile.objects.get(user=instance)
         user_profile.contact_no = validated_data.get('contact_no', user_profile.contact_no)
-        user_profile.is_active = validated_data.get('is_active', user_profile.is_active)
         user_profile.save()
 
         user_org_access = models.UserOrganizationAccess.objects.get(user=user_profile)
         user_org_access.user_role = validated_data.get('role', user_org_access.user_role)
+        user_org_access.is_active = validated_data.get('is_active', user_org_access.is_active)
         user_org_access.save()
         return instance
