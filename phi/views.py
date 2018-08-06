@@ -24,6 +24,7 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
+from user_auth.permissions import IsUserActive
 import logging
 import datetime
 import requests
@@ -507,7 +508,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 class AccessiblePatientListView(generics.ListAPIView):
     queryset = models.Patient.objects.all()
     serializer_class = PatientListSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsUserActive)
 
     def get_queryset(self):
         user = self.request.user
@@ -527,7 +528,7 @@ class AccessiblePatientListView(generics.ListAPIView):
 class AccessiblePatientsDetailView(APIView):
     queryset = models.Patient.objects.all()
     serializer_class = PatientDetailsResponseSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsUserActive)
 
     def get_results(self, request):
         user = request.user
@@ -747,7 +748,7 @@ def upload_file(request):
 class EpisodeView(APIView):
     queryset = models.Episode.objects.all()
     serializer_class = EpisodeDetailsResponseSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsUserActive)
 
     def get_results(self, request):
         user = request.user
@@ -789,7 +790,7 @@ class EpisodeView(APIView):
 
 class GetMyVisits(APIView):
     queryset = models.Visit.objects.all()
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsUserActive)
     serializer_class = VisitResponseSerializer
 
     def get(self, request):
@@ -806,7 +807,7 @@ class GetMyVisits(APIView):
 
 class GetVisitsView(APIView):
     queryset = models.Visit.objects.all()
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsUserActive)
     serializer_class = VisitDetailsResponseSerializer
 
     def get_results(self, request):
