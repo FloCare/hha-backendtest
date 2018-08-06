@@ -32,10 +32,12 @@ class RoleSerializer(serializers.ModelSerializer):
         model = models.UserOrganizationAccess
         fields = ('org', 'role')
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.User
         fields = ('first_name', 'last_name', 'email')
+
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source='uuid', required=False)

@@ -116,45 +116,45 @@ class UsersViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def create(self, request):
-        user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
-        if user_org:
-            userRequest = request.data.get('user', None)
-            organization = user_org.organization
-            if not userRequest:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
-            try:
-                with transaction.atomic():
-                    # Save user to db
-                    username = str(userRequest['firstName']).strip().lower() + '.' + str(userRequest['lastName']).strip().lower()
-                    user = User.objects.create_user(first_name=userRequest['firstName'], last_name=userRequest['lastName'],
-                                                    username=username, password=userRequest['password'], email=userRequest['email'])
-                    user.save()
+        try:
+            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            if user_org:
+                user_request = request.data.get('user', None)
+                if not user_request:
+                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
+                try:
+                    with transaction.atomic():
+                        # Save user to db
+                        username = str(user_request['firstName']).strip().lower() + '.' + str(user_request['lastName']).strip().lower()
+                        user = User.objects.create_user(first_name=user_request['firstName'], last_name=user_request['lastName'],
+                                                        username=username, password=user_request['password'], email=user_request['email'])
+                        user.save()
 
-                    # Save user profile to db
-                    profile = UserProfile(user=user, title='', contact_no=userRequest['phone'])
-                    profile.save()
+                        # Save user profile to db
+                        profile = UserProfile(user=user, title='', contact_no=user_request['phone'])
+                        profile.save()
 
-                    # Add entry to UserOrganizationAccess: For that org, add all users, and their 'roles'
-                    access = UserOrganizationAccess(user=profile, organization=user_org.organization, user_role=userRequest['role'])
-                    access.save()
+                        # Add entry to UserOrganizationAccess: For that org, add all users, and their 'roles'
+                        access = UserOrganizationAccess(user=profile, organization=user_org.organization, user_role=user_request['role'])
+                        access.save()
 
-                    return Response({'success': True, 'error': None})
-            except Exception as e:
-                logger.error('Could not create user')
-        else:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+                        return Response({'success': True, 'error': None})
+                except Exception as e:
+                    logger.error(str(e))
+            else:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def retrieve(self, request, pk=None):
         # Check if user is admin of this org
         try:
-            user = request.user
-            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
-            if user_org.exists():
-                userProfile = models.UserProfile.objects.get(uuid=pk)
-                user_org1 = UserOrganizationAccess.objects.filter(user=userProfile).get()
+            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            if user_org:
+                user_org1 = UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user_id=pk)
                 serializer = UserProfileResponseSerializer({'user': user_org1})
-                headers = {'Content-Type': 'application/json'}
-                return Response(serializer.data, headers=headers)
+                return Response(serializer.data)
             else:
                 return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
@@ -163,7 +163,6 @@ class UsersViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         try:
-            user = request.user
             user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
             if user_org.exists():
                 up_obj = models.UserProfile.objects.get(uuid=pk)
@@ -177,19 +176,22 @@ class UsersViewSet(viewsets.ViewSet):
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
-
     def destroy(self, request, pk=None):
         try:
             user = request.user
             user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             if user_org:
-                userProfile = models.UserProfile.objects.get(uuid=pk)
-                user = userProfile.user
-                userOrgAccess = models.UserOrganizationAccess.objects.get(user=userProfile)
-                userProfile.delete()
-                user.delete()
-                userOrgAccess.delete()
-                return Response({'success': True, 'error': None})
+                user_profile = models.UserProfile.objects.get(uuid=pk)
+                user = user_profile.user
+                user_org_access = models.UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user=user_profile)
+                try:
+                    with transaction.atomic():
+                        user_profile.delete()
+                        user.delete()
+                        user_org_access.delete()
+                        return Response({'success': True, 'error': None})
+                except Exception as e:
+                    logger.error(str(e))
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             logger.error(str(e))
