@@ -127,7 +127,7 @@ class UsersViewSet(viewsets.ViewSet):
                         # Save user to db
                         username = str(user_request['firstName']).strip().lower() + '.' + str(user_request['lastName']).strip().lower()
                         user = User.objects.create_user(first_name=user_request['firstName'], last_name=user_request['lastName'],
-                                                        username=username, password=user_request['password'], email=user_request['email'])
+                                                        username=user_request['email'], password=user_request['password'], email=user_request['email'])
                         user.save()
 
                         # Save user profile to db
