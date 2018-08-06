@@ -29,13 +29,14 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.user.first_name')
     last_name = serializers.CharField(source='user.user.last_name')
     username = serializers.CharField(source='user.user.username')
+    is_active = serializers.BooleanField(source='user.is_active')
     email = serializers.CharField(source='user.user.email')
     title = serializers.CharField(source='user.title')
     contact_no = serializers.CharField(source='user.contact_no')
 
     class Meta:
         model = models.UserOrganizationAccess
-        fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
+        fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'is_active', 'username', 'contact_no', 'email', 'user_role')
 
 class UserProfileResponseSerializer(serializers.Serializer):
     user = UserProfileWithOrgAccessSerializer()

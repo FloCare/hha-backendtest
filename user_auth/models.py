@@ -56,6 +56,7 @@ class UserProfile(models.Model):
     title = models.CharField(max_length=50)
     contact_no = models.CharField(max_length=15, null=True)
     qualification = models.CharField(max_length=40, null=True)
+    is_active = models.BooleanField(default=True)
     address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
     organizations = models.ManyToManyField(Organization, through='UserOrganizationAccess')
 
