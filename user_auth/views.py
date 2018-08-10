@@ -1,6 +1,7 @@
 from user_auth.serializers import RoleSerializer, UserProfileUpdateSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer, UserProfileWithOrgAccessSerializer, UserProfileResponseSerializer
 from user_auth import models
+from django.conf import settings
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,6 +12,7 @@ from user_auth.permissions import IsAdminForOrg
 from backend import errors
 from django.db import transaction
 from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
+from phi.views import my_publish_callback
 import logging
 
 logger = logging.getLogger(__name__)
@@ -170,6 +172,12 @@ class UsersViewSet(viewsets.ViewSet):
                 serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
                 serializer.is_valid()
                 serializer.save()
+
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'USER_UPDATE',
+                    'userID': str(request.user.profile.uuid)
+                }).async(my_publish_callback)
+
                 return Response({'success': True, 'error': None})
             else:
                 return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
