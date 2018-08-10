@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import viewsets
 from user_auth.constants import query_to_db_field_map
-from user_auth.permissions import IsAdminForOrg, IsUserActive
+from user_auth.permissions import IsAdminForOrg
 from backend import errors
 from django.db import transaction
 from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
@@ -65,7 +65,7 @@ class UserOrganizationView(APIView):
 class UserProfileView(APIView):
     queryset = models.UserProfile.objects.all()
     serializer_class = UserProfileResponseSerializer
-    permission_classes = (IsAuthenticated, IsUserActive)
+    permission_classes = (IsAuthenticated,)
 
     def get_results(self, request):
         user = request.user
