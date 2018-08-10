@@ -12,20 +12,11 @@ from user_auth.permissions import IsAdminForOrg
 from backend import errors
 from django.db import transaction
 from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
+from phi.views import my_publish_callback
 import logging
 
 logger = logging.getLogger(__name__)
 
-
-def my_publish_callback(envelope, status):
-    # Check whether request successfully completed or not
-    if not status.is_error():
-        logger.info("# Message successfully published to specified channel.")
-    else:
-        logger.error("# NOT Message successfully published to specified channel.")
-        # Handle message publish error. Check 'category' property to find out possible issue
-        # because of which request did fail.
-        # Request can be resent using: [status retry];
 
 # Being used for web API
 class UserOrganizationView(APIView):
