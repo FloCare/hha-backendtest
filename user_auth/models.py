@@ -75,7 +75,6 @@ class UserOrganizationAccess(models.Model):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
     user_role = models.CharField(max_length=100)   # Todo: Make enum
     is_admin = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.organization.name + '-' + str(self.user) + '-' + self.user_role
