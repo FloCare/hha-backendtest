@@ -175,7 +175,7 @@ class UsersViewSet(viewsets.ViewSet):
 
                 settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
                     'actionType': 'USER_UPDATE',
-                    'userID': str(request.user.profile.uuid)
+                    'userID': str(up_obj.uuid)
                 }).async(my_publish_callback)
 
                 return Response({'success': True, 'error': None})
