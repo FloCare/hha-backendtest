@@ -25,12 +25,13 @@ class AddressSerializer(serializers.ModelSerializer):
 
 
 class RoleSerializer(serializers.ModelSerializer):
+    orgID = serializers.UUIDField(source='organization.uuid')
     org = serializers.CharField(source='organization.name')
     role = serializers.CharField(source='user_role')
 
     class Meta:
         model = models.UserOrganizationAccess
-        fields = ('org', 'role')
+        fields = ('orgID', 'org', 'role')
 
 
 class UserSerializer(serializers.ModelSerializer):
