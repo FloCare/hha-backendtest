@@ -37,6 +37,12 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
         model = models.UserOrganizationAccess
         fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
 
+class UserProfileResponseSerializer(serializers.Serializer):
+    user = UserProfileWithOrgAccessSerializer()
+
+    class Meta:
+        fields = ( 'user',)
+
 
 class AdminUserResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
