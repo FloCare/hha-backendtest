@@ -166,8 +166,8 @@ class UsersViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         try:
-            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
-            if user_org.exists():
+            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            if user_org:
                 up_obj = models.UserProfile.objects.get(uuid=pk)
                 serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
                 serializer.is_valid()
