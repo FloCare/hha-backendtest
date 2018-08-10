@@ -117,8 +117,6 @@ class UsersViewSet(viewsets.ViewSet):
     queryset = User.objects.all()
     permission_classes = (IsAuthenticated,)
 
-    local_counter = 1
-
     def create(self, request):
         try:
             user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
@@ -175,18 +173,9 @@ class UsersViewSet(viewsets.ViewSet):
                 serializer.is_valid()
                 serializer.save()
 
-                settings.PUBNUB.publish().channel(str('organisation_' + user_org.organization.id)).message({
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
                     'actionType': 'USER_UPDATE',
-                    'userID': str(request.user.profile.uuid),
-                    'pn_apns': {
-                        "aps": {
-                            "content-available": 1
-                        },
-                        "payload": {
-                            "messageCounter": UsersViewSet.local_counter,
-                            "userID": str(request.user.profile.uuid)
-                        }
-                    }
+                    'userID': str(request.user.profile.uuid)
                 }).async(my_publish_callback)
 
                 return Response({'success': True, 'error': None})
