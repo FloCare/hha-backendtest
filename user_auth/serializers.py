@@ -47,23 +47,26 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(required=False)
     role = serializers.CharField(required=False)
     email = serializers.CharField(required=False)
+    is_active = serializers.BooleanField(required=False)
 
     class Meta:
         model = models.UserProfile
-        fields = ('id', 'phone', 'firstName', 'lastName', 'password', 'role', 'email')
+        fields = ('id', 'phone', 'firstName', 'lastName', 'password', 'role', 'email', 'is_active')
 
     def update(self, instance, validated_data):
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.set_password(instance.password)
         instance.email = validated_data.get('email', instance.email)
+        instance.username = validated_data.get('email', instance.username)
         instance.save()
 
-        userProfile = models.UserProfile.objects.get(user=instance)
-        userProfile.contact_no = validated_data.get('contact_no', userProfile.contact_no)
-        userProfile.save()
+        user_profile = models.UserProfile.objects.get(user=instance)
+        user_profile.contact_no = validated_data.get('contact_no', user_profile.contact_no)
+        user_profile.save()
 
-        userOrgAccess = models.UserOrganizationAccess.objects.get(user=userProfile)
-        userOrgAccess.user_role = validated_data.get('role', userOrgAccess.user_role)
-        userOrgAccess.save()
+        user_org_access = models.UserOrganizationAccess.objects.get(user=user_profile)
+        user_org_access.user_role = validated_data.get('role', user_org_access.user_role)
+        user_org_access.is_active = validated_data.get('is_active', user_org_access.is_active)
+        user_org_access.save()
         return instance
