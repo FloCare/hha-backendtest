@@ -1,6 +1,7 @@
 from user_auth.serializers import RoleSerializer, UserProfileUpdateSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer, UserProfileWithOrgAccessSerializer, UserProfileResponseSerializer
 from user_auth import models
+from django.conf import settings
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -15,6 +16,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def my_publish_callback(envelope, status):
+    # Check whether request successfully completed or not
+    if not status.is_error():
+        logger.info("# Message successfully published to specified channel.")
+    else:
+        logger.error("# NOT Message successfully published to specified channel.")
+        # Handle message publish error. Check 'category' property to find out possible issue
+        # because of which request did fail.
+        # Request can be resent using: [status retry];
 
 # Being used for web API
 class UserOrganizationView(APIView):
@@ -115,6 +126,8 @@ class UsersViewSet(viewsets.ViewSet):
     queryset = User.objects.all()
     permission_classes = (IsAuthenticated,)
 
+    local_counter = 1
+
     def create(self, request):
         try:
             user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
@@ -170,6 +183,21 @@ class UsersViewSet(viewsets.ViewSet):
                 serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
                 serializer.is_valid()
                 serializer.save()
+
+                settings.PUBNUB.publish().channel(str('organisation_' + user_org.organization.id)).message({
+                    'actionType': 'USER_UPDATE',
+                    'userID': str(request.user.profile.uuid),
+                    'pn_apns': {
+                        "aps": {
+                            "content-available": 1
+                        },
+                        "payload": {
+                            "messageCounter": UsersViewSet.local_counter,
+                            "userID": str(request.user.profile.uuid)
+                        }
+                    }
+                }).async(my_publish_callback)
+
                 return Response({'success': True, 'error': None})
             else:
                 return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
