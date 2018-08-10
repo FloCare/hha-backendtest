@@ -1,5 +1,5 @@
 from user_auth.serializers import RoleSerializer, UserProfileUpdateSerializer
-from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer, UserProfileWithOrgAccessSerializer, UserProfileResponseSerializer
+from user_auth.response_serializers import UserProfileResponseSerializer, AdminUserResponseSerializer, UserDetailsResponseSerializer
 from user_auth import models
 from django.conf import settings
 from rest_framework.permissions import IsAuthenticated
@@ -156,7 +156,7 @@ class UsersViewSet(viewsets.ViewSet):
             user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
             if user_org:
                 user_org1 = UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user_id=pk)
-                serializer = UserProfileResponseSerializer({'user': user_org1})
+                serializer = UserDetailsResponseSerializer({'user': user_org1})
                 return Response(serializer.data)
             else:
                 return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})

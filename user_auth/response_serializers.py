@@ -38,11 +38,18 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
         model = models.UserOrganizationAccess
         fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
 
-class UserProfileResponseSerializer(serializers.Serializer):
+
+class UserDetailsResponseSerializer(serializers.Serializer):
     user = UserProfileWithOrgAccessSerializer()
 
     class Meta:
-        fields = ( 'user',)
+        fields = ('user',)
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
 
 
 class AdminUserResponseSerializer(serializers.Serializer):
