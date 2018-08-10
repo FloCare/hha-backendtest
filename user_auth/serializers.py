@@ -58,6 +58,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         instance.last_name = validated_data.get('last_name', instance.last_name)
         instance.set_password(instance.password)
         instance.email = validated_data.get('email', instance.email)
+        instance.username = validated_data.get('email', instance.username)
         instance.save()
 
         user_profile = models.UserProfile.objects.get(user=instance)

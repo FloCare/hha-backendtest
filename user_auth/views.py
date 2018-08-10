@@ -140,7 +140,8 @@ class UsersViewSet(viewsets.ViewSet):
 
                         return Response({'success': True, 'error': None})
                 except Exception as e:
-                    logger.error(str(e))
+                    return Response(status=status.HTTP_412_PRECONDITION_FAILED,
+                                    data={'success': False, 'error': errors.DATA_INVALID})
             else:
                 return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
