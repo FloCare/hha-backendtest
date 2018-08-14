@@ -9,10 +9,11 @@ class UserProfileResponseSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username')
     primaryContact = serializers.CharField(source='contact_no')
     addressID = serializers.UUIDField(source='address_id')
+    email = serializers.CharField(source='user.email')
 
     class Meta:
         model = models.UserProfile
-        fields = ('userID', 'firstName', 'lastName', 'username', 'primaryContact', 'addressID')
+        fields = ('userID', 'firstName', 'lastName', 'username', 'primaryContact', 'addressID', 'email')
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -36,6 +37,19 @@ class UserProfileWithOrgAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.UserOrganizationAccess
         fields = ('id', 'old_id', 'title', 'first_name', 'last_name', 'username', 'contact_no', 'email', 'user_role')
+
+
+class UserDetailsResponseSerializer(serializers.Serializer):
+    user = UserProfileWithOrgAccessSerializer()
+
+    class Meta:
+        fields = ('user',)
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
 
 
 class AdminUserResponseSerializer(serializers.Serializer):
