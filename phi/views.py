@@ -146,6 +146,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 access_serializer.save()
                                 logger.debug('new episode access created for userid: %s' % str(user_id))
 
+                                # SILENT NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'ASSIGN',
                                     'patientID': str(patient.uuid),
@@ -156,10 +157,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
                                             "patientID": str(patient.uuid)
+                                        },
+                                    },
+                                    'pn_gcm': {
+                                        'data': {
+                                            "messageCounter": AccessiblePatientViewSet.local_counter,
+                                            "patientID": str(patient.uuid)
                                         }
                                     }
                                 }).async(my_publish_callback)
 
+                                # NOISY NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'pn_apns': {
                                         "aps": {
@@ -171,6 +179,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
                                             "patientID": str(patient.uuid),
+                                            "navigateTo": 'patient_list'
+                                        }
+                                    },
+                                    'pn_gcm': {
+                                        'notification': {
+                                            "body": "You have a new Patient",
+                                            "sound": "default"
+                                        },
+                                        'data': {
+                                            'messageCounter': AccessiblePatientViewSet.local_counter,
+                                            'patientID': str(patient.uuid),
                                             "navigateTo": 'patient_list'
                                         }
                                     }
@@ -477,6 +496,12 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
                                 "patientID": str(patient_obj.uuid)
                             }
+                        },
+                        'pn_gcm': {
+                            'data': {
+                                "messageCounter": AccessiblePatientViewSet.local_counter,
+                                "patientID": str(patient_obj.uuid)
+                            }
                         }
                     }).async(my_publish_callback)
 
@@ -491,6 +516,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             "payload": {
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
                                 "patientID": str(patient_obj.uuid),
+                                "navigateTo": 'patient_list'
+                            }
+                        },
+                        'pn_gcm': {
+                            'notification': {
+                                "body": "You have a new Patient",
+                                "sound": "default"
+                            },
+                            'data': {
+                                'messageCounter': AccessiblePatientViewSet.local_counter,
+                                'patientID': str(patient_obj.uuid),
                                 "navigateTo": 'patient_list'
                             }
                         }
