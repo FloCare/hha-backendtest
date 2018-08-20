@@ -1,5 +1,8 @@
 from django.db import models
 from user_auth.middleware import get_current_request
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BaseModel(models.Model):
@@ -18,9 +21,13 @@ class BaseModel(models.Model):
     def save(self, *args, **kwargs):
         current_request = get_current_request()
         if current_request:
-            current_user = current_request.user
-            if current_user and self.is_new_record():
-                self.created_by = str(current_user.username)
-            self.updated_by = current_user.username
+            try:
+                current_user = current_request.user
+                if current_user:
+                    if self.is_new_record():
+                        self.created_by = str(current_user.username)
+                    self.updated_by = current_user.username
+            except AttributeError:
+                logger.error('No User attribute in request object : %s', current_request)
 
         super(BaseModel, self).save(*args, **kwargs)
