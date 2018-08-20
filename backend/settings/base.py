@@ -44,6 +44,9 @@ class Base(Configuration):
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         'django.contrib.messages.middleware.MessageMiddleware',
         'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+        # Custom middleware below this
+        'user_auth.middleware.UserInformationMiddleware',
     ]
 
     ROOT_URLCONF = 'backend.urls'
