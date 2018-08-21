@@ -1,6 +1,7 @@
 from django.db import models
 from flocarebase.middleware import get_current_request
 import logging
+from flocarebase.constants import ANON_USER
 
 logger = logging.getLogger(__name__)
 
@@ -29,5 +30,12 @@ class BaseModel(models.Model):
                     self.updated_by = current_user.username
             except AttributeError:
                 logger.error('No User attribute in request object : %s', current_request)
+                if self.is_new_record():
+                    self.created_by = ANON_USER
+                self.updated_by = ANON_USER
+        else:
+            if self.is_new_record():
+                self.created_by = ANON_USER
+            self.updated_by = ANON_USER
 
         super(BaseModel, self).save(*args, **kwargs)
