@@ -1,11 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import User
+from flocarebase.models import BaseModel
 import uuid
 
 # Generic Stuff
 
 
-class Address(models.Model):
+class Address(BaseModel):
     """
     Generic Address Format
     Can be a patient-address/organization-address etc.
@@ -23,7 +24,7 @@ class Address(models.Model):
 
 
 # Create your models here.
-class Organization(models.Model):
+class Organization(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
@@ -49,7 +50,7 @@ class Organization(models.Model):
 #     # Hospital specific fields
 
 
-class UserProfile(models.Model):
+class UserProfile(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -65,7 +66,7 @@ class UserProfile(models.Model):
 
 # done
 # Never queried using id
-class UserOrganizationAccess(models.Model):
+class UserOrganizationAccess(BaseModel):
     """
     Lists out the users of an organization
     """

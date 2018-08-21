@@ -1,0 +1,1 @@
+ANON_USER = 'Anonymous'

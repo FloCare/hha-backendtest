@@ -88,6 +88,10 @@ class Prod(Base):
             'user_auth': {
                 'handlers': ['console'],
                 'level': 'INFO'
+            },
+            'flocarebase': {
+                'handlers': ['console'],
+                'level': 'INFO'
             }
         },
         'handlers': Base.LOGGING_HANDLERS,
