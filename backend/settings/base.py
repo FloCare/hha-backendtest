@@ -47,7 +47,7 @@ class Base(Configuration):
         'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
         # Custom middleware below this
-        'user_auth.middleware.UserInformationMiddleware',
+        'flocarebase.middleware.UserInformationMiddleware',
     ]
 
     ROOT_URLCONF = 'backend.urls'
