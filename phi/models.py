@@ -1,5 +1,5 @@
 from django.db import models
-from backend.models import BaseModel
+from flocarebase.models import BaseModel
 from user_auth import models as user_models
 import uuid
 

@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from backend.models import BaseModel
+from flocarebase.models import BaseModel
 import uuid
 
 # Generic Stuff

@@ -58,6 +58,10 @@ class Dev(Base):
             'user_auth': {
                 'handlers': ['console'],
                 'level': 'DEBUG'
+            },
+            'flocarebase': {
+                'handlers': ['console'],
+                'level': 'DEBUG'
             }
         },
         'handlers': Base.LOGGING_HANDLERS,
