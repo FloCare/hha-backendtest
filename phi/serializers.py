@@ -167,6 +167,10 @@ class VisitSerializer(serializers.ModelSerializer):
     midnightEpochOfVisit = serializers.CharField(source='midnight_epoch', required=False)
     plannedStartTime = serializers.CharField(source='planned_start_time', required=False)
     organizationID = serializers.UUIDField(source='organization_id', required=False)
+    odometerStart = serializers.FloatField(source='odometer_start', required=False, allow_null=True)
+    odometerEnd = serializers.FloatField(source='odometer_end', required=False, allow_null=True)
+    totalMiles = serializers.FloatField(source='total_miles', required=False, allow_null=True)
+    milesComments = serializers.CharField(source='miles_comments', required=False, allow_null=True)
 
     def validate_midnightEpochOfVisit(self, obj):
         try:
@@ -195,4 +199,5 @@ class VisitSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Visit
         fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime', 'organizationID')
+                  'midnightEpochOfVisit', 'plannedStartTime', 'organizationID', 'odometerStart', 'odometerEnd',
+                  'totalMiles', 'milesComments', )
