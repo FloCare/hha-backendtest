@@ -122,10 +122,6 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
-    odometerStart = serializers.FloatField(source='odometer_start', required=False)
-    odometerEnd = serializers.FloatField(source='odometer_end', required=False)
-    totalMiles = serializers.FloatField(source='total_miles', required=False)
-    milesComments = serializers.CharField(source='miles_comments', required=False)
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
@@ -148,8 +144,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Visit
         fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime', 'odometerStart', 'odometerEnd', 'totalMiles',
-                  'milesComments')
+                  'midnightEpochOfVisit', 'plannedStartTime')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
