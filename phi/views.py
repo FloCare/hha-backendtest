@@ -1,20 +1,25 @@
+import datetime
+import logging
+
 import dateutil.parser
-from django.shortcuts import render
+import requests
+from django.conf import settings
+from django.db import transaction, IntegrityError
+from django.db.models import Q
 from django.http import Http404
 from django.http import JsonResponse
-from django.db import transaction, IntegrityError
+from django.shortcuts import render
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.conf import settings
-from django.db.models import Q
 
 from backend import errors
 from phi import models
 from phi.constants import query_to_db_field_map, NPI_DATA_URL
+from phi.forms import UploadFileForm
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
@@ -24,10 +29,6 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
-import logging
-import datetime
-import requests
-from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
 
@@ -161,8 +162,11 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                     },
                                     'pn_gcm': {
                                         'data': {
-                                            "messageCounter": AccessiblePatientViewSet.local_counter,
-                                            "patientID": str(patient.uuid)
+                                            'notificationBody': "You have a new Patient",
+                                            "sound": "default",
+                                            "navigateTo": 'patient_list',
+                                            'messageCounter': AccessiblePatientViewSet.local_counter,
+                                            'patientID': str(patient.uuid)
                                         }
                                     }
                                 }).async(my_publish_callback)
@@ -179,17 +183,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
                                             "patientID": str(patient.uuid),
-                                            "navigateTo": 'patient_list'
-                                        }
-                                    },
-                                    'pn_gcm': {
-                                        'notification': {
-                                            "body": "You have a new Patient",
-                                            "sound": "default"
-                                        },
-                                        'data': {
-                                            'messageCounter': AccessiblePatientViewSet.local_counter,
-                                            'patientID': str(patient.uuid),
                                             "navigateTo": 'patient_list'
                                         }
                                     }
@@ -496,12 +489,6 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 "messageCounter": AccessiblePatientViewSet.local_counter,
                                 "patientID": str(patient_obj.uuid)
                             }
-                        },
-                        'pn_gcm': {
-                            'data': {
-                                "messageCounter": AccessiblePatientViewSet.local_counter,
-                                "patientID": str(patient_obj.uuid)
-                            }
                         }
                     }).async(my_publish_callback)
 
@@ -520,14 +507,12 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             }
                         },
                         'pn_gcm': {
-                            'notification': {
-                                "body": "You have a new Patient",
-                                "sound": "default"
-                            },
                             'data': {
+                                'notificationBody': "You have a new Patient",
+                                "sound": "default",
+                                "navigateTo": 'patient_list',
                                 'messageCounter': AccessiblePatientViewSet.local_counter,
-                                'patientID': str(patient_obj.uuid),
-                                "navigateTo": 'patient_list'
+                                'patientID': str(patient.uuid)
                             }
                         }
                     }).async(my_publish_callback)
