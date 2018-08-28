@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from user_auth.serializers import AddressSerializer
+from user_auth.serializers import AddressIDWithLatLngSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer
 from phi import models
 
@@ -43,6 +44,26 @@ class PatientSerializer(serializers.ModelSerializer):
         return obj.episodes.get(is_active=True).uuid
 
 
+class PatientWithAddressSerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='uuid')
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    address = AddressIDWithLatLngSerializer()
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Patient
+        fields = ('patientID', 'name', 'firstName', 'lastName', 'address')
+
+    def get_name(self, obj):
+        if obj.first_name and obj.last_name:
+            return '{} {}'.format(obj.first_name, obj.last_name)
+        elif obj.first_name:
+            return obj.first_name
+        else:
+            return obj.last_name
+
+
 class FailureResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
     id = serializers.UUIDField()
@@ -81,6 +102,15 @@ class PhysicianResponseSerializer(serializers.ModelSerializer):
         fields = ('physicianID', 'npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
 
 
+class EpisodeWithPatientsResponseSerializer1(serializers.ModelSerializer):
+    episodeID = serializers.UUIDField(source='uuid', required=False)
+    patient = PatientWithAddressSerializer()
+
+    class Meta:
+        model = models.Episode
+        fields = ('episodeID', 'patient')
+
+
 class EpisodeResponseSerializer(serializers.ModelSerializer):
     episodeID = serializers.UUIDField(source='uuid', required=False)
     patientID = serializers.UUIDField(source='patient_id', required=False)
@@ -111,6 +141,26 @@ class EpisodeDetailsResponseSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+
+
+class VisitForOrgResponseSerializer(serializers.ModelSerializer):
+    visitID = serializers.UUIDField(source='id')
+    userID = serializers.UUIDField(source='user_id')
+    episode = EpisodeWithPatientsResponseSerializer1()
+    timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    isDone = serializers.BooleanField(source='is_done', required=False)
+    isDeleted = serializers.BooleanField(source='is_deleted', required=False)
+    plannedStartTime = serializers.SerializerMethodField(required=False)
+
+    def get_plannedStartTime(self, obj):
+        t = obj.planned_start_time
+        if t:
+            return t.isoformat()
+        return None
+
+    class Meta:
+        model = models.Visit
+        fields = ('visitID', 'userID', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted', 'plannedStartTime')
 
 
 class VisitResponseSerializer(serializers.ModelSerializer):
