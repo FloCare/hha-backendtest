@@ -212,3 +212,20 @@ class OrganizationPatientsMapping(BaseModel):
 
     class Meta:
         unique_together = ('organization', 'patient',)
+
+
+class Report(BaseModel):
+    id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.id) + str(self.user)
+
+
+class ReportItem(BaseModel):
+    id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey(Report, on_delete=models.CASCADE)
+    visit = models.ForeignKey(Visit, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.report) + str(self.visit)

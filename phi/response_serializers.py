@@ -218,3 +218,36 @@ class PatientDetailsWithOldIdsResponseSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField()
+    user = UserProfileResponseSerializer()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+    class Meta:
+        model = models.Report
+        fields = ('id', 'user', 'created_at', 'updated_at')
+
+
+class ReportItemSerializer(serializers.ModelSerializer):
+    visit = VisitResponseSerializer()
+
+    class Meta:
+        model = models.ReportItem
+        fields = ('visit',)
+
+
+class ReportDetailSerializer(serializers.Serializer):
+    report = ReportSerializer()
+    report_items = ReportItemSerializer(many=True)
+
+    class Meta:
+        fields = ('report', 'report_items')
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass

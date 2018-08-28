@@ -21,7 +21,7 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
     PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
-    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer
+    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, ReportSerializer, ReportDetailSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -961,6 +961,8 @@ class DeleteVisitView(APIView):
             for visit_id in visit_ids:
                 try:
                     visit = models.Visit.objects.filter(user=user.profile).get(pk=visit_id)
+                    # TODO - make it bulk?
+                    # https://docs.djangoproject.com/en/2.1/topics/db/optimization/#use-queryset-update-and-delete
                     visit.delete()
                     success_ids.append(visit_id)
                 except Exception as e:
@@ -974,6 +976,57 @@ class DeleteVisitView(APIView):
         if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': success_ids, 'failure': failure_ids})
+
+
+class CreateReportForVisits(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.user
+        data = request.data
+        visit_ids = data['visitIDs']
+        # TODO validate presence of visits_ids and type is array
+        with transaction.atomic():
+            report = models.Report(user=user.profile)
+            report.save()
+            try:
+                for visit_id in visit_ids:
+                    try:
+                        # TODO Make this bulk and iterate
+                        visit = models.Visit.objects.get(id=visit_id)
+                        models.ReportItem(report=report, visit=visit).save()
+                    except models.Visit.DoesNotExist as e:
+                        logger.error('Visit id ' + str(visit_id) + ' does not exist')
+                        raise e
+            except Exception as e:
+                logger.debug('Error while creating report items : %s' % str(e))
+            return Response(status=status.HTTP_201_CREATED, data={'report_id': report.id})
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetReportsForUser(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        reports = models.Report.objects.filter(user=request.user.profile)
+        reports_serializer = ReportSerializer(reports, many=True)
+        return Response(status=status.HTTP_200_OK, data=reports_serializer.data)
+
+
+class GetReportDetailByID(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        data = request.data
+        report_id = data['reportID']
+        try:
+            report = models.Report.objects.get(id=report_id)
+            report_items = models.ReportItem.objects.filter(report=report)
+            response = {'report': report, 'report_items': report_items}
+            return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response).data)
+        except models.Report.DoesNotExist:
+            logger.error('Report with ID: %s does not exist' % str(report_id))
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 # Todo: Protect this API
