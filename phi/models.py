@@ -156,13 +156,6 @@ class Visit(BaseModel):
     time_of_completion = models.DateTimeField(null=True)
     is_deleted = models.NullBooleanField(default=False, null=True)
 
-    # Miles Related information
-    odometer_start = models.FloatField(null=True)
-    odometer_end = models.FloatField(null=True)
-    total_miles = models.FloatField(null=True)
-    # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
-    miles_comments = models.CharField(null=True, max_length=300)
-
     def __str__(self):
         visit = self.episode.patient.first_name
         if self.episode.patient.last_name:
@@ -173,6 +166,20 @@ class Visit(BaseModel):
         if self.planned_start_time:
             visit += ('-' + str(self.planned_start_time))
         return visit
+
+
+class VisitMiles(BaseModel):
+    id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    visit = models.OneToOneField(Visit, related_name='visit_miles', on_delete=models.CASCADE)
+    odometer_start = models.FloatField(null=True)
+    odometer_end = models.FloatField(null=True)
+    total_miles = models.FloatField(null=True)
+    # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
+    miles_comments = models.CharField(null=True, max_length=300)
+
+    def __str__(self):
+        return str(self.visit) + '--' + str(self.odometer_start) + ' -- ' + str(self.odometer_end) + ' -- ' +\
+               str(self.total_miles)
 
 
 class UserEpisodeAccess(BaseModel):

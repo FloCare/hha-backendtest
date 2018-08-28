@@ -18,7 +18,7 @@ from phi.constants import query_to_db_field_map, NPI_DATA_URL
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer
+    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer
@@ -879,9 +879,11 @@ class AddVisitsView(APIView):
                 continue
 
             serializer = VisitSerializer(data=visit)
-            if serializer.is_valid():
+            visit_miles_serializer = VisitMilesSerializer(data=visit)
+            if serializer.is_valid() and visit_miles_serializer.is_valid():
                 try:
-                    serializer.save(user=request.user.profile, organization=org)
+                    visit_obj = serializer.save(user=request.user.profile, organization=org)
+                    visit_miles_serializer.save(visit=visit_obj)
                     visit_id = serializer.validated_data.get('id')
                     success.append(visit_id)
                     # self.publish_events(visit_id, episode_id)
@@ -926,11 +928,14 @@ class UpdateVisitView(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
 
         serializer = VisitSerializer(instance=visit, data=request.data)
-        if not serializer.is_valid():
+        visit_miles_serialised_object = VisitMilesSerializer(instance=visit.visit_miles, data=request.data['visitMiles'])
+        if not (serializer.is_valid() and visit_miles_serialised_object.is_valid()):
             logger.error(str(serializer.errors))
+            logger.error(str(visit_miles_serialised_object.errors))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
             serializer.save(user=request.user.profile, organization=org)
+            visit_miles_serialised_object.save()
         except IntegrityError as e:
             logger.error('IntegrityError. Cannot update visit: %s' % str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})

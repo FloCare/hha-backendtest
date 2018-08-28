@@ -113,6 +113,17 @@ class EpisodeDetailsResponseSerializer(serializers.Serializer):
         pass
 
 
+class VisitMilesResponseSerializer(serializers.ModelSerializer):
+    odometerStart = serializers.FloatField(source='odometer_start', allow_null=True)
+    odometerEnd = serializers.FloatField(source='odometer_end', allow_null=True)
+    totalMiles = serializers.FloatField(source='total_miles', allow_null=True)
+    milesComments = serializers.CharField(source='miles_comments', allow_null=True)
+
+    class Meta:
+        model = models.VisitMiles
+        fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'milesComments')
+
+
 class VisitResponseSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source='user_id')
@@ -122,10 +133,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
-    odometerStart = serializers.FloatField(source='odometer_start', required=False)
-    odometerEnd = serializers.FloatField(source='odometer_end', required=False)
-    totalMiles = serializers.FloatField(source='total_miles', required=False)
-    milesComments = serializers.CharField(source='miles_comments', required=False)
+    visitMiles = VisitMilesResponseSerializer(source='visit_miles')
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
@@ -148,8 +156,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Visit
         fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime', 'odometerStart', 'odometerEnd', 'totalMiles',
-                  'milesComments')
+                  'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
