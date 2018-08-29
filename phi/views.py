@@ -984,23 +984,37 @@ class CreateReportForVisits(APIView):
     def post(self, request):
         user = request.user
         data = request.data
-        visit_ids = data['visitIDs']
-        # TODO validate presence of visits_ids and type is array
-        with transaction.atomic():
-            report = models.Report(user=user.profile)
-            report.save()
-            try:
-                for visit_id in visit_ids:
-                    try:
-                        # TODO Make this bulk and iterate
-                        visit = models.Visit.objects.get(id=visit_id)
-                        models.ReportItem(report=report, visit=visit).save()
-                    except models.Visit.DoesNotExist as e:
-                        logger.error('Visit id ' + str(visit_id) + ' does not exist')
-                        raise e
-            except Exception as e:
-                logger.debug('Error while creating report items : %s' % str(e))
-            return Response(status=status.HTTP_201_CREATED, data={'report_id': report.id})
+        print('data')
+        print(data)
+        report_items = data['reportItems']
+        report_id = data['reportID']
+        # TODO validate presence of reportItems and type is array and structure
+        try:
+            existing_report = models.Report.objects.get(id=report_id)
+            existing_report_items = existing_report.report_items
+            report_item_ids = existing_report_items.values_list("id")
+            report_item_ids_data = map((lambda item: item['reportItemId']), report_items)
+            # TODO Make this work
+            if set(report_item_ids) == set(report_item_ids_data):
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(status=status.HTTP_409_CONFLICT)
+        except models.Report.DoesNotExist:
+            with transaction.atomic():
+                report = models.Report(id=report_id, user=user.profile)
+                report.save()
+                try:
+                    for report_item in report_items:
+                        try:
+                            # TODO Make this bulk and iterate
+                            visit = models.Visit.objects.get(id=report_item['visitID'])
+                            models.ReportItem(id=report_item['reportItemId'], report=report, visit=visit).save()
+                        except models.Visit.DoesNotExist as e:
+                            logger.error('Visit id ' + str(report_item) + ' does not exist')
+                            raise e
+                except Exception as e:
+                    logger.debug('Error while creating report items : %s' % str(e))
+                return Response(status=status.HTTP_201_CREATED, data={'report_id': report.id})
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1013,19 +1027,18 @@ class GetReportsForUser(APIView):
         return Response(status=status.HTTP_200_OK, data=reports_serializer.data)
 
 
-class GetReportDetailByID(APIView):
+class GetReportsDetailByIDs(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         data = request.data
-        report_id = data['reportID']
+        report_ids = data['reportIDs']
         try:
-            report = models.Report.objects.get(id=report_id)
-            report_items = models.ReportItem.objects.filter(report=report)
-            response = {'report': report, 'report_items': report_items}
-            return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response).data)
-        except models.Report.DoesNotExist:
-            logger.error('Report with ID: %s does not exist' % str(report_id))
+            reports = models.Report.objects.in_bulk(report_ids, field_name='id').values()
+            response = list(map((lambda report : {'report': report, 'report_items': report.report_items}), reports))
+            return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response, many=True).data)
+        except Exception as e:
+            logger.error('Error processing request %s' % str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 

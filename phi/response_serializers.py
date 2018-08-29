@@ -134,9 +134,21 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
     visitMiles = VisitMilesResponseSerializer(source='visit_miles')
+    reportID = serializers.SerializerMethodField(required=False)
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
+
+    def get_reportID(self, obj):
+        try:
+            return obj.report_item.report.id
+        except models.ReportItem.DoesNotExist:
+            print('caught report item does not exist')
+            return None
+        except Exception as e:
+            print(e)
+            print('caught generic exception')
+            return None
 
     def get_midnightEpochOfVisit(self, obj):
         t = obj.midnight_epoch
@@ -156,7 +168,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Visit
         fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles')
+                  'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles', 'reportID')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
@@ -232,19 +244,23 @@ class ReportSerializer(serializers.ModelSerializer):
 
 
 class ReportItemSerializer(serializers.ModelSerializer):
-    visit = VisitResponseSerializer()
+    reportItemId = serializers.UUIDField(source="id")
+    visitID = serializers.SerializerMethodField()
+
+    def get_visitID(self, obj):
+        return obj.visit.id
 
     class Meta:
         model = models.ReportItem
-        fields = ('visit',)
+        fields = ('reportItemId', 'visitID')
 
 
 class ReportDetailSerializer(serializers.Serializer):
-    report = ReportSerializer()
-    report_items = ReportItemSerializer(many=True)
+    id = serializers.UUIDField(source="report.id")
+    reportItems = ReportItemSerializer(source='report_items', many=True)
 
     class Meta:
-        fields = ('report', 'report_items')
+        fields = ('id', 'reportItems')
 
     def create(self, validated_data):
         pass

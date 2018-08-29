@@ -24,9 +24,9 @@ urlpatterns = [
             url(r'^update-visit-for-id/$', views.UpdateVisitView.as_view()),                    # app
             url(r'^upload/$', views.upload_file, name='upload'),
             url(r'^get-physician-for-npi/$', views.fetch_physician, name='npi'),        # admin,
-            url(r'^create-reports-for-visits/$', views.CreateReportForVisits.as_view()),
+            url(r'^create-report-for-visits/$', views.CreateReportForVisits.as_view()),
             url(r'^get-reports-for-user/$', views.GetReportsForUser.as_view()),
-            url(r'^get-report-detail-by-id/$', views.GetReportDetailByID.as_view()),
+            url(r'^get-reports-detail-by-ids/$', views.GetReportsDetailByIDs.as_view()),
         ])
     ),
 ]

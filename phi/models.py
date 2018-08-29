@@ -224,8 +224,8 @@ class Report(BaseModel):
 
 class ReportItem(BaseModel):
     id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
-    report = models.ForeignKey(Report, on_delete=models.CASCADE)
-    visit = models.ForeignKey(Visit, on_delete=models.CASCADE)
+    report = models.ForeignKey(Report, related_name='report_items', on_delete=models.CASCADE)
+    visit = models.OneToOneField(Visit, related_name='report_item', on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.report) + str(self.visit)
