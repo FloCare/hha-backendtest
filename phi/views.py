@@ -21,7 +21,7 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
     PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
-    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer
+    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -801,6 +801,23 @@ class GetMyVisits(APIView):
             return Response(serializer.data)
         except Exception as e:
             logger.error('Error in fetching visits for this user: %s' % str(user))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class GetVisitsByOrg(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = VisitForOrgResponseSerializer
+
+    def get(self, request, date):
+        user = request.user.profile
+        try:
+            user_org = UserOrganizationAccess.objects.filter(user=user).get(is_admin=True)
+            visits = models.Visit.objects.filter(organization=user_org.organization).filter(planned_start_time__date=date)
+            serializer = self.serializer_class(visits, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Error in fetching visits for this org: %s' % str(user_org.organization))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
 
