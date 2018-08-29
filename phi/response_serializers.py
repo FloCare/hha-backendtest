@@ -102,7 +102,7 @@ class PhysicianResponseSerializer(serializers.ModelSerializer):
         fields = ('physicianID', 'npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
 
 
-class EpisodeWithPatientsResponseSerializer1(serializers.ModelSerializer):
+class EpisodeWithPatientsResponseSerializer(serializers.ModelSerializer):
     episodeID = serializers.UUIDField(source='uuid', required=False)
     patient = PatientWithAddressSerializer()
 
@@ -146,7 +146,7 @@ class EpisodeDetailsResponseSerializer(serializers.Serializer):
 class VisitForOrgResponseSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source='user_id')
-    episode = EpisodeWithPatientsResponseSerializer1()
+    episode = EpisodeWithPatientsResponseSerializer()
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
