@@ -1,20 +1,25 @@
+import datetime
+import logging
+
 import dateutil.parser
-from django.shortcuts import render
+import requests
+from django.conf import settings
+from django.db import transaction, IntegrityError
+from django.db.models import Q
 from django.http import Http404
 from django.http import JsonResponse
-from django.db import transaction, IntegrityError
+from django.shortcuts import render
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.conf import settings
-from django.db.models import Q
 
 from backend import errors
 from phi import models
 from phi.constants import query_to_db_field_map, NPI_DATA_URL
+from phi.forms import UploadFileForm
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
@@ -22,7 +27,7 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
-    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, ReportSerializer, ReportDetailSerializer
+    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, ReportSerializer, ReportDetailSerializer, VisitForOrgResponseSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -148,6 +153,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 access_serializer.save()
                                 logger.debug('new episode access created for userid: %s' % str(user_id))
 
+                                # SILENT NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'ASSIGN',
                                     'patientID': str(patient.uuid),
@@ -158,10 +164,20 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
                                             "patientID": str(patient.uuid)
+                                        },
+                                    },
+                                    'pn_gcm': {
+                                        'data': {
+                                            'notificationBody': "You have a new Patient",
+                                            "sound": "default",
+                                            "navigateTo": 'patient_list',
+                                            'messageCounter': AccessiblePatientViewSet.local_counter,
+                                            'patientID': str(patient.uuid)
                                         }
                                     }
                                 }).async(my_publish_callback)
 
+                                # NOISY NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'pn_apns': {
                                         "aps": {
@@ -495,6 +511,15 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 "patientID": str(patient_obj.uuid),
                                 "navigateTo": 'patient_list'
                             }
+                        },
+                        'pn_gcm': {
+                            'data': {
+                                'notificationBody': "You have a new Patient",
+                                "sound": "default",
+                                "navigateTo": 'patient_list',
+                                'messageCounter': AccessiblePatientViewSet.local_counter,
+                                'patientID': str(patient.uuid)
+                            }
                         }
                     }).async(my_publish_callback)
 
@@ -803,6 +828,23 @@ class GetMyVisits(APIView):
             return Response(serializer.data)
         except Exception as e:
             logger.error('Error in fetching visits for this user: %s' % str(user))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class GetVisitsByOrg(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = VisitForOrgResponseSerializer
+
+    def get(self, request, date):
+        user = request.user.profile
+        try:
+            user_org = UserOrganizationAccess.objects.filter(user=user).get(is_admin=True)
+            visits = models.Visit.objects.filter(organization=user_org.organization).filter(planned_start_time__date=date)
+            serializer = self.serializer_class(visits, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Error in fetching visits for this org: %s' % str(user_org.organization))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
 

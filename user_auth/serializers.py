@@ -24,6 +24,14 @@ class AddressSerializer(serializers.ModelSerializer):
         return models.Address.objects.create(**validated_data)
 
 
+class AddressIDWithLatLngSerializer(serializers.ModelSerializer):
+    addressID = serializers.UUIDField(source='uuid', required=False)
+
+    class Meta:
+        model = models.Address
+        fields = ('addressID', 'latitude', 'longitude',)
+
+
 class RoleSerializer(serializers.ModelSerializer):
     orgID = serializers.UUIDField(source='organization.uuid')
     org = serializers.CharField(source='organization.name')
