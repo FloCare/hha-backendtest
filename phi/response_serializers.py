@@ -192,12 +192,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     def get_reportID(self, obj):
         try:
             return obj.report_item.report.id
-        except models.ReportItem.DoesNotExist:
-            print('caught report item does not exist')
-            return None
-        except Exception as e:
-            print(e)
-            print('caught generic exception')
+        except Exception:
             return None
 
     def get_midnightEpochOfVisit(self, obj):
