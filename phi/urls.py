@@ -5,9 +5,10 @@ from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 
-router.register(r'patients', views.AccessiblePatientViewSet)                                            # admin
-router.register(r'physicians', views.PhysiciansViewSet)                                                 # admin
-#router.register(r'visits', views.VisitsViewSet)
+router.register(r'patients', views.AccessiblePatientViewSet)                                    # admin
+router.register(r'physicians', views.PhysiciansViewSet)                                         # admin
+# router.register(r'visits', views.VisitsViewSet)
+router.register(r'reports', views.ReportsViewSet)
 
 urlpatterns = [
     url(r'^v1.0/', include([

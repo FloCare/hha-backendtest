@@ -216,6 +216,41 @@ class VisitResponseSerializer(serializers.ModelSerializer):
                   'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles', 'reportID')
 
 
+class VisitResponseForReportSerializer(serializers.ModelSerializer):
+    visitID = serializers.UUIDField(source='id')
+    # userID = serializers.UUIDField(source='user_id')
+    user = serializers.SerializerMethodField(required=False)
+    patientName = serializers.SerializerMethodField(required=False)
+    # episodeID = serializers.UUIDField(source="episode_id", required=False)
+    timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    isDone = serializers.BooleanField(source='is_done', required=False)
+    isDeleted = serializers.BooleanField(source='is_deleted', required=False)
+    # midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
+    # plannedStartTime = serializers.SerializerMethodField(required=False)
+    visitMiles = VisitMilesResponseSerializer(source='visit_miles')
+    address = serializers.SerializerMethodField(required=False)
+
+    def create(self, validated_data):
+        return self.Meta.model.objects.create(**validated_data)
+
+    def get_user(self, obj):
+        name = obj.user.user.first_name + ' ' + obj.user.user.last_name
+        return name
+
+    def get_patientName(self, obj):
+        patient_name = obj.episode.patient.first_name + ' ' + obj.episode.patient.last_name
+        return patient_name
+
+    def get_address(self, obj):
+        addr = obj.episode.patient.address
+        address = addr.street_address + ', ' + addr.city + ', ' + addr.state + ', ' + addr.country + ', ' + addr.zip
+        return address
+
+    class Meta:
+        model = models.Visit
+        fields = ('visitID', 'user', 'patientName', 'address', 'timeOfCompletion', 'isDone', 'isDeleted', 'visitMiles')
+
+
 class VisitDetailsResponseSerializer(serializers.Serializer):
     success = VisitResponseSerializer(many=True)
     failure = FailureResponseSerializer(many=True)
@@ -312,3 +347,13 @@ class ReportDetailSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+
+
+# Todo: Duplicate. Remove in favor of ReportDetailSerializer
+class ReportDetailsForWebSerializer(serializers.ModelSerializer):
+    reportID = serializers.UUIDField(source='report.uuid')
+    visit = VisitResponseForReportSerializer()
+
+    class Meta:
+        model = models.ReportItem
+        fields = ('reportID', 'visit',)
