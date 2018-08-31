@@ -168,6 +168,20 @@ class Visit(BaseModel):
         return visit
 
 
+class VisitMiles(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    visit = models.OneToOneField(Visit, related_name='visit_miles', on_delete=models.CASCADE)
+    odometer_start = models.FloatField(null=True)
+    odometer_end = models.FloatField(null=True)
+    total_miles = models.FloatField(null=True)
+    # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
+    miles_comments = models.CharField(null=True, max_length=300)
+
+    def __str__(self):
+        return str(self.visit) + '--' + str(self.odometer_start) + ' -- ' + str(self.odometer_end) + ' -- ' +\
+               str(self.total_miles)
+
+
 class UserEpisodeAccess(BaseModel):
     """
     Used for faster querying - finding all episodes/patients for a particular user,
@@ -198,3 +212,20 @@ class OrganizationPatientsMapping(BaseModel):
 
     class Meta:
         unique_together = ('organization', 'patient',)
+
+
+class Report(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.uuid) + str(self.user)
+
+
+class ReportItem(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey(Report, related_name='report_items', on_delete=models.CASCADE)
+    visit = models.OneToOneField(Visit, related_name='report_item', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.report) + str(self.visit)

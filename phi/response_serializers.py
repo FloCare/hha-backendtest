@@ -163,6 +163,17 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
         fields = ('visitID', 'userID', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted', 'plannedStartTime')
 
 
+class VisitMilesResponseSerializer(serializers.ModelSerializer):
+    odometerStart = serializers.FloatField(source='odometer_start', allow_null=True)
+    odometerEnd = serializers.FloatField(source='odometer_end', allow_null=True)
+    totalMiles = serializers.FloatField(source='total_miles', allow_null=True)
+    milesComments = serializers.CharField(source='miles_comments', allow_null=True)
+
+    class Meta:
+        model = models.VisitMiles
+        fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'milesComments')
+
+
 class VisitResponseSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source='user_id')
@@ -172,9 +183,17 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
+    visitMiles = VisitMilesResponseSerializer(source='visit_miles')
+    reportID = serializers.SerializerMethodField(required=False)
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
+
+    def get_reportID(self, obj):
+        try:
+            return obj.report_item.report.id
+        except Exception:
+            return None
 
     def get_midnightEpochOfVisit(self, obj):
         t = obj.midnight_epoch
@@ -194,7 +213,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Visit
         fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
-                  'midnightEpochOfVisit', 'plannedStartTime')
+                  'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles', 'reportID')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
@@ -250,6 +269,43 @@ class PatientDetailsWithOldIdsResponseSerializer(serializers.Serializer):
 
     class Meta:
         fields = ('success', 'failure')
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source="uuid")
+    user = UserProfileResponseSerializer()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+    class Meta:
+        model = models.Report
+        fields = ('id', 'user', 'created_at', 'updated_at')
+
+
+class ReportItemSerializer(serializers.ModelSerializer):
+    reportItemId = serializers.UUIDField(source="uuid")
+    visitID = serializers.SerializerMethodField()
+
+    def get_visitID(self, obj):
+        return obj.visit.id
+
+    class Meta:
+        model = models.ReportItem
+        fields = ('reportItemId', 'visitID')
+
+
+class ReportDetailSerializer(serializers.Serializer):
+    id = serializers.UUIDField(source="report.uuid")
+    reportItems = ReportItemSerializer(source='report_items', many=True)
+
+    class Meta:
+        fields = ('id', 'reportItems')
 
     def create(self, validated_data):
         pass
