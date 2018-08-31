@@ -169,7 +169,7 @@ class Visit(BaseModel):
 
 
 class VisitMiles(BaseModel):
-    id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
     visit = models.OneToOneField(Visit, related_name='visit_miles', on_delete=models.CASCADE)
     odometer_start = models.FloatField(null=True)
     odometer_end = models.FloatField(null=True)
@@ -215,15 +215,15 @@ class OrganizationPatientsMapping(BaseModel):
 
 
 class Report(BaseModel):
-    id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
 
     def __str__(self):
-        return str(self.id) + str(self.user)
+        return str(self.uuid) + str(self.user)
 
 
 class ReportItem(BaseModel):
-    id = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
     report = models.ForeignKey(Report, related_name='report_items', on_delete=models.CASCADE)
     visit = models.OneToOneField(Visit, related_name='report_item', on_delete=models.CASCADE)
 

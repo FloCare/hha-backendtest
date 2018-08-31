@@ -19,6 +19,7 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
     PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
+from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, ReportSerializer, ReportDetailSerializer
@@ -27,6 +28,7 @@ from user_auth.serializers import AddressSerializer
 import logging
 import datetime
 import requests
+import uuid
 from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
@@ -879,7 +881,7 @@ class AddVisitsView(APIView):
                 continue
 
             serializer = VisitSerializer(data=visit)
-            visit_miles_serializer = VisitMilesSerializer(data=visit)
+            visit_miles_serializer = VisitMilesSerializer(data=visit['visitMiles'])
             if serializer.is_valid() and visit_miles_serializer.is_valid():
                 try:
                     visit_obj = serializer.save(user=request.user.profile, organization=org)
@@ -984,38 +986,46 @@ class CreateReportForVisits(APIView):
     def post(self, request):
         user = request.user
         data = request.data
-        print('data')
-        print(data)
         report_items = data['reportItems']
         report_id = data['reportID']
-        # TODO validate presence of reportItems and type is array and structure
         try:
-            existing_report = models.Report.objects.get(id=report_id)
+            existing_report = models.Report.objects.get(uuid=report_id)
             existing_report_items = existing_report.report_items
-            report_item_ids = existing_report_items.values_list("id")
-            report_item_ids_data = map((lambda item: item['reportItemId']), report_items)
-            # TODO Make this work
-            if set(report_item_ids) == set(report_item_ids_data):
+            report_item_ids_in_db = list(existing_report_items.values_list("uuid", flat=True))
+            report_item_ids = list(map((lambda item: uuid.UUID(item['reportItemId'])), report_items))
+            if set(report_item_ids_in_db) == set(report_item_ids):
                 return Response(status=status.HTTP_200_OK)
             else:
                 return Response(status=status.HTTP_409_CONFLICT)
         except models.Report.DoesNotExist:
-            with transaction.atomic():
-                report = models.Report(id=report_id, user=user.profile)
-                report.save()
-                try:
-                    for report_item in report_items:
-                        try:
-                            # TODO Make this bulk and iterate
-                            visit = models.Visit.objects.get(id=report_item['visitID'])
-                            models.ReportItem(id=report_item['reportItemId'], report=report, visit=visit).save()
-                        except models.Visit.DoesNotExist as e:
-                            logger.error('Visit id ' + str(report_item) + ' does not exist')
-                            raise e
-                except Exception as e:
-                    logger.debug('Error while creating report items : %s' % str(e))
-                return Response(status=status.HTTP_201_CREATED, data={'report_id': report.id})
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+            response_data = {}
+            try:
+                with transaction.atomic():
+                    report = models.Report(uuid=report_id, user=user.profile)
+                    report.save()
+                    try:
+                        visit_ids = map(lambda item : uuid.UUID(item['visitID']), report_items)
+                        visit_ids = list(visit_ids)
+                        visits = models.Visit.objects.in_bulk(list(visit_ids), field_name="id")
+                        visit_ids_in_db = visits.keys()
+                        missing_visit_ids = list(set(visit_ids) - set(visit_ids_in_db))
+                        if len(missing_visit_ids) > 0:
+                            response_data = {'missingVisitIDs': missing_visit_ids}
+                            raise VisitsNotFoundException(missing_visit_ids)
+                        for report_item in report_items:
+                            try:
+                                visit = visits[uuid.UUID(report_item['visitID'])]
+                                models.ReportItem(uuid=report_item['reportItemId'], report=report, visit=visit).save()
+                            except models.Visit.DoesNotExist as e:
+                                logger.error('Visit id ' + str(report_item) + ' does not exist')
+                                raise e
+                    except VisitsNotFoundException:
+                        logger.error('Visits Not Found Exception raised')
+                        raise
+                return Response(status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.debug('Error while creating report and items')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data=response_data)
 
 
 class GetReportsForUser(APIView):
@@ -1034,7 +1044,7 @@ class GetReportsDetailByIDs(APIView):
         data = request.data
         report_ids = data['reportIDs']
         try:
-            reports = models.Report.objects.in_bulk(report_ids, field_name='id').values()
+            reports = models.Report.objects.in_bulk(report_ids, field_name='uuid').values()
             response = list(map((lambda report : {'report': report, 'report_items': report.report_items}), reports))
             return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response, many=True).data)
         except Exception as e:

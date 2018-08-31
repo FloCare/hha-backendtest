@@ -233,7 +233,7 @@ class PatientDetailsWithOldIdsResponseSerializer(serializers.Serializer):
 
 
 class ReportSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField()
+    id = serializers.UUIDField(source="uuid")
     user = UserProfileResponseSerializer()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
@@ -244,7 +244,7 @@ class ReportSerializer(serializers.ModelSerializer):
 
 
 class ReportItemSerializer(serializers.ModelSerializer):
-    reportItemId = serializers.UUIDField(source="id")
+    reportItemId = serializers.UUIDField(source="uuid")
     visitID = serializers.SerializerMethodField()
 
     def get_visitID(self, obj):
@@ -256,7 +256,7 @@ class ReportItemSerializer(serializers.ModelSerializer):
 
 
 class ReportDetailSerializer(serializers.Serializer):
-    id = serializers.UUIDField(source="report.id")
+    id = serializers.UUIDField(source="report.uuid")
     reportItems = ReportItemSerializer(source='report_items', many=True)
 
     class Meta:
