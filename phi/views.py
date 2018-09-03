@@ -1031,6 +1031,7 @@ class CreateReportForVisits(APIView):
         data = request.data
         report_items = data['reportItems']
         report_id = data['reportID']
+        logger.info('Payload for create report : %s' % str(data))
         total_miles_in_app_report = data['totalMiles']
         try:
             existing_report = models.Report.objects.get(uuid=report_id)
