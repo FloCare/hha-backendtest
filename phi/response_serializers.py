@@ -191,7 +191,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
 
     def get_reportID(self, obj):
         try:
-            return obj.report_item.report.id
+            return obj.report_item.report.uuid
         except Exception:
             return None
 

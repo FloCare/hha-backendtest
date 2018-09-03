@@ -18,13 +18,14 @@ from rest_framework.views import APIView
 
 from backend import errors
 from phi import models
-from phi.constants import query_to_db_field_map, NPI_DATA_URL
+from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffer_allowed
 from phi.forms import UploadFileForm
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
     PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
+from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, ReportSerializer, ReportDetailSerializer, VisitForOrgResponseSerializer
@@ -1030,6 +1031,8 @@ class CreateReportForVisits(APIView):
         data = request.data
         report_items = data['reportItems']
         report_id = data['reportID']
+        logger.info('Payload for create report : %s' % str(data))
+        total_miles_in_app_report = data['totalMiles']
         try:
             existing_report = models.Report.objects.get(uuid=report_id)
             existing_report_items = existing_report.report_items
@@ -1054,6 +1057,14 @@ class CreateReportForVisits(APIView):
                         if len(missing_visit_ids) > 0:
                             response_data = {'missingVisitIDs': missing_visit_ids}
                             raise VisitsNotFoundException(missing_visit_ids)
+                        total_miles_travelled = 0
+                        for visit_id in visits:
+                            visit_miles = visits[visit_id].visit_miles
+                            if visit_miles and visit_miles.odometer_start and visit_miles.odometer_end:
+                                total_miles_travelled += visit_miles.odometer_end - visit_miles.odometer_start
+                        difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
+                        if difference_in_db_and_app > total_miles_buffer_allowed:
+                            raise TotalMilesDidNotMatchException(total_miles_in_app_report, total_miles_travelled)
                         for report_item in report_items:
                             try:
                                 visit = visits[uuid.UUID(report_item['visitID'])]
@@ -1064,6 +1075,9 @@ class CreateReportForVisits(APIView):
                     except VisitsNotFoundException:
                         logger.error('Visits Not Found Exception raised')
                         raise
+                    except TotalMilesDidNotMatchException:
+                        logger.error('Total Miles Did not match exception raised')
+                        raise e
                 return Response(status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.debug('Error while creating report and items')
