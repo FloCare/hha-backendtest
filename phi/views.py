@@ -1060,7 +1060,7 @@ class CreateReportForVisits(APIView):
                         total_miles_travelled = 0
                         for visit_id in visits:
                             visit_miles = visits[visit_id].visit_miles
-                            if visit_miles and visit_miles.odometer_start and visit_miles.odometer_end:
+                            if visit_miles and visit_miles.odometer_start is not None and visit_miles.odometer_end is not None:
                                 total_miles_travelled += visit_miles.odometer_end - visit_miles.odometer_start
                         difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
                         if difference_in_db_and_app > total_miles_buffer_allowed:
