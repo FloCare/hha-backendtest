@@ -234,7 +234,7 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
         return self.Meta.model.objects.create(**validated_data)
 
     def get_user(self, obj):
-        name = obj.user.user.first_name + ' ' + obj.user.user.last_name
+        name = obj.user.user.last_name + ' ' + obj.user.user.first_name
         return name
 
     def get_patientName(self, obj):
