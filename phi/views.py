@@ -520,7 +520,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 "sound": "default",
                                 "navigateTo": 'patient_list',
                                 'messageCounter': AccessiblePatientViewSet.local_counter,
-                                'patientID': str(patient.uuid)
+                                'patientID': str(patient_obj.uuid)
                             }
                         }
                     }).async(my_publish_callback)
