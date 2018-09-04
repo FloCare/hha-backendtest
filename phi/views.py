@@ -28,7 +28,8 @@ from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
-    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, ReportSerializer, ReportDetailSerializer, VisitForOrgResponseSerializer
+    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
+    ReportSerializer, ReportDetailSerializer, ReportItemSerializer, ReportDetailsForWebSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -519,7 +520,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 "sound": "default",
                                 "navigateTo": 'patient_list',
                                 'messageCounter': AccessiblePatientViewSet.local_counter,
-                                'patientID': str(patient.uuid)
+                                'patientID': str(patient_obj.uuid)
                             }
                         }
                     }).async(my_publish_callback)
@@ -1123,3 +1124,82 @@ def fetch_physician(request):
     except Exception as e:
         logger.error('Error in fetching Physician data using NPI ID. Error: %s' % str(e))
         return JsonResponse({'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class ReportsViewSet(viewsets.ViewSet):
+    queryset = models.Report.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def parse_query_params(self, query_params):
+        if not query_params:
+            return None, None, None, None
+        sort = query_params.get('sort', None)
+        # if sort:
+        #     if getattr(self.model, sort, None):
+        #         sort_field = sort
+        #     else:
+        #         sort_field = 'last_name'
+        # else:
+        #     sort_field = 'last_name'
+        sort_field = ''
+        query = query_params.get('query', None)
+        size = query_params.get('size', None)
+        user_id = query_params.get('userID', None)
+        if size:
+            try:
+                size = int(size)
+            except Exception as e:
+                size = None
+        return query, sort_field, size, user_id
+
+    def get_results(self, query, sort_field, size):
+        if query:
+            queryset = models.Report.objects.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
+        else:
+            queryset = models.Report.objects.all()
+        if sort_field:
+            queryset = queryset.order_by(sort_field)
+        if size:
+            queryset = queryset[:int(size)]
+        return queryset
+
+    def retrieve(self, request, pk=None):
+        # Check if user is admin of this org
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
+            if user_org.exists():
+                report_items = models.ReportItem.objects.filter(report__uuid=pk)
+                serializer = ReportDetailsForWebSerializer(report_items, many=True)
+                logger.debug(str(serializer.data))
+                return Response(serializer.data)
+            else:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+    def list(self, request):
+        try:
+            user = request.user
+            try:
+                user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
+                if user_org.exists():
+                    query_params = request.query_params
+                    query, sort_field, size, user_id = self.parse_query_params(query_params)
+                    # physicians = self.get_results(query, sort_field, size)
+                    if not user_id:
+                        return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_NOT_EXIST})
+
+                    reports = models.Report.objects.filter(user__uuid=user_id).order_by('-created_at')
+                    reports_serializer = ReportSerializer(reports, many=True)
+
+                    return Response(reports_serializer.data)
+                else:
+                    return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+            except Exception as e:
+                logger.error(str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
