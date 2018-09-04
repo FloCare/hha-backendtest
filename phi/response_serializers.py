@@ -317,10 +317,16 @@ class ReportSerializer(serializers.ModelSerializer):
     user = UserProfileResponseSerializer()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
+    itemCount = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Report
-        fields = ('id', 'user', 'created_at', 'updated_at')
+        fields = ('id', 'user', 'created_at', 'updated_at', 'itemCount')
+
+    def get_itemCount(self, obj):
+        if obj.report_items:
+            return obj.report_items.count()
+        return 0
 
 
 class ReportItemSerializer(serializers.ModelSerializer):
