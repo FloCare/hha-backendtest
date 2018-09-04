@@ -358,8 +358,9 @@ class ReportDetailSerializer(serializers.Serializer):
 # Todo: Duplicate. Remove in favor of ReportDetailSerializer
 class ReportDetailsForWebSerializer(serializers.ModelSerializer):
     reportID = serializers.UUIDField(source='report.uuid')
+    reportCreatedAt = serializers.DateTimeField(source='report.created_at')
     visit = VisitResponseForReportSerializer()
 
     class Meta:
         model = models.ReportItem
-        fields = ('reportID', 'visit',)
+        fields = ('reportID', 'reportCreatedAt', 'visit',)
