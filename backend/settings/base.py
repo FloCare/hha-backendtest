@@ -31,6 +31,7 @@ class Base(Configuration):
         'corsheaders',
         'rest_framework',
         'rest_framework.authtoken',
+        'flocarebase.apps.FlocarebaseConfig',
         'user_auth.apps.UserAuthConfig',
         'phi.apps.PhiConfig',
     ]
@@ -44,6 +45,9 @@ class Base(Configuration):
         'django.contrib.auth.middleware.AuthenticationMiddleware',
         'django.contrib.messages.middleware.MessageMiddleware',
         'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+        # Custom middleware below this
+        'flocarebase.middleware.UserInformationMiddleware',
     ]
 
     ROOT_URLCONF = 'backend.urls'

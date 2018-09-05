@@ -1,32 +1,40 @@
+import datetime
+import logging
+
 import dateutil.parser
-from django.shortcuts import render
+import requests
+from django.conf import settings
+from django.db import transaction, IntegrityError
+from django.db.models import Q
 from django.http import Http404
 from django.http import JsonResponse
-from django.db import transaction, IntegrityError
+from django.shortcuts import render
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.conf import settings
-from django.db.models import Q
 
 from backend import errors
 from phi import models
-from phi.constants import query_to_db_field_map, NPI_DATA_URL
+from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffer_allowed
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer
+    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
+from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
+from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
-    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer
+    VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
 import requests
+import uuid
 from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
@@ -146,6 +154,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 access_serializer.save()
                                 logger.debug('new episode access created for userid: %s' % str(user_id))
 
+                                # SILENT NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'actionType': 'ASSIGN',
                                     'patientID': str(patient.uuid),
@@ -156,10 +165,20 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                         "payload": {
                                             "messageCounter": AccessiblePatientViewSet.local_counter,
                                             "patientID": str(patient.uuid)
+                                        },
+                                    },
+                                    'pn_gcm': {
+                                        'data': {
+                                            'notificationBody': "You have a new Patient",
+                                            "sound": "default",
+                                            "navigateTo": 'patient_list',
+                                            'messageCounter': AccessiblePatientViewSet.local_counter,
+                                            'patientID': str(patient.uuid)
                                         }
                                     }
                                 }).async(my_publish_callback)
 
+                                # NOISY NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                     'pn_apns': {
                                         "aps": {
@@ -493,6 +512,15 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 "patientID": str(patient_obj.uuid),
                                 "navigateTo": 'patient_list'
                             }
+                        },
+                        'pn_gcm': {
+                            'data': {
+                                'notificationBody': "You have a new Patient",
+                                "sound": "default",
+                                "navigateTo": 'patient_list',
+                                'messageCounter': AccessiblePatientViewSet.local_counter,
+                                'patientID': str(patient_obj.uuid)
+                            }
                         }
                     }).async(my_publish_callback)
 
@@ -804,6 +832,23 @@ class GetMyVisits(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
 
+class GetVisitsByOrg(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = VisitForOrgResponseSerializer
+
+    def get(self, request, date):
+        user = request.user.profile
+        try:
+            user_org = UserOrganizationAccess.objects.filter(user=user).get(is_admin=True)
+            visits = models.Visit.objects.filter(organization=user_org.organization).filter(planned_start_time__date=date)
+            serializer = self.serializer_class(visits, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Error in fetching visits for this org: %s' % str(user_org.organization))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
 class GetVisitsView(APIView):
     queryset = models.Visit.objects.all()
     permission_classes = (IsAuthenticated,)
@@ -879,9 +924,12 @@ class AddVisitsView(APIView):
                 continue
 
             serializer = VisitSerializer(data=visit)
-            if serializer.is_valid():
+            visit_miles = visit.get('visitMiles', {})
+            visit_miles_serializer = VisitMilesSerializer(data=visit_miles)
+            if serializer.is_valid() and visit_miles_serializer.is_valid():
                 try:
-                    serializer.save(user=request.user.profile, organization=org)
+                    visit_obj = serializer.save(user=request.user.profile, organization=org)
+                    visit_miles_serializer.save(visit=visit_obj)
                     visit_id = serializer.validated_data.get('id')
                     success.append(visit_id)
                     # self.publish_events(visit_id, episode_id)
@@ -926,11 +974,16 @@ class UpdateVisitView(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
 
         serializer = VisitSerializer(instance=visit, data=request.data)
-        if not serializer.is_valid():
+        visit_miles = request.data.get('visitMiles', {})
+        visit_miles_serialised_object = VisitMilesSerializer(instance=visit.visit_miles, data=visit_miles)
+
+        if not (serializer.is_valid() and visit_miles_serialised_object.is_valid()):
             logger.error(str(serializer.errors))
+            logger.error(str(visit_miles_serialised_object.errors))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
             serializer.save(user=request.user.profile, organization=org)
+            visit_miles_serialised_object.save()
         except IntegrityError as e:
             logger.error('IntegrityError. Cannot update visit: %s' % str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
@@ -956,6 +1009,8 @@ class DeleteVisitView(APIView):
             for visit_id in visit_ids:
                 try:
                     visit = models.Visit.objects.filter(user=user.profile).get(pk=visit_id)
+                    # TODO - make it bulk?
+                    # https://docs.djangoproject.com/en/2.1/topics/db/optimization/#use-queryset-update-and-delete
                     visit.delete()
                     success_ids.append(visit_id)
                 except Exception as e:
@@ -969,6 +1024,91 @@ class DeleteVisitView(APIView):
         if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': success_ids, 'failure': failure_ids})
+
+
+class CreateReportForVisits(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.user
+        data = request.data
+        report_items = data['reportItems']
+        report_id = data['reportID']
+        logger.info('Payload for create report : %s' % str(data))
+        total_miles_in_app_report = data['totalMiles']
+        try:
+            existing_report = models.Report.objects.get(uuid=report_id)
+            existing_report_items = existing_report.report_items
+            report_item_ids_in_db = list(existing_report_items.values_list("uuid", flat=True))
+            report_item_ids = list(map((lambda item: uuid.UUID(item['reportItemId'])), report_items))
+            if set(report_item_ids_in_db) == set(report_item_ids):
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(status=status.HTTP_409_CONFLICT)
+        except models.Report.DoesNotExist:
+            response_data = {}
+            try:
+                with transaction.atomic():
+                    report = models.Report(uuid=report_id, user=user.profile)
+                    report.save()
+                    try:
+                        visit_ids = map(lambda item : uuid.UUID(item['visitID']), report_items)
+                        visit_ids = list(visit_ids)
+                        visits = models.Visit.objects.in_bulk(list(visit_ids), field_name="id")
+                        visit_ids_in_db = visits.keys()
+                        missing_visit_ids = list(set(visit_ids) - set(visit_ids_in_db))
+                        if len(missing_visit_ids) > 0:
+                            response_data = {'missingVisitIDs': missing_visit_ids}
+                            raise VisitsNotFoundException(missing_visit_ids)
+                        total_miles_travelled = 0
+                        for visit_id in visits:
+                            visit_miles = visits[visit_id].visit_miles
+                            if visit_miles and visit_miles.odometer_start is not None and visit_miles.odometer_end is not None:
+                                total_miles_travelled += visit_miles.odometer_end - visit_miles.odometer_start
+                        difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
+                        if difference_in_db_and_app > total_miles_buffer_allowed:
+                            raise TotalMilesDidNotMatchException(total_miles_in_app_report, total_miles_travelled)
+                        for report_item in report_items:
+                            try:
+                                visit = visits[uuid.UUID(report_item['visitID'])]
+                                models.ReportItem(uuid=report_item['reportItemId'], report=report, visit=visit).save()
+                            except models.Visit.DoesNotExist as e:
+                                logger.error('Visit id ' + str(report_item) + ' does not exist')
+                                raise e
+                    except VisitsNotFoundException:
+                        logger.error('Visits Not Found Exception raised')
+                        raise
+                    except TotalMilesDidNotMatchException:
+                        logger.error('Total Miles Did not match exception raised')
+                        raise e
+                return Response(status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.debug('Error while creating report and items')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data=response_data)
+
+
+class GetReportsForUser(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        reports = models.Report.objects.filter(user=request.user.profile)
+        reports_serializer = ReportSerializer(reports, many=True)
+        return Response(status=status.HTTP_200_OK, data=reports_serializer.data)
+
+
+class GetReportsDetailByIDs(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        data = request.data
+        report_ids = data['reportIDs']
+        try:
+            reports = models.Report.objects.in_bulk(report_ids, field_name='uuid').values()
+            response = list(map((lambda report : {'report': report, 'report_items': report.report_items}), reports))
+            return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response, many=True).data)
+        except Exception as e:
+            logger.error('Error processing request %s' % str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 # Todo: Protect this API
@@ -986,3 +1126,82 @@ def fetch_physician(request):
     except Exception as e:
         logger.error('Error in fetching Physician data using NPI ID. Error: %s' % str(e))
         return JsonResponse({'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class ReportsViewSet(viewsets.ViewSet):
+    queryset = models.Report.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def parse_query_params(self, query_params):
+        if not query_params:
+            return None, None, None, None
+        sort = query_params.get('sort', None)
+        # if sort:
+        #     if getattr(self.model, sort, None):
+        #         sort_field = sort
+        #     else:
+        #         sort_field = 'last_name'
+        # else:
+        #     sort_field = 'last_name'
+        sort_field = ''
+        query = query_params.get('query', None)
+        size = query_params.get('size', None)
+        user_id = query_params.get('userID', None)
+        if size:
+            try:
+                size = int(size)
+            except Exception as e:
+                size = None
+        return query, sort_field, size, user_id
+
+    def get_results(self, query, sort_field, size):
+        if query:
+            queryset = models.Report.objects.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
+        else:
+            queryset = models.Report.objects.all()
+        if sort_field:
+            queryset = queryset.order_by(sort_field)
+        if size:
+            queryset = queryset[:int(size)]
+        return queryset
+
+    def retrieve(self, request, pk=None):
+        # Check if user is admin of this org
+        try:
+            user = request.user
+            user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
+            if user_org.exists():
+                report_items = models.ReportItem.objects.filter(report__uuid=pk)
+                serializer = ReportDetailsForWebSerializer(report_items, many=True)
+                logger.debug(str(serializer.data))
+                return Response(serializer.data)
+            else:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+    def list(self, request):
+        try:
+            user = request.user
+            try:
+                user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
+                if user_org.exists():
+                    query_params = request.query_params
+                    query, sort_field, size, user_id = self.parse_query_params(query_params)
+                    # physicians = self.get_results(query, sort_field, size)
+                    if not user_id:
+                        return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_NOT_EXIST})
+
+                    reports = models.Report.objects.filter(user__uuid=user_id).order_by('-created_at')
+                    reports_serializer = ReportSerializer(reports, many=True)
+
+                    return Response(reports_serializer.data)
+                else:
+                    return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+            except Exception as e:
+                logger.error(str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})

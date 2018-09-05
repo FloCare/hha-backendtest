@@ -1,10 +1,10 @@
 from django.db import models
-from django.utils import timezone
+from flocarebase.models import BaseModel
 from user_auth import models as user_models
 import uuid
 
 
-class Diagnosis(models.Model):
+class Diagnosis(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
@@ -14,7 +14,7 @@ class Diagnosis(models.Model):
 
 
 # Create your models here.
-class Patient(models.Model):
+class Patient(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=100)
@@ -53,12 +53,12 @@ class Patient(models.Model):
         return patient_identifier
 
 
-# class Place(models.Model):
+# class Place(BaseModel):
 #     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 #     address = models.ForeignKey(user_models.Address, on_delete=models.CASCADE)
 
 
-class Physician(models.Model):
+class Physician(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     npi = models.CharField(max_length=10, unique=True)
@@ -79,7 +79,7 @@ class Physician(models.Model):
 
 # Todo: When to add episode
 # Todo: Create Episode at the time of assigning patient to a user ???
-class Episode(models.Model):
+class Episode(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='episodes')
@@ -139,7 +139,7 @@ class Episode(models.Model):
         return episode
 
 
-class Visit(models.Model):
+class Visit(BaseModel):
     id = models.UUIDField(primary_key=True, editable=False)
 
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
@@ -168,7 +168,21 @@ class Visit(models.Model):
         return visit
 
 
-class UserEpisodeAccess(models.Model):
+class VisitMiles(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    visit = models.OneToOneField(Visit, related_name='visit_miles', on_delete=models.CASCADE)
+    odometer_start = models.FloatField(null=True)
+    odometer_end = models.FloatField(null=True)
+    total_miles = models.FloatField(null=True)
+    # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
+    miles_comments = models.CharField(null=True, max_length=300)
+
+    def __str__(self):
+        return str(self.visit) + '--' + str(self.odometer_start) + ' -- ' + str(self.odometer_end) + ' -- ' +\
+               str(self.total_miles)
+
+
+class UserEpisodeAccess(BaseModel):
     """
     Used for faster querying - finding all episodes/patients for a particular user,
     through an organization
@@ -187,7 +201,7 @@ class UserEpisodeAccess(models.Model):
         unique_together = ('episode', 'organization', 'user',)
 
 
-class OrganizationPatientsMapping(models.Model):
+class OrganizationPatientsMapping(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
@@ -198,3 +212,20 @@ class OrganizationPatientsMapping(models.Model):
 
     class Meta:
         unique_together = ('organization', 'patient',)
+
+
+class Report(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.uuid) + str(self.user)
+
+
+class ReportItem(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey(Report, related_name='report_items', on_delete=models.CASCADE)
+    visit = models.OneToOneField(Visit, related_name='report_item', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.report) + str(self.visit)
