@@ -19,7 +19,6 @@ from rest_framework.views import APIView
 from backend import errors
 from phi import models
 from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffer_allowed
-from phi.forms import UploadFileForm
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
     PatientWithUsersSerializer, PatientUpdateSerializer, \
@@ -29,7 +28,7 @@ from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchE
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
-    ReportSerializer, ReportDetailSerializer, ReportItemSerializer, ReportDetailsForWebSerializer
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -925,7 +924,8 @@ class AddVisitsView(APIView):
                 continue
 
             serializer = VisitSerializer(data=visit)
-            visit_miles_serializer = VisitMilesSerializer(data=visit['visitMiles'])
+            visit_miles = visit.get('visitMiles', {})
+            visit_miles_serializer = VisitMilesSerializer(data=visit_miles)
             if serializer.is_valid() and visit_miles_serializer.is_valid():
                 try:
                     visit_obj = serializer.save(user=request.user.profile, organization=org)
@@ -974,7 +974,9 @@ class UpdateVisitView(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
 
         serializer = VisitSerializer(instance=visit, data=request.data)
-        visit_miles_serialised_object = VisitMilesSerializer(instance=visit.visit_miles, data=request.data['visitMiles'])
+        visit_miles = request.data.get('visitMiles', {})
+        visit_miles_serialised_object = VisitMilesSerializer(instance=visit.visit_miles, data=visit_miles)
+
         if not (serializer.is_valid() and visit_miles_serialised_object.is_valid()):
             logger.error(str(serializer.errors))
             logger.error(str(visit_miles_serialised_object.errors))
