@@ -2,6 +2,7 @@ from django.db import models
 from flocarebase.models import BaseModel
 from user_auth import models as user_models
 import uuid
+from django.db import transaction
 
 
 class Diagnosis(BaseModel):
@@ -156,6 +157,15 @@ class Visit(BaseModel):
     time_of_completion = models.DateTimeField(null=True)
     is_deleted = models.NullBooleanField(default=False, null=True)
 
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            try:
+                self.report_item.save()
+                self.report_item.report.save()
+            except ReportItem.DoesNotExist:
+                pass
+
     def __str__(self):
         visit = self.episode.patient.first_name
         if self.episode.patient.last_name:
@@ -176,6 +186,14 @@ class VisitMiles(BaseModel):
     total_miles = models.FloatField(null=True)
     # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
     miles_comments = models.CharField(null=True, max_length=300)
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            try:
+                self.visit.save()
+            except Visit.DoesNotExist:
+                pass
 
     def __str__(self):
         return str(self.visit) + '--' + str(self.odometer_start) + ' -- ' + str(self.odometer_end) + ' -- ' +\
