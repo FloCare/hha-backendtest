@@ -813,7 +813,8 @@ class GetVisitsByOrg(APIView):
         user = request.user.profile
         try:
             user_org = UserOrganizationAccess.objects.filter(user=user).get(is_admin=True)
-            visits = models.Visit.objects.filter(organization=user_org.organization).filter(planned_start_time__date=date)
+            midnight_epoch = int(datetime.datetime.strptime(date, "%Y-%m-%d").date().strftime('%s'))*1000
+            visits = models.Visit.objects.filter(organization=user_org.organization).filter(midnight_epoch=midnight_epoch)
             serializer = self.serializer_class(visits, many=True)
             return Response(serializer.data)
         except Exception as e:
