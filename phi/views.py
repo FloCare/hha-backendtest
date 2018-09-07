@@ -1051,39 +1051,30 @@ class CreateReportForVisits(APIView):
                 with transaction.atomic():
                     report = models.Report(uuid=report_id, user=user.profile)
                     report.save()
-                    try:
-                        visit_ids = map(lambda item : uuid.UUID(item['visitID']), report_items)
-                        visit_ids = list(visit_ids)
-                        visits = models.Visit.objects.in_bulk(list(visit_ids), field_name="id")
-                        visit_ids_in_db = visits.keys()
-                        missing_visit_ids = list(set(visit_ids) - set(visit_ids_in_db))
-                        if len(missing_visit_ids) > 0:
-                            response_data = {'missingVisitIDs': missing_visit_ids}
-                            raise VisitsNotFoundException(missing_visit_ids)
-                        total_miles_travelled = 0
-                        for visit_id in visits:
-                            visit_miles = visits[visit_id].visit_miles
-                            if visit_miles and visit_miles.odometer_start is not None and visit_miles.odometer_end is not None:
-                                total_miles_travelled += visit_miles.odometer_end - visit_miles.odometer_start
-                        difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
-                        if difference_in_db_and_app > total_miles_buffer_allowed:
-                            raise TotalMilesDidNotMatchException(total_miles_in_app_report, total_miles_travelled)
-                        for report_item in report_items:
-                            try:
-                                visit = visits[uuid.UUID(report_item['visitID'])]
-                                models.ReportItem(uuid=report_item['reportItemId'], report=report, visit=visit).save()
-                            except models.Visit.DoesNotExist as e:
-                                logger.error('Visit id ' + str(report_item) + ' does not exist')
-                                raise e
-                    except VisitsNotFoundException:
-                        logger.error('Visits Not Found Exception raised')
-                        raise
-                    except TotalMilesDidNotMatchException:
-                        logger.error('Total Miles Did not match exception raised')
-                        raise e
+                    visit_ids = list(map(lambda item : uuid.UUID(item['visitID']), report_items))
+                    visits = models.Visit.objects.select_related('visit_miles').in_bulk(visit_ids, field_name="id")
+                    visit_ids_in_db = visits.keys()
+                    missing_visit_ids = list(set(visit_ids) - set(visit_ids_in_db))
+                    if len(missing_visit_ids) > 0:
+                        response_data = {'missingVisitIDs': missing_visit_ids}
+                        raise VisitsNotFoundException(missing_visit_ids)
+                    total_miles_travelled = 0
+                    for visit_id in visits:
+                        visit_miles = visits[visit_id].visit_miles
+                        if visit_miles and visit_miles.odometer_start is not None and visit_miles.odometer_end is not None:
+                            total_miles_travelled += visit_miles.odometer_end - visit_miles.odometer_start
+                    difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
+                    if difference_in_db_and_app > total_miles_buffer_allowed:
+                        raise TotalMilesDidNotMatchException(total_miles_in_app_report, total_miles_travelled)
+                    for report_item in report_items:
+                        visit = visits[uuid.UUID(report_item['visitID'])]
+                        models.ReportItem(uuid=report_item['reportItemId'], report=report, visit=visit).save()
                 return Response(status=status.HTTP_201_CREATED)
-            except Exception as e:
-                logger.debug('Error while creating report and items')
+            except VisitsNotFoundException as e:
+                logger.error('Visits Not Found Exception raised : %s', str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data=response_data)
+            except TotalMilesDidNotMatchException as e:
+                logger.error('Total Miles Did not match exception raised %s', str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data=response_data)
 
 
