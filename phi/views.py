@@ -858,6 +858,7 @@ class GetVisitsView(APIView):
         data = request.data
         if 'visitIDs' in data:
             visit_ids = data['visitIDs']
+            # Allow users to query all visits from the same Org
             orgs = UserOrganizationAccess.objects.filter(user=request.user.profile).values_list('organization',
                                                                                                 flat=True)
             visit_objects = models.Visit.objects.filter(organization__in=orgs, id__in=visit_ids)
