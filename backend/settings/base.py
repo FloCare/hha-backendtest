@@ -37,6 +37,7 @@ class Base(Configuration):
     ]
 
     MIDDLEWARE = [
+        'flocarebase.middleware.DBStatsMiddleWare',
         'django.middleware.security.SecurityMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
         'corsheaders.middleware.CorsMiddleware',

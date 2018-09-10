@@ -1029,6 +1029,10 @@ class DeleteVisitView(APIView):
 class CreateReportForVisits(APIView):
     permission_classes = (IsAuthenticated,)
 
+    def get_report_item_object(self, report, report_item, visits_map):
+        visit = visits_map[uuid.UUID(report_item['visitID'])]
+        return models.ReportItem(uuid=report_item['reportItemId'], report=report, visit=visit)
+
     def post(self, request):
         user = request.user
         data = request.data
@@ -1066,9 +1070,8 @@ class CreateReportForVisits(APIView):
                     difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
                     if difference_in_db_and_app > total_miles_buffer_allowed:
                         raise TotalMilesDidNotMatchException(total_miles_in_app_report, total_miles_travelled)
-                    for report_item in report_items:
-                        visit = visits[uuid.UUID(report_item['visitID'])]
-                        models.ReportItem(uuid=report_item['reportItemId'], report=report, visit=visit).save()
+                    report_items = [self.get_report_item_object(report, report_item, visits) for report_item in report_items]
+                    models.ReportItem.objects.bulk_create(report_items)
                 return Response(status=status.HTTP_201_CREATED)
             except VisitsNotFoundException as e:
                 logger.error('Visits Not Found Exception raised : %s', str(e))
