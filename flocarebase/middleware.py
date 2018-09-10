@@ -34,36 +34,29 @@ class DBStatsMiddleWare(object):
         return response
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        # TODO Should add something to disable it in production if needed
+        # TODO Should add something to disable it in production if needed - VERIFY THIS
         if not settings.DEBUG:
             return None
 
-        # get number of db queries before we do anything
-        n = len(connection.queries)
-
-        # time the view
+        n_db_queries = len(connection.queries)
         start = time()
         response = view_func(request, *view_args, **view_kwargs)
         total_time = time() - start
 
-        # compute the db time for the queries just run
-        db_queries = len(connection.queries) - n
+        db_queries = len(connection.queries) - n_db_queries
         if db_queries:
-            db_time = functools.reduce(add, [float(q['time']) for q in connection.queries[n:]])
+            db_time = functools.reduce(add, [float(q['time']) for q in connection.queries[n_db_queries:]])
         else:
             db_time = 0.0
-
-        # and backout python time
         python_time = total_time - db_time
 
-        stats = {
+        time_metrics = {
             'total_time': str(round(total_time, 7)),
             'python_time': str(round(python_time, 7)) + ' ' + str(round(100.0*python_time/total_time, 1)) + '%',
             'db_time': str(round(db_time, 7)) + ' ' + str(round(100.0*db_time/total_time, 1)) + '%',
             'db_queries': db_queries,
         }
 
-        logger.debug('stats')
-        logger.debug(stats)
+        logger.debug(time_metrics)
 
         return response

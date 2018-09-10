@@ -824,7 +824,7 @@ class GetMyVisits(APIView):
         user = request.user.profile
         try:
             # Todo: Can check in UserEpisodeAccess, and only return visits for episodes user currently has access to
-            visits = models.Visit.objects.filter(user=user)
+            visits = models.Visit.objects.select_related("visit_miles", "report_item", "report_item__report").filter(user=user)
             serializer = self.serializer_class(visits, many=True)
             return Response(serializer.data)
         except Exception as e:
@@ -858,18 +858,12 @@ class GetVisitsView(APIView):
         data = request.data
         if 'visitIDs' in data:
             visit_ids = data['visitIDs']
-
-            success = list()
-            failure_ids = list()
-            for visit_id in visit_ids:
-                try:
-                    # Allow users to query all visits from the same Org
-                    orgs = UserOrganizationAccess.objects.filter(user=request.user.profile).values_list('organization', flat=True)
-                    visit = models.Visit.objects.filter(organization__in=orgs).get(pk=visit_id)
-                    success.append(visit)
-                except Exception as e:
-                    logger.error('Visit not found: %s' % (str(e)))
-                    failure_ids.append(visit_id)
+            orgs = UserOrganizationAccess.objects.filter(user=request.user.profile).values_list('organization',
+                                                                                                flat=True)
+            visit_objects = models.Visit.objects.filter(organization__in=orgs, id__in=visit_ids)
+            success = list(visit_objects)
+            success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+            failure_ids = list(set(visit_ids) - set(success_ids))
             return success, failure_ids
         return None, None
 
@@ -1002,24 +996,17 @@ class DeleteVisitView(APIView):
     def get_results(self, request):
         user = request.user
         data = request.data
-        success_ids = list()
-        failure_ids = list()
         if 'visitIDs' in data:
             visit_ids = data['visitIDs']
-            for visit_id in visit_ids:
-                try:
-                    visit = models.Visit.objects.filter(user=user.profile).get(pk=visit_id)
-                    # TODO - make it bulk?
-                    # https://docs.djangoproject.com/en/2.1/topics/db/optimization/#use-queryset-update-and-delete
-                    visit.delete()
-                    success_ids.append(visit_id)
-                except Exception as e:
-                    logger.error('Visit not found or cannot delete: %s' % (str(e)))
-                    failure_ids.append(visit_id)
+            visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
+            success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+            visit_objects.delete()
+            failure_ids = list(set(visit_ids) - set(success_ids))
             return success_ids, failure_ids
         return None, None
 
     def delete(self, request):
+        # TODO Add authorization
         success_ids, failure_ids = self.get_results(request)
         if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
@@ -1097,7 +1084,7 @@ class GetReportsDetailByIDs(APIView):
         data = request.data
         report_ids = data['reportIDs']
         try:
-            reports = models.Report.objects.in_bulk(report_ids, field_name='uuid').values()
+            reports = models.Report.objects.prefetch_related("report_items__visit").in_bulk(report_ids, field_name='uuid').values()
             response = list(map((lambda report : {'report': report, 'report_items': report.report_items}), reports))
             return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response, many=True).data)
         except Exception as e:
