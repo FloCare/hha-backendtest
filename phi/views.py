@@ -337,7 +337,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             # Todo: Improve Sorting logic - use DRF builtin
             query_params = request.query_params
-            sort_field = 'first_name'
+            sort_field = 'last_name'
             order = 'ASC'
             if 'sort' in query_params:
                 sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
