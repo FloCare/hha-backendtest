@@ -1270,7 +1270,7 @@ class StopsViewSet(viewsets.ViewSet):
     def list(self, request):
         user = request.user
         try:
-            user_org = UserOrganizationAccess.objects.get(user=user.profile, is_admin=True)
+            user_org = UserOrganizationAccess.objects.get(user=user.profile)
             stops = models.Stop.objects.filter(organization=user_org.organization)
             return Response(status=status.HTTP_200_OK, data=StopResponseSerializer(stops, many=True).data)
         except UserOrganizationAccess.DoesNotExist:
