@@ -17,6 +17,7 @@ urlpatterns = [
             url(r'^get-patients-for-ids/$', views.AccessiblePatientsDetailView.as_view()),              # app
             # Todo: Temporary EndPoint to support migrating apps from 0.2.0 to Next Version
             url(r'^get-patients-for-old-ids/$', views.GetPatientsByOldIds.as_view()),                   # app
+            url(r'^get-patients-for-org/$', views.GetPatientsByOrg.as_view()),                          # app
             url(r'^get-episodes-for-ids/$', views.EpisodeView.as_view()),                               # app
             url(r'^get-visits-for-user/$', views.GetMyVisits.as_view()),                                # app
             url(r'^get-visits-for-org/(?P<date>\d{4}-\d{2}-\d{2})/$', views.GetVisitsByOrg.as_view()),  # app

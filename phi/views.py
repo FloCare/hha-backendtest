@@ -28,7 +28,7 @@ from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchE
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
-    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PatientsForOrgSerializer
 from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
@@ -1206,3 +1206,25 @@ class ReportsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class GetPatientsByOrg(APIView):
+    queryset = models.OrganizationPatientsMapping.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = PatientsForOrgSerializer
+
+    def get(self, request):
+        user = request.user.profile
+        try:
+            try:
+                user_org = UserOrganizationAccess.objects.get(user=user)
+            except Exception as e:
+                logger.error('User part of no org or multiple orgs: %s' % str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.NO_OR_MULTIPLE_ORGS_FOR_USER})
+            mappings = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).select_related('patient', 'patient__address')
+            serializer = self.serializer_class(mappings, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Cannot fetch patients for org for this user: %s. Error: %s' % (str(user), str(e)))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
