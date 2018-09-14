@@ -364,3 +364,14 @@ class ReportDetailsForWebSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.ReportItem
         fields = ('reportID', 'reportCreatedAt', 'visit',)
+
+
+class PatientsForOrgSerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='patient.uuid')
+    firstName = serializers.CharField(source='patient.first_name')
+    lastName = serializers.CharField(source='patient.last_name')
+    address = AddressSerializer(source='patient.address')
+
+    class Meta:
+        model = models.OrganizationPatientsMapping
+        fields = ('patientID', 'firstName', 'lastName', 'address',)
