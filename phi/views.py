@@ -912,15 +912,10 @@ class AddVisitsView(APIView):
 
         # Check permission for, validate and save each visit
         for visit in visits:
-            episode_id = visit.get('episodeID')
-            if not episode_id:
-                logger.warning('Not saving. EpisodeID not received for visit: %s' % str(visit))
-                failure.append(visit)
-                continue
             # Todo: Handle case of same-user-multiple-orgs
             try:
-                org = models.UserEpisodeAccess.objects.filter(user=request.user.profile).get(episode_id=episode_id).organization
-            except Exception as e:
+                org = UserOrganizationAccess.objects.get(user=request.user.profile).organization
+            except UserOrganizationAccess.DoesNotExist as e:
                 logger.warning('Not saving visit. Error: %s' % str(e))
                 failure.append(visit)
                 continue
@@ -940,6 +935,7 @@ class AddVisitsView(APIView):
                     failure.append(serializer.initial_data)
             else:
                 logger.warning('Not saving. Invalid data received for visit: %s' % str(visit))
+                print(serializer.errors)
                 failure.append(serializer.initial_data)
         logger.debug('Success: %s, Failure: %s' % (str(success), str(failure)))
         return Response({'success': success, 'failure': failure})
@@ -970,10 +966,10 @@ class UpdateVisitView(APIView):
         # Todo: Handle case of same-user-multiple-orgs
         # Get organization of requesting user
         try:
-            org = models.UserEpisodeAccess.objects.filter(user=request.user.profile).get(episode_id=visit.episode_id).organization
-        except Exception as e:
+            org = UserOrganizationAccess.objects.get(user=request.user.profile).organization
+        except UserOrganizationAccess.DoesNotExist as e:
             logger.error('Not saving visit. Error: %s' % str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'User has no organisation'})
 
         serializer = VisitSerializer(instance=visit, data=request.data)
         visit_miles = request.data.get('visitMiles', {})
@@ -1275,4 +1271,22 @@ class StopsViewSet(viewsets.ViewSet):
             return Response(status=status.HTTP_200_OK, data=StopResponseSerializer(stops, many=True).data)
         except UserOrganizationAccess.DoesNotExist:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+
+    def destroy(self, request, pk=None):
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            stop = models.Stop.objects.get(uuid=pk)
+            address = stop.address
+            with transaction.atomic():
+                stop.delete()
+                address.delete()
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'DELETE_STOP',
+                    'stopID': str(pk)
+                }).async(my_publish_callback)
+                return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Stop.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.STOP_NOT_EXIST})
 
