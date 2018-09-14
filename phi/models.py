@@ -248,7 +248,8 @@ class ReportItem(BaseModel):
     def __str__(self):
         return str(self.report) + str(self.visit)
 
-class Stop(BaseModel):
+
+class Place(BaseModel):
     uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=20, null=True)

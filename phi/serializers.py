@@ -213,10 +213,10 @@ class VisitMilesSerializer(serializers.ModelSerializer):
         fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'milesComments', 'visitID')
 
 
-class StopUpdateSerializer(serializers.ModelSerializer):
+class PlaceUpdateSerializer(serializers.ModelSerializer):
     contactNumber = serializers.CharField(source='contact_number', required=False)
     name = serializers.CharField()
 
     class Meta:
-        model = models.Stop
+        model = models.Place
         fields = ('contactNumber', 'name')

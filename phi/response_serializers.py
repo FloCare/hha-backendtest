@@ -366,13 +366,13 @@ class ReportDetailsForWebSerializer(serializers.ModelSerializer):
         fields = ('reportID', 'reportCreatedAt', 'visit',)
 
 
-class StopResponseSerializer(serializers.ModelSerializer):
-    stopID = serializers.UUIDField(source='uuid')
+class PlaceResponseSerializer(serializers.ModelSerializer):
+    placeID = serializers.UUIDField(source='uuid')
     contactNumber = serializers.CharField(source='contact_number', required=False)
     name = serializers.CharField()
     address = AddressSerializer()
 
     class Meta:
-        model = models.Stop
-        fields = ('stopID', 'contactNumber', 'name', 'address')
+        model = models.Place
+        fields = ('placeID', 'contactNumber', 'name', 'address')
 
