@@ -9,6 +9,7 @@ router.register(r'patients', views.AccessiblePatientViewSet)                    
 router.register(r'physicians', views.PhysiciansViewSet)                                         # admin
 # router.register(r'visits', views.VisitsViewSet)
 router.register(r'reports', views.ReportsViewSet)
+router.register(r'stops', views.StopsViewSet)
 
 urlpatterns = [
     url(r'^v1.0/', include([

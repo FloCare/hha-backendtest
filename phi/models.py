@@ -247,3 +247,10 @@ class ReportItem(BaseModel):
 
     def __str__(self):
         return str(self.report) + str(self.visit)
+
+class Stop(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    contact_number = models.CharField(max_length=20, null=True)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    address = models.OneToOneField(user_models.Address, related_name='address', on_delete=models.CASCADE)

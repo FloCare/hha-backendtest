@@ -20,16 +20,17 @@ from backend import errors
 from phi import models
 from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffer_allowed
 from phi.serializers import OrganizationPatientMappingSerializer, \
-    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
-    PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
+    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, PatientWithUsersSerializer, \
+    PatientUpdateSerializer, PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, \
+    VisitMilesSerializer, StopUpdateSerializer
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
-    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
-from user_auth.models import UserOrganizationAccess
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, StopResponseSerializer
+from phi.request_serializers import CreateStopRequestSerializer
+from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
@@ -1206,3 +1207,72 @@ class ReportsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class StopsViewSet(viewsets.ViewSet):
+    model = models.Stop
+    queryset = models.Stop.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request):
+        request_serializer = CreateStopRequestSerializer(data=request.data)
+        if not request_serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+        data = request_serializer.validated_data
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            address_serializer = AddressSerializer(data=request.data['address'])
+            with transaction.atomic():
+                address_serializer.is_valid()
+                address_obj = address_serializer.save()
+                stop = models.Stop.objects.create(name=data['name'], contact_number=data['contact_number'],
+                                                  organization=user_org.organization, address=address_obj)
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'CREATE_STOP',
+                    'stopID': str(stop.uuid)
+                }).async(my_publish_callback)
+                return Response(status=status.HTTP_201_CREATED, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+
+    def update(self, request, pk=None):
+        request_serializer = CreateStopRequestSerializer(data=request.data)
+        if not request_serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            stop = models.Stop.objects.get(uuid=pk)
+            stop_serializer = StopUpdateSerializer(instance=stop, data=request.data)
+            address_serializer = AddressSerializer(instance=stop.address, data=request.data['address'])
+            with transaction.atomic():
+                stop_serializer.is_valid()
+                stop_serializer.save()
+                address_serializer.is_valid()
+                address_serializer.save()
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'UPDATE_STOP',
+                    'stopID': str(stop.uuid)
+                }).async(my_publish_callback)
+                return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Stop.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.STOP_NOT_EXIST})
+
+    def retrieve(self, _, pk=None):
+        try:
+            stop = models.Stop.objects.get(uuid=pk)
+            return Response(status=status.HTTP_200_OK, data=StopResponseSerializer(stop).data)
+        except models.Stop.DoesNotExist as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.STOP_NOT_EXIST})
+
+    def list(self, request):
+        user = request.user
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=user.profile, is_admin=True)
+            stops = models.Stop.objects.filter(organization=user_org.organization)
+            return Response(status=status.HTTP_200_OK, data=StopResponseSerializer(stops, many=True).data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+
