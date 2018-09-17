@@ -366,6 +366,7 @@ class ReportDetailsForWebSerializer(serializers.ModelSerializer):
         fields = ('reportID', 'reportCreatedAt', 'visit',)
 
 
+# Todo: Used for online patients feature in the app
 class PatientsForOrgSerializer(serializers.ModelSerializer):
     patientID = serializers.UUIDField(source='patient.uuid')
     firstName = serializers.CharField(source='patient.first_name')
