@@ -1222,7 +1222,7 @@ class PlacesViewSet(viewsets.ViewSet):
                 address_serializer.is_valid()
                 address_obj = address_serializer.save()
                 place = models.Place.objects.create(name=data['name'], contact_number=data['contact_number'],
-                                                   organization=user_org.organization, address=address_obj)
+                                                    organization=user_org.organization, address=address_obj)
                 settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
                     'actionType': 'CREATE_PLACE',
                     'placeID': str(place.uuid)
@@ -1267,7 +1267,7 @@ class PlacesViewSet(viewsets.ViewSet):
         user = request.user
         try:
             user_org = UserOrganizationAccess.objects.get(user=user.profile)
-            places = models.Place.objects.filter(organization=user_org.organization)
+            places = models.Place.objects.filter(organization=user_org.organization).order_by('name')
             return Response(status=status.HTTP_200_OK, data=PlaceResponseSerializer(places, many=True).data)
         except UserOrganizationAccess.DoesNotExist:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
