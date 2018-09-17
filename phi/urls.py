@@ -19,7 +19,7 @@ urlpatterns = [
             url(r'^get-patients-for-old-ids/$', views.GetPatientsByOldIds.as_view()),                   # app
             # Todo: Endpoints for online patients feature in the app
             url(r'^get-patients-for-org/$', views.GetPatientsByOrg.as_view()),                          # app
-            url(r'^add-patients-to-user/$', views.AssignPatientsToUser.as_view()),                      # app
+            url(r'^add-patient-to-user/$', views.AssignPatientToUser.as_view()),                      # app
 
             url(r'^get-episodes-for-ids/$', views.EpisodeView.as_view()),                               # app
             url(r'^get-visits-for-user/$', views.GetMyVisits.as_view()),                                # app

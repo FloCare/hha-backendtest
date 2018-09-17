@@ -1231,7 +1231,7 @@ class GetPatientsByOrg(APIView):
 
 
 # Todo: Used for online patients feature in the app
-class AssignPatientsToUser(APIView):
+class AssignPatientToUser(APIView):
     permission_classes = (IsAuthenticated,)
 
     local_counter = 1
@@ -1239,17 +1239,16 @@ class AssignPatientsToUser(APIView):
     def post(self, request):
         """
         - find org of calling user
-        - check if org has access to patientIDs passed
-        - get active episodes for those patientIDs
-        - check if user doesn't already have access to any of those episodes
+        - check if org has access to patientID passed
+        - get active episode for that patientID
+        - check if user doesn't already have access to this episode
         - link episode to user
         """
-        patient_ids = request.data.get('patientIDs', None)
-        if not patient_ids:
+        patient_id = request.data.get('patientID', None)
+        if not patient_id:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
             user = request.user.profile
-            patient_ids = list(set(patient_ids))
 
             try:
                 # Find this user's organization
@@ -1259,78 +1258,76 @@ class AssignPatientsToUser(APIView):
                 logger.error('User associated with no or multiple Orgs: %s' % str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.NO_OR_MULTIPLE_ORGS_FOR_USER})
 
-            # Throw error if any of the patients don't belong to this org
-            mappings = models.OrganizationPatientsMapping.objects.filter(organization=user_org).filter(patient__in=patient_ids)
-            if len(patient_ids) != len(mappings):
-                logger.error(errors.INVALID_PATIENTS_PASSED)
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.INVALID_PATIENTS_PASSED})
+            # Throw error if patient doesn't belong to this org
+            mapping = models.OrganizationPatientsMapping.objects.filter(organization=user_org).filter(patient_id=patient_id)
+            if not mapping.exists():
+                logger.error(errors.INVALID_PATIENT_PASSED)
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.INVALID_PATIENT_PASSED})
 
-            episode_and_patient_ids = models.Episode.objects.filter(patient_id__in=patient_ids).filter(is_active=True).values_list('uuid', 'patient_id')
-            if len(episode_and_patient_ids) != len(patient_ids):
+            try:
+                episode = models.Episode.objects.filter(patient_id=patient_id).get(is_active=True)
+            except Exception as e:
                 logger.error('Missing or Extra active episode for a patientIDs passed')
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
-            logger.debug('Saving UserEpisodeAccess Serializer')
             org_id = user_org.uuid
             user_id = user.uuid
 
             # Throw error if user already has access to any of the episodes
-            episode_ids = [episode_id for episode_id, _ in episode_and_patient_ids]
-            accesses = models.UserEpisodeAccess.objects.filter(user_id=user_id, organization_id=org_id).filter(episode_id__in=episode_ids)
-            if accesses.exists():
-                logger.error('User already has access to some episodes. Cannot add another entry')
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PATIENTS_ALREADY_ASSIGNED})
+            access = models.UserEpisodeAccess.objects.filter(user_id=user_id, organization_id=org_id).filter(episode=episode)
+            if access.exists():
+                logger.error('User already has access to the episode. Cannot add another entry')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PATIENT_ALREADY_ASSIGNED})
 
-            # Todo: Do a bulk update
-            for episode_id, patient_id in episode_and_patient_ids:
-                data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode_id, 'user_role': 'CareGiver'}
-                print('data=', data)
-                access_serializer = UserEpisodeAccessSerializer(data=data)
-                access_serializer.is_valid()
-                access_serializer.save()
-                logger.debug('UserEpisodeAccess saved successfully')
+            # Update the DB
+            logger.debug('Saving UserEpisodeAccess Serializer')
+            data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
+            access_serializer = UserEpisodeAccessSerializer(data=data)
+            access_serializer.is_valid()
+            access_serializer.save()
+            logger.debug('UserEpisodeAccess saved successfully')
 
-                settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
-                    'actionType': 'ASSIGN',
-                    'patientID': str(patient_id),
-                    'pn_apns': {
-                        "aps": {
-                            "content-available": 1
-                        },
-                        "payload": {
-                            "messageCounter": AssignPatientsToUser.local_counter,
-                            "patientID": str(patient_id)
-                        }
-                    }
-                }).async(my_publish_callback)
-
-                settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
-                    'pn_apns': {
-                        "aps": {
-                            "alert": {
-                                "body": "You have a new Patient",
-                            },
-                            "sound": "default",
-                        },
-                        "payload": {
-                            "messageCounter": AssignPatientsToUser.local_counter,
-                            "patientID": str(patient_id),
-                            "navigateTo": 'patient_list'
-                        }
+            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                'actionType': 'ASSIGN',
+                'patientID': str(patient_id),
+                'pn_apns': {
+                    "aps": {
+                        "content-available": 1
                     },
-                    'pn_gcm': {
-                        'data': {
-                            'notificationBody': "You have a new Patient",
-                            "sound": "default",
-                            "navigateTo": 'patient_list',
-                            'messageCounter': AssignPatientsToUser.local_counter,
-                            'patientID': str(patient_id)
-                        }
+                    "payload": {
+                        "messageCounter": AssignPatientToUser.local_counter,
+                        "patientID": str(patient_id)
                     }
-                }).async(my_publish_callback)
+                }
+            }).async(my_publish_callback)
 
-                AssignPatientsToUser.local_counter += 1
-                return Response({'success': True, 'error': None})
+            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                'pn_apns': {
+                    "aps": {
+                        "alert": {
+                            "body": "You have a new Patient",
+                        },
+                        "sound": "default",
+                    },
+                    "payload": {
+                        "messageCounter": AssignPatientToUser.local_counter,
+                        "patientID": str(patient_id),
+                        "navigateTo": 'patient_list'
+                    }
+                },
+                'pn_gcm': {
+                    'data': {
+                        'notificationBody': "You have a new Patient",
+                        "sound": "default",
+                        "navigateTo": 'patient_list',
+                        'messageCounter': AssignPatientToUser.local_counter,
+                        'patientID': str(patient_id)
+                    }
+                }
+            }).async(my_publish_callback)
+
+            AssignPatientToUser.local_counter += 1
+            return Response({'success': True, 'error': None})
 
         except Exception as e:
             logger.error(str(e))
