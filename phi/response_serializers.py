@@ -221,7 +221,7 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     # userID = serializers.UUIDField(source='user_id')
     user = serializers.SerializerMethodField(required=False)
-    patientName = serializers.SerializerMethodField(required=False)
+    name = serializers.SerializerMethodField(required=False)
     # episodeID = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
@@ -238,18 +238,25 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
         name = obj.user.user.last_name + ' ' + obj.user.user.first_name
         return name
 
-    def get_patientName(self, obj):
-        patient_name = obj.episode.patient.first_name + ' ' + obj.episode.patient.last_name
-        return patient_name
+    def get_name(self, obj):
+        if obj.episode:
+            return obj.episode.patient.first_name + ' ' + obj.episode.patient.last_name
+        else:
+            return obj.place.name
 
     def get_address(self, obj):
-        addr = obj.episode.patient.address
-        address = addr.street_address + ', ' + addr.city + ', ' + addr.state + ', ' + addr.country + ', ' + addr.zip
-        return address
+        if obj.episode:
+            address_object = obj.episode.patient.address
+        else:
+            address_object = obj.place.address
+        return self.get_formatted_address(address_object)
+
+    def get_formatted_address(self, address):
+        return address.street_address + ', ' + address.city + ', ' + address.state + ', ' + address.country + ', ' + address.zip
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'user', 'patientName', 'address', 'timeOfCompletion', 'isDone', 'isDeleted', 'visitMiles')
+        fields = ('visitID', 'user', 'name', 'address', 'timeOfCompletion', 'isDone', 'isDeleted', 'visitMiles')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
