@@ -178,6 +178,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source='user_id')
     episodeID = serializers.UUIDField(source="episode_id", required=False)
+    placeID = serializers.UUIDField(source='place_id', required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
@@ -212,7 +213,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
+        fields = ('visitID', 'userID', 'episodeID', 'placeID', 'timeOfCompletion', 'isDone', 'isDeleted',
                   'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles', 'reportID')
 
 

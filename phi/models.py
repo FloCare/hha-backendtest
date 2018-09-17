@@ -140,11 +140,19 @@ class Episode(BaseModel):
         return episode
 
 
+class Place(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    contact_number = models.CharField(max_length=20, null=True)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    address = models.OneToOneField(user_models.Address, related_name='address', on_delete=models.CASCADE)
+
+
 class Visit(BaseModel):
     id = models.UUIDField(primary_key=True, editable=False)
 
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
-    # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
+    place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
     # Organization is added to Visit to make Querying Visits from same Org easier.
     # This is reduntant info, otherwise can be obtained using UserEpisodeAccess Model
@@ -247,11 +255,3 @@ class ReportItem(BaseModel):
 
     def __str__(self):
         return str(self.report) + str(self.visit)
-
-
-class Place(BaseModel):
-    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100)
-    contact_number = models.CharField(max_length=20, null=True)
-    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
-    address = models.OneToOneField(user_models.Address, related_name='address', on_delete=models.CASCADE)

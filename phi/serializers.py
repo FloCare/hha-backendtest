@@ -161,6 +161,7 @@ class VisitSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source="user_id", required=False)
     episodeID = serializers.UUIDField(source="episode_id", required=False, allow_null=True)
+    placeID = serializers.UUIDField(source="place_id", required=False, allow_null=True)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
@@ -194,7 +195,7 @@ class VisitSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
+        fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted', 'placeID',
                   'midnightEpochOfVisit', 'plannedStartTime', 'organizationID')
 
 
@@ -214,7 +215,7 @@ class VisitMilesSerializer(serializers.ModelSerializer):
 
 
 class PlaceUpdateSerializer(serializers.ModelSerializer):
-    contactNumber = serializers.CharField(source='contact_number', required=False)
+    contactNumber = serializers.CharField(source='contact_number', required=False, allow_null=True)
     name = serializers.CharField()
 
     class Meta:
