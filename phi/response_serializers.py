@@ -247,8 +247,10 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
     def get_address(self, obj):
         if obj.episode:
             address_object = obj.episode.patient.address
-        else:
+        elif obj.place:
             address_object = obj.place.address
+        else:
+            return " "
         return self.get_formatted_address(address_object)
 
     def get_formatted_address(self, address):
