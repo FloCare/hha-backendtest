@@ -386,3 +386,15 @@ class PlaceResponseSerializer(serializers.ModelSerializer):
         model = models.Place
         fields = ('placeID', 'contactNumber', 'name', 'address')
 
+
+
+# Todo: Used for online patients feature in the app
+class PatientsForOrgSerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='patient.uuid')
+    firstName = serializers.CharField(source='patient.first_name')
+    lastName = serializers.CharField(source='patient.last_name')
+    address = AddressSerializer(source='patient.address')
+
+    class Meta:
+        model = models.OrganizationPatientsMapping
+        fields = ('patientID', 'firstName', 'lastName', 'address',)

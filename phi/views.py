@@ -28,7 +28,7 @@ from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchE
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
-    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
 from phi.request_serializers import CreatePlaceRequestSerializer
 from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
@@ -338,7 +338,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             # Todo: Improve Sorting logic - use DRF builtin
             query_params = request.query_params
-            sort_field = 'first_name'
+            sort_field = 'last_name'
             order = 'ASC'
             if 'sort' in query_params:
                 sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
@@ -1200,6 +1200,132 @@ class ReportsViewSet(viewsets.ViewSet):
             except Exception as e:
                 logger.error(str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+# Todo: Used for online patients feature in the app
+class GetPatientsByOrg(APIView):
+    queryset = models.OrganizationPatientsMapping.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = PatientsForOrgSerializer
+
+    def get(self, request):
+        user = request.user.profile
+        try:
+            try:
+                user_org = UserOrganizationAccess.objects.get(user=user)
+            except Exception as e:
+                logger.error('User part of no org or multiple orgs: %s' % str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.NO_OR_MULTIPLE_ORGS_FOR_USER})
+            mappings = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).select_related('patient', 'patient__address')
+            serializer = self.serializer_class(mappings, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Cannot fetch patients for org for this user: %s. Error: %s' % (str(user), str(e)))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+# Todo: Used for online patients feature in the app
+class AssignPatientToUser(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    local_counter = 1
+
+    def post(self, request):
+        """
+        - find org of calling user
+        - check if org has access to patientID passed
+        - get active episode for that patientID
+        - check if user doesn't already have access to this episode
+        - link episode to user
+        """
+        patient_id = request.data.get('patientID', None)
+        if not patient_id:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
+        try:
+            user = request.user.profile
+
+            try:
+                # Find this user's organization
+                # This assumes user can only belong to 1 org
+                user_org = UserOrganizationAccess.objects.get(user=user).organization
+            except Exception as e:
+                logger.error('User associated with no or multiple Orgs: %s' % str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.NO_OR_MULTIPLE_ORGS_FOR_USER})
+
+            # Throw error if patient doesn't belong to this org
+            mapping = models.OrganizationPatientsMapping.objects.filter(organization=user_org).filter(patient_id=patient_id)
+            if not mapping.exists():
+                logger.error(errors.INVALID_PATIENT_PASSED)
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.INVALID_PATIENT_PASSED})
+
+            try:
+                episode = models.Episode.objects.filter(patient_id=patient_id).get(is_active=True)
+            except Exception as e:
+                logger.error('Missing or Extra active episode for a patientIDs passed')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+            org_id = user_org.uuid
+            user_id = user.uuid
+
+            # Throw error if user already has access to any of the episodes
+            access = models.UserEpisodeAccess.objects.filter(user_id=user_id, organization_id=org_id).filter(episode=episode)
+            if access.exists():
+                logger.error('User already has access to the episode. Cannot add another entry')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PATIENT_ALREADY_ASSIGNED})
+
+            # Update the DB
+            logger.debug('Saving UserEpisodeAccess Serializer')
+            data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
+            access_serializer = UserEpisodeAccessSerializer(data=data)
+            access_serializer.is_valid()
+            access_serializer.save()
+            logger.debug('UserEpisodeAccess saved successfully')
+
+            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                'actionType': 'ASSIGN',
+                'patientID': str(patient_id),
+                'pn_apns': {
+                    "aps": {
+                        "content-available": 1
+                    },
+                    "payload": {
+                        "messageCounter": AssignPatientToUser.local_counter,
+                        "patientID": str(patient_id)
+                    }
+                }
+            }).async(my_publish_callback)
+
+            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                'pn_apns': {
+                    "aps": {
+                        "alert": {
+                            "body": "You have a new Patient",
+                        },
+                        "sound": "default",
+                    },
+                    "payload": {
+                        "messageCounter": AssignPatientToUser.local_counter,
+                        "patientID": str(patient_id),
+                        "navigateTo": 'patient_list'
+                    }
+                },
+                'pn_gcm': {
+                    'data': {
+                        'notificationBody': "You have a new Patient",
+                        "sound": "default",
+                        "navigateTo": 'patient_list',
+                        'messageCounter': AssignPatientToUser.local_counter,
+                        'patientID': str(patient_id)
+                    }
+                }
+            }).async(my_publish_callback)
+
+            AssignPatientToUser.local_counter += 1
+            return Response({'success': True, 'error': None})
+
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
