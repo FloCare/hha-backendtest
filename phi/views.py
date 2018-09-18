@@ -1255,10 +1255,14 @@ class PlacesViewSet(viewsets.ViewSet):
         except models.Place.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
 
-    def retrieve(self, _, pk=None):
+    def retrieve(self, request, pk=None):
+        user = request.user
         try:
-            place = models.Place.objects.get(uuid=pk)
+            user_org = UserOrganizationAccess.objects.get(user=user.profile)
+            place = models.Place.objects.get(uuid=pk, organization=user_org.organization)
             return Response(status=status.HTTP_200_OK, data=PlaceResponseSerializer(place).data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except models.Place.DoesNotExist as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})

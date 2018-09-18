@@ -6,6 +6,7 @@ from django.urls import reverse
 from backend import errors
 from rest_framework import status
 import json
+import random
 
 
 class UserRequestTestCase(TestCase):
@@ -32,7 +33,11 @@ class TestPlacesViewSet(UserRequestTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.initObjects()
-        cls.organisation = Organization.objects.create(name='org', type='org', contact_no='234343')
+        cls.organisation = TestPlacesViewSet.createOrganisation()
+
+    @staticmethod
+    def createOrganisation():
+        return Organization.objects.create(name='org' + str(random.randint(0, 10000)), type='org', contact_no='234343')
 
     def setUp(self):
         UserOrganizationAccess.objects.create(user=self.user_profile, organization=self.organisation)
@@ -156,8 +161,8 @@ class TestPlacesViewSet(UserRequestTestCase):
         }
         self.assertDictEqual(response.data, expected_response)
 
-
     def test_update_updates_place_and_address(self):
+        "Should update place and address objects"
         self.makeUserAdmin(self.user_profile)
         place = self.createPlaceAndAddress()
         payload = {
@@ -183,6 +188,7 @@ class TestPlacesViewSet(UserRequestTestCase):
         self.validate_address_object_equal(places[0].address, payload["address"])
 
     def test_retrieve_place_does_not_exist(self):
+        "Should return 400 if place does not exist"
         url = '/phi/v1.0/places/' + str(uuid.uuid4()) + "/"
         response = self.client.get(url, **self.getBaseHeaders())
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -192,7 +198,21 @@ class TestPlacesViewSet(UserRequestTestCase):
         }
         self.assertDictEqual(response.data, expected_response)
 
+    def test_retrieve_place_does_not_belong_to_user_org(self):
+        "Should return 400 if place exists but does not belong to user organisation"
+        place = self.createPlaceAndAddress()
+        Place.objects.filter(uuid=place.uuid).update(organization=TestPlacesViewSet.createOrganisation())
+        url = '/phi/v1.0/places/' + str(place.uuid) + "/"
+        response = self.client.get(url, **self.getBaseHeaders())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        expected_response = {
+            'success': False,
+            'error': errors.PLACE_NOT_EXIST
+        }
+        self.assertDictEqual(response.data, expected_response)
+
     def test_retrieve_place(self):
+        "Should retrieve place"
         place = self.createPlaceAndAddress()
         url = '/phi/v1.0/places/' + str(place.uuid) + "/"
         response = self.client.get(url, **self.getBaseHeaders())
