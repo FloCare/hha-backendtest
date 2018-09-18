@@ -1210,6 +1210,23 @@ class PlacesViewSet(viewsets.ViewSet):
     queryset = models.Place.objects.all()
     permission_classes = (IsAuthenticated,)
 
+    query_to_db_map = {
+        'contactNumber': 'contact_number',
+        'name': 'name'
+    }
+
+    def get_order_by_field(self, query_params):
+        order = 'name'
+        fields = models.Place._meta.fields
+        fields_list = map(lambda field: field.name, fields)
+        if 'sort' in query_params:
+            sort_value = query_params['sort']
+            if sort_value in self.query_to_db_map.keys() and self.query_to_db_map[sort_value] in fields_list:
+                order = self.query_to_db_map[query_params['sort']]
+                if 'order' in query_params and query_params['order'] == 'DESC':
+                    order = '-' + order
+        return order
+
     def create(self, request):
         request_serializer = CreatePlaceRequestSerializer(data=request.data)
         if not request_serializer.is_valid():
@@ -1271,7 +1288,8 @@ class PlacesViewSet(viewsets.ViewSet):
         user = request.user
         try:
             user_org = UserOrganizationAccess.objects.get(user=user.profile)
-            places = models.Place.objects.filter(organization=user_org.organization).order_by('name')
+            order_field = self.get_order_by_field(request.query_params)
+            places = models.Place.objects.filter(organization=user_org.organization).order_by(order_field)
             return Response(status=status.HTTP_200_OK, data=PlaceResponseSerializer(places, many=True).data)
         except UserOrganizationAccess.DoesNotExist:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
