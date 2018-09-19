@@ -22,7 +22,7 @@ from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffe
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, PatientWithUsersSerializer, \
     PatientUpdateSerializer, PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, \
-    VisitMilesSerializer, PlaceUpdateSerializer
+    VisitMilesSerializer, PlaceUpdateSerializer, PhysicianUpdateSerializer
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
@@ -740,13 +740,51 @@ class PhysiciansViewSet(viewsets.ViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def update(self, request, pk=None):
-        pass
+        try:
+            UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            physician = models.Physician.objects.get(uuid=pk)
+            physician_serializer = PhysicianUpdateSerializer(instance=physician, data=request.data)
+            episodes = models.Episode.objects.filter(primary_physician=physician)
+            physician_patients = list(map(lambda episode: episode.patient, episodes))
+            with transaction.atomic():
+                physician_serializer.is_valid()
+                physician_serializer.save()
+                for patient in physician_patients:
+                    episode = patient.episodes.get(is_active=True)
+                    user_episode_access_list = models.UserEpisodeAccess.objects.filter(episode=episode)
+                    if user_episode_access_list.count() > 0:
+                        users_linked_to_patient = [user_episode_access.user.uuid for user_episode_access in
+                                                   user_episode_access_list]
+                        for user_uuid in users_linked_to_patient:
+                            settings.PUBNUB.publish().channel(str(user_uuid) + '_assignedPatients').message({
+                                'actionType': 'UPDATE',
+                                'patientID': str(patient.uuid),
+                            }).async(my_publish_callback)
+
+            return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def partial_update(self, request, pk=None):
         pass
 
     def destroy(self, request, pk=None):
         pass
+        # TODO Will be handled after checking with Gaurav
+        # try:
+        #     UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+        #     physician = models.Physician.objects.get(uuid=pk)
+        #     with transaction.atomic():
+        #         physician.delete()
+        #         return Response(status=status.HTTP_200_OK, data={})
+        # except UserOrganizationAccess.DoesNotExist:
+        #     return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        # except models.Physician.DoesNotExist:
+        #     return Response(status=status.HTTP_400_BAD_REQUEST,
+        #                     data={'success': False, 'error': errors.PHYSICIAN_NOT_EXIST})
 
 
 def handle_uploaded_file(f, filename):
@@ -1102,7 +1140,7 @@ class GetReportsDetailByIDs(APIView):
         report_ids = data['reportIDs']
         try:
             reports = models.Report.objects.in_bulk(report_ids, field_name='uuid').values()
-            response = list(map((lambda report : {'report': report, 'report_items': report.report_items}), reports))
+            response = list(map((lambda report: {'report': report, 'report_items': report.report_items}), reports))
             return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response, many=True).data)
         except Exception as e:
             logger.error('Error processing request %s' % str(e))

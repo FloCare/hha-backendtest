@@ -226,7 +226,7 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
-    # midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
+    midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
     # plannedStartTime = serializers.SerializerMethodField(required=False)
     visitMiles = VisitMilesResponseSerializer(source='visit_miles')
     address = serializers.SerializerMethodField(required=False)
@@ -256,9 +256,19 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
     def get_formatted_address(self, address):
         return address.street_address + ', ' + address.city + ', ' + address.state + ', ' + address.country + ', ' + address.zip
 
+    def get_midnightEpochOfVisit(self, obj):
+        t = obj.midnight_epoch
+        if t:
+            try:
+                return int(t)
+            except Exception as e:
+                print('Error in fetching timestamp:', str(e))
+        return None
+
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'user', 'name', 'address', 'timeOfCompletion', 'isDone', 'isDeleted', 'visitMiles')
+        fields = ('visitID', 'user', 'name', 'address', 'timeOfCompletion', 'isDone', 'isDeleted',
+                  'visitMiles', 'midnightEpochOfVisit')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
