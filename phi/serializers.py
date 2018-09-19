@@ -221,3 +221,11 @@ class PlaceUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Place
         fields = ('contactNumber', 'name')
+
+
+class PhysicianUpdateSerializer(serializers.ModelSerializer):
+    phone2 = serializers.CharField(required=False, allow_null=True)
+
+    class Meta:
+        model = models.Physician
+        fields = ('phone2',)

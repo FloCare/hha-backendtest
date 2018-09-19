@@ -14,3 +14,14 @@ class CreatePlaceRequestSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+
+
+class CreatePhysicianRequestSerializer(serializers.Serializer):
+
+    phone2 = serializers.CharField(max_length=15, required=False, default=None, allow_null=True)
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
