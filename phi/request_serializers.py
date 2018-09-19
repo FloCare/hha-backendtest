@@ -14,3 +14,4 @@ class CreatePlaceRequestSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
+

@@ -7,3 +7,4 @@ NO_OR_MULTIPLE_ORGS_FOR_USER = 'User associated with no or multiple organization
 PATIENT_ALREADY_ASSIGNED = 'Patient already assigned'
 INVALID_PATIENT_PASSED = 'Invalid patientID passed'
 PLACE_NOT_EXIST = 'Place does not exist'
+PHYSICIAN_NOT_EXIST = 'Physician does not exist'
