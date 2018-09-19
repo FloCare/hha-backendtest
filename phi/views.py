@@ -763,11 +763,9 @@ class PhysiciansViewSet(viewsets.ViewSet):
                             }).async(my_publish_callback)
 
             return Response(status=status.HTTP_200_OK, data={})
-        except UserOrganizationAccess.DoesNotExist:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except models.Place.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST,
-                            data={'success': False, 'error': errors.PHYSICIAN_NOT_EXIST})
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
     def partial_update(self, request, pk=None):
         pass
