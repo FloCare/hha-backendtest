@@ -741,6 +741,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         try:
+            UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
             physician = models.Physician.objects.get(uuid=pk)
             physician_serializer = PhysicianUpdateSerializer(instance=physician, data=request.data)
             episodes = models.Episode.objects.filter(primary_physician=physician)
@@ -763,6 +764,8 @@ class PhysiciansViewSet(viewsets.ViewSet):
                             }).async(my_publish_callback)
 
             return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
@@ -772,6 +775,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
 
     def destroy(self, request, pk=None):
         try:
+            UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
             physician = models.Physician.objects.get(uuid=pk)
             with transaction.atomic():
                 physician.delete()
