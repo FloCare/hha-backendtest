@@ -20,7 +20,7 @@ urlpatterns = [
             url(r'^get-patients-for-old-ids/$', views.GetPatientsByOldIds.as_view()),                   # app
             # Todo: Endpoints for online patients feature in the app
             url(r'^get-patients-for-org/$', views.GetPatientsByOrg.as_view()),                          # app
-            url(r'^add-patient-to-user/$', views.AssignPatientToUser.as_view()),                      # app
+            url(r'^add-patient-to-user/$', views.AssignPatientToUser.as_view()),                        # app
 
             url(r'^get-episodes-for-ids/$', views.EpisodeView.as_view()),                               # app
             url(r'^get-visits-for-user/$', views.GetMyVisits.as_view()),                                # app
@@ -30,10 +30,10 @@ urlpatterns = [
             url(r'^delete-visit-for-id/$', views.DeleteVisitView.as_view()),                            # app
             url(r'^update-visit-for-id/$', views.UpdateVisitView.as_view()),                            # app
             url(r'^upload/$', views.upload_file, name='upload'),
-            url(r'^get-physician-for-npi/$', views.fetch_physician, name='npi'),                        # admin,
-            url(r'^create-report-for-visits/$', views.CreateReportForVisits.as_view()),
-            url(r'^get-reports-for-user/$', views.GetReportsForUser.as_view()),
-            url(r'^get-reports-detail-by-ids/$', views.GetReportsDetailByIDs.as_view()),
+            url(r'^get-physician-for-npi/$', views.fetch_physician, name='npi'),                        # admin
+            url(r'^create-report-for-visits/$', views.CreateReportForVisits.as_view()),                 # app
+            url(r'^get-reports-for-user/$', views.GetReportsForUser.as_view()),                         # app
+            url(r'^get-reports-detail-by-ids/$', views.GetReportsDetailByIDs.as_view()),                # app
         ])
     ),
 ]

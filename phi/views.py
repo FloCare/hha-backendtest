@@ -1102,7 +1102,7 @@ class GetReportsDetailByIDs(APIView):
         report_ids = data['reportIDs']
         try:
             reports = models.Report.objects.in_bulk(report_ids, field_name='uuid').values()
-            response = list(map((lambda report : {'report': report, 'report_items': report.report_items}), reports))
+            response = list(map((lambda report: {'report': report, 'report_items': report.report_items}), reports))
             return Response(status=status.HTTP_200_OK, data=ReportDetailSerializer(response, many=True).data)
         except Exception as e:
             logger.error('Error processing request %s' % str(e))
