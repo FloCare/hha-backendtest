@@ -745,9 +745,7 @@ class PhysiciansViewSet(viewsets.ViewSet):
             physician = models.Physician.objects.get(uuid=pk)
             physician_serializer = PhysicianUpdateSerializer(instance=physician, data=request.data)
             episodes = models.Episode.objects.filter(primary_physician=physician)
-            physician_patients = []
-            for episode in episodes:
-                physician_patients.append(episode.patient)
+            physician_patients = list(map(lambda episode: episode.patient, episodes))
             with transaction.atomic():
                 physician_serializer.is_valid()
                 physician_serializer.save()
@@ -774,17 +772,19 @@ class PhysiciansViewSet(viewsets.ViewSet):
         pass
 
     def destroy(self, request, pk=None):
-        try:
-            UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
-            physician = models.Physician.objects.get(uuid=pk)
-            with transaction.atomic():
-                physician.delete()
-                return Response(status=status.HTTP_200_OK, data={})
-        except UserOrganizationAccess.DoesNotExist:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except models.Physician.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST,
-                            data={'success': False, 'error': errors.PHYSICIAN_NOT_EXIST})
+        pass
+        # TODO Will be handled after checking with Gaurav
+        # try:
+        #     UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+        #     physician = models.Physician.objects.get(uuid=pk)
+        #     with transaction.atomic():
+        #         physician.delete()
+        #         return Response(status=status.HTTP_200_OK, data={})
+        # except UserOrganizationAccess.DoesNotExist:
+        #     return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        # except models.Physician.DoesNotExist:
+        #     return Response(status=status.HTTP_400_BAD_REQUEST,
+        #                     data={'success': False, 'error': errors.PHYSICIAN_NOT_EXIST})
 
 
 def handle_uploaded_file(f, filename):
