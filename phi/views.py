@@ -326,6 +326,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
+    def filter_user_ep_objects_by_episode_ids(self, user_ep_objects, episode_ids):
+        return [user_ep_object for user_ep_object in user_ep_objects if user_ep_object.episode.uuid in episode_ids]
+
+    def get_episode_ids_for_patient(self, patient):
+        return list(map(lambda episode: episode.uuid, patient.episodes.all()))
+
+    def get_user_ids_for_patient(self, patient, all_user_ep_access_objects):
+        episode_ids = self.get_episode_ids_for_patient(patient)
+        filtered_user_ep_objects = self.filter_user_ep_objects_by_episode_ids(all_user_ep_access_objects, episode_ids)
+        return list(map(lambda object: object.user.uuid, filtered_user_ep_objects))
+
     # Todo: also send the active episodeId with each patient
     def list(self, request):
         """
@@ -354,14 +365,14 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 if user_org :
                     logger.debug('User is admin: %s' % str(user))
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).values_list('patient_id')
-                    patients = models.Patient.objects.filter(uuid__in=patient_ids).order_by(sort_field)
-                    patient_list = list()
-                    # Todo: Extremely SLow Query
-                    for patient in patients:
-                        episode_ids = patient.episodes.values_list('uuid', flat=True)
-                        # print('episode_ids:', episode_ids)
-                        user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization=user_org.organization).values_list('user_id', flat=True)
-                        patient_list.append({'patient': patient, 'userIds': list(user_profile_ids)})
+                    patients = models.Patient.objects.select_related('address').prefetch_related('episodes').filter(uuid__in=patient_ids).order_by(sort_field)
+                    episode_id_list = [[episode.uuid for episode in list(patient.episodes.all())] for patient in patients]
+                    episode_id_list= [item for sublist in episode_id_list for item in sublist]
+                    user_episode_access_objects = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_id_list, organization=user_org.organization)
+                    patient_list = list(map(lambda patient: {
+                        'patient': patient,
+                        'userIds': self.get_user_ids_for_patient(patient, user_episode_access_objects)
+                    }, patients))
                     serializer = PatientWithUsersSerializer(patient_list, many=True)
                     return Response(serializer.data)
             except Exception as e:
