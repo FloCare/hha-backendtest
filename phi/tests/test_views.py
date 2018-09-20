@@ -33,14 +33,14 @@ class TestPlacesViewSet(UserRequestTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.initObjects()
-        cls.organisation = TestPlacesViewSet.createOrganisation()
+        cls.organization = TestPlacesViewSet.createOrganization()
 
     @staticmethod
-    def createOrganisation():
+    def createOrganization():
         return Organization.objects.create(name='org' + str(random.randint(0, 10000)), type='org', contact_no='234343')
 
     def setUp(self):
-        UserOrganizationAccess.objects.create(user=self.user_profile, organization=self.organisation)
+        UserOrganizationAccess.objects.create(user=self.user_profile, organization=self.organization)
 
     def test_create_checks_admin_permissions(self):
         "Should return 400 if user is not admin"
@@ -199,9 +199,9 @@ class TestPlacesViewSet(UserRequestTestCase):
         self.assertDictEqual(response.data, expected_response)
 
     def test_retrieve_place_does_not_belong_to_user_org(self):
-        "Should return 400 if place exists but does not belong to user organisation"
+        "Should return 400 if place exists but does not belong to user organization"
         place = self.createPlaceAndAddress()
-        Place.objects.filter(uuid=place.uuid).update(organization=TestPlacesViewSet.createOrganisation())
+        Place.objects.filter(uuid=place.uuid).update(organization=TestPlacesViewSet.createOrganization())
         url = '/phi/v1.0/places/' + str(place.uuid) + "/"
         response = self.client.get(url, **self.getBaseHeaders())
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -242,7 +242,7 @@ class TestPlacesViewSet(UserRequestTestCase):
     def createPlaceAndAddress(self):
         address = Address.objects.create(street_address="s_a", zip='234', city='Bangalore', state='state',
                                          country='country', latitude=23.3, longitude=34.3)
-        return Place.objects.create(name='place', contact_number='123', address=address, organization=self.organisation)
+        return Place.objects.create(name='place', contact_number='123', address=address, organization=self.organization)
 
     def validate_address_object_equal(self, address_db_object, expected_value):
         self.assertEqual(address_db_object.street_address, expected_value["streetAddress"])
