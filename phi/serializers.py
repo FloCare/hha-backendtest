@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from phi import models
 from user_auth.serializers import AddressSerializer
-from user_auth.response_serializers import UserProfileResponseSerializer
 import datetime
 import dateutil
 import logging
@@ -23,19 +22,6 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
         model = models.Patient
         fields = ('firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
                   'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
-
-
-class PhysicianObjectSerializer(serializers.ModelSerializer):
-    npi = serializers.CharField()
-    firstName = serializers.CharField(source='first_name')
-    lastName = serializers.CharField(source='last_name')
-    phone1 = serializers.CharField(required=False)
-    phone2 = serializers.CharField(required=False, allow_null=True)
-    fax = serializers.CharField(required=False)
-
-    class Meta:
-        model = models.Physician
-        fields = ('npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
 
 
 class PatientSerializerWeb(serializers.ModelSerializer):
@@ -222,10 +208,3 @@ class PlaceUpdateSerializer(serializers.ModelSerializer):
         model = models.Place
         fields = ('contactNumber', 'name')
 
-
-class PhysicianUpdateSerializer(serializers.ModelSerializer):
-    phone2 = serializers.CharField(required=False, allow_null=True)
-
-    class Meta:
-        model = models.Physician
-        fields = ('phone2',)

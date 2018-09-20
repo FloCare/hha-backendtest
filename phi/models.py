@@ -62,12 +62,16 @@ class Patient(BaseModel):
 class Physician(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    npi = models.CharField(max_length=10, unique=True)
+    npi = models.CharField(max_length=10)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     phone1 = models.CharField(max_length=15, null=True)
     phone2 = models.CharField(max_length=15, null=True)
     fax = models.CharField(max_length=15, null=True)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, related_name='physicians', null=True)
+
+    class Meta:
+        unique_together = ('organization', 'npi')
 
     def __str__(self):
         physician = self.first_name

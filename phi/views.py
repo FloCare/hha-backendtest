@@ -21,15 +21,15 @@ from phi import models
 from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffer_allowed
 from phi.serializers import OrganizationPatientMappingSerializer, \
     EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, PatientWithUsersSerializer, \
-    PatientUpdateSerializer, PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, \
-    VisitMilesSerializer, PlaceUpdateSerializer, PhysicianUpdateSerializer
+    PatientUpdateSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, \
+    VisitMilesSerializer, PlaceUpdateSerializer
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
     ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
-from phi.request_serializers import CreatePlaceRequestSerializer
+from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
 from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
 import logging
@@ -667,11 +667,10 @@ class PhysiciansViewSet(viewsets.ViewSet):
                 size = None
         return query, sort_field, size
 
-    def get_results(self, query, sort_field, size):
+    def get_results(self, initial_query_set, query, sort_field, size):
+        queryset = initial_query_set
         if query:
-            queryset = models.Physician.objects.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
-        else:
-            queryset = models.Physician.objects.all()
+            queryset = initial_query_set.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
         if sort_field:
             queryset = queryset.order_by(sort_field)
         if size:
@@ -681,74 +680,51 @@ class PhysiciansViewSet(viewsets.ViewSet):
     def list(self, request):
         try:
             user = request.user
-            try:
-                user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
-                if user_org.exists():
-                    logger.debug('User is admin')
-                    # Todo: Add notion of Physicians being associated to Orgs
-                    query_params = request.query_params
-                    logger.debug('Query Params are: %s' % str(query_params))
-                    query, sort_field, size = self.parse_query_params(query_params)
-                    physicians = self.get_results(query, sort_field, size)
-                    serializer = PhysicianResponseSerializer(physicians, many=True)
-                    logger.debug(str(serializer.data))
-                    return Response(serializer.data)
-                else:
-                    return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-            except Exception as e:
-                logger.error(str(e))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            user_org = UserOrganizationAccess.objects.get(user=user.profile, is_admin=True)
+            query_params = request.query_params
+            query, sort_field, size = self.parse_query_params(query_params)
+            organization_physicians = models.Physician.objects.filter(organization=user_org.organization)
+            physicians = self.get_results(organization_physicians, query, sort_field, size)
+            serializer = PhysicianResponseSerializer(physicians, many=True)
+            logger.debug(str(serializer.data))
+            return Response(serializer.data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})
 
     def create(self, request):
-        user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
-        if user_org.exists():
-            physician = request.data.get('physician', None)
-            if not physician:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
-            try:
-                physician_serializer = PhysicianObjectSerializer(data=physician)
-                if physician_serializer.is_valid():
-                    physician_serializer.save()
-                    return Response({'success': True, 'error': None})
-                else:
-                    logger.error('Error in creating physician: %s' % str(physician_serializer.errors))
-                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
-            except Exception as e:
-                logger.error(str(e))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-        else:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        request_serializer = CreatePhysicianRequestSerializer(data=request.data.get('physician', None))
+        if not request_serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            request_serializer.save(organization_id=user_org.organization.uuid)
+            return Response(status=status.HTTP_201_CREATED, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})
 
     def retrieve(self, request, pk=None):
-        # Check if user is admin of this org
         try:
             user = request.user
-            user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
-            if user_org.exists():
-                # Todo: Add notion of Physicians being associated to Orgs; Do permission checks
-                physician = models.Physician.objects.get(uuid=pk)
-                serializer = PhysicianResponseSerializer(physician)
-                logger.debug(str(serializer.data))
-                return Response(serializer.data)
-            else:
-                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            user_org = UserOrganizationAccess.objects.get(user=user.profile,is_admin=True)
+            physician = models.Physician.objects.get(uuid=pk, organization=user_org.organization)
+            serializer = PhysicianResponseSerializer(physician)
+            return Response(serializer.data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Physician.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.PHYSICIAN_NOT_EXIST})
 
     def update(self, request, pk=None):
         try:
-            UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
-            physician = models.Physician.objects.get(uuid=pk)
-            physician_serializer = PhysicianUpdateSerializer(instance=physician, data=request.data)
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            physician = models.Physician.objects.get(uuid=pk, organization=user_org.organization)
+            request_serializer = CreatePhysicianRequestSerializer(instance=physician, data=request.data)
+            if not request_serializer.is_valid():
+                return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
             episodes = models.Episode.objects.filter(primary_physician=physician)
             physician_patients = list(map(lambda episode: episode.patient, episodes))
             with transaction.atomic():
-                physician_serializer.is_valid()
-                physician_serializer.save()
+                request_serializer.save()
                 for patient in physician_patients:
                     episode = patient.episodes.get(is_active=True)
                     user_episode_access_list = models.UserEpisodeAccess.objects.filter(episode=episode)
@@ -760,13 +736,11 @@ class PhysiciansViewSet(viewsets.ViewSet):
                                 'actionType': 'UPDATE',
                                 'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
-
             return Response(status=status.HTTP_200_OK, data={})
         except UserOrganizationAccess.DoesNotExist:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})
+        except models.Physician.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.PHYSICIAN_NOT_EXIST})
 
     def partial_update(self, request, pk=None):
         pass
