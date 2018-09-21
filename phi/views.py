@@ -78,17 +78,19 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             return None, None
         query = query_params.get('query', None)
         size = query_params.get('size', None)
-        if size:
-            try:
-                size = int(size)
-            except Exception as e:
-                size = None
+        try:
+            size = int(size)
+        except Exception as e:
+            size = None
+
         return query, size
 
     def get_results(self, initial_query_set, query, sort_field):
         queryset = initial_query_set
         if query:
-            queryset = initial_query_set.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
+            words = query.split()
+            for word in words:
+                queryset = initial_query_set.filter(Q(first_name__istartswith=word) | Q(last_name__istartswith=word))
         if sort_field:
             queryset = queryset.order_by(sort_field)
         return queryset
