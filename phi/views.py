@@ -3,6 +3,7 @@ import logging
 
 import dateutil.parser
 import requests
+from django.core.paginator import Paginator
 from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -71,6 +72,26 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error('Incorrect or Incomplete data passed: %s' % str(e))
             return None, None, None, None
+
+    def parse_query_params(self, query_params):
+        if not query_params:
+            return None, None
+        query = query_params.get('query', None)
+        size = query_params.get('size', None)
+        if size:
+            try:
+                size = int(size)
+            except Exception as e:
+                size = None
+        return query, size
+
+    def get_results(self, initial_query_set, query, sort_field):
+        queryset = initial_query_set
+        if query:
+            queryset = initial_query_set.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
+        if sort_field:
+            queryset = queryset.order_by(sort_field)
+        return queryset
 
     def update(self, request, pk=None):
         """
@@ -350,6 +371,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             # Todo: Improve Sorting logic - use DRF builtin
             query_params = request.query_params
             sort_field = 'last_name'
+            per_page = 50
+            page = 1
             order = 'ASC'
             if 'sort' in query_params:
                 sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
@@ -357,6 +380,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     order = query_params['order']
             if order == 'DESC':
                 sort_field = '-' + sort_field
+            if 'page' in query_params:
+                page = query_params.get('page', None)
+            if 'perPage' in query_params:
+                per_page = query_params.get('perPage', None)
 
             # Check if this user is admin of the org
             # Note: (A user can be admin of only 1 org)
@@ -364,17 +391,25 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
                 if user_org :
                     logger.debug('User is admin: %s' % str(user))
+                    query_params = request.query_params
+                    query, size = self.parse_query_params(query_params)
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).values_list('patient_id')
-                    patients = models.Patient.objects.select_related('address').prefetch_related('episodes').filter(uuid__in=patient_ids).order_by(sort_field)
+                    patient_records = models.Patient.objects.select_related('address').prefetch_related('episodes').filter(uuid__in=patient_ids)
+                    paginator = Paginator(self.get_results(patient_records, query, sort_field), per_page)
+                    patients = paginator.page(page)
                     episode_id_list = [[episode.uuid for episode in list(patient.episodes.all())] for patient in patients]
-                    episode_id_list= [item for sublist in episode_id_list for item in sublist]
+                    episode_id_list = [item for sublist in episode_id_list for item in sublist]
                     user_episode_access_objects = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_id_list, organization=user_org.organization)
                     patient_list = list(map(lambda patient: {
                         'patient': patient,
                         'userIds': self.get_user_ids_for_patient(patient, user_episode_access_objects)
                     }, patients))
                     serializer = PatientWithUsersSerializer(patient_list, many=True)
-                    return Response(serializer.data)
+                    response = Response(serializer.data)
+                    # Custom header being sent as part of response and being whitelisted
+                    response['content-range'] = paginator.count
+                    response['Access-Control-Expose-Headers'] = "content-range"
+                    return response
             except Exception as e:
                 logger.error('User is not admin: %s' % str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
@@ -958,7 +993,6 @@ class AddVisitsView(APIView):
                     failure.append(serializer.initial_data)
             else:
                 logger.warning('Not saving. Invalid data received for visit: %s' % str(visit))
-                print(serializer.errors)
                 failure.append(serializer.initial_data)
         logger.debug('Success: %s, Failure: %s' % (str(success), str(failure)))
         return Response({'success': success, 'failure': failure})
