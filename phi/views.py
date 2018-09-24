@@ -373,6 +373,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             # Todo: Improve Sorting logic - use DRF builtin
             query_params = request.query_params
             sort_field = 'last_name'
+            per_page = None
+            page = 1
             order = 'ASC'
             if 'sort' in query_params:
                 sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
@@ -394,9 +396,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     query_params = request.query_params
                     query, size = self.parse_query_params(query_params)
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).values_list('patient_id')
-                    patient_records = models.Patient.objects.select_related('address').prefetch_related('episodes').filter(uuid__in=patient_ids)
-                    paginator = Paginator(self.get_results(patient_records, query, sort_field), per_page)
-                    patients = paginator.page(page)
+                    patients = models.Patient.objects.select_related('address').prefetch_related('episodes').filter(uuid__in=patient_ids)
+                    if per_page is not None:
+                        paginator = Paginator(self.get_results(patients, query, sort_field), per_page)
+                        patients = paginator.page(page)
                     episode_id_list = [[episode.uuid for episode in list(patient.episodes.all())] for patient in patients]
                     episode_id_list = [item for sublist in episode_id_list for item in sublist]
                     user_episode_access_objects = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_id_list, organization=user_org.organization)
@@ -407,8 +410,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     serializer = PatientWithUsersSerializer(patient_list, many=True)
                     response = Response(serializer.data)
                     # Custom header being sent as part of response and being whitelisted
-                    response['content-range'] = paginator.count
-                    response['Access-Control-Expose-Headers'] = "content-range"
+                    if per_page is not None:
+                        response['content-range'] = paginator.count
+                        response['Access-Control-Expose-Headers'] = "content-range"
                     return response
             except Exception as e:
                 logger.error('User is not admin: %s' % str(e))
