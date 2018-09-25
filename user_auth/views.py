@@ -13,6 +13,7 @@ from backend import errors
 from django.db import transaction
 from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
 from phi.views import my_publish_callback
+from django.db.models import Q
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,39 +26,63 @@ class UserOrganizationView(APIView):
     """
     permission_classes = (IsAuthenticated, IsAdminForOrg)
 
+    def parse_query_params(self, query_params):
+        if not query_params:
+            return None, None, None, None
+        sort_field = query_params.get('sort', None)
+        sort_order = query_params.get('order', 'ASC')
+        field_list = models.UserProfile._meta.fields + User._meta.fields
+        allowed_fields = map(lambda field: field.name, field_list)
+        if sort_field:
+            if sort_field not in allowed_fields:
+                sort_field = 'first_name'
+        else:
+            sort_field = 'first_name'
+        query = query_params.get('query', None)
+        size = query_params.get('size', None)
+        try:
+            size = int(size)
+        except Exception:
+            size = None
+        return query, sort_field, sort_order, size
+
+    def get_results(self, initial_query_set, query, sort_field, size):
+        query_set = initial_query_set
+        if query:
+            query_set = initial_query_set.filter(Q(user__user__first_name__istartswith=query) | Q(user__user__last_name__istartswith=query))
+        if sort_field:
+            query_set.order_by(sort_field)
+        if size:
+            query_set = query_set[:size]
+        return query_set
+
     def get(self, request):
         try:
             user = request.user
             # Get the organization for this user
-            qs = models.UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
-            org = qs.organization
+            user_org = models.UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
+            org = user_org.organization
 
             # Todo: Improve Sorting logic - use DRF builtin
+            query, sort_field, sort_order, size = self.parse_query_params(request.query_params)
             query_params = request.query_params
-            sort_field = 'user__user__first_name'
-            order = 'ASC'
             if 'sort' in query_params:
                 sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
-                if 'order' in query_params:
-                    order = query_params['order']
-            if order == 'DESC':
-                sort_field = '-' + sort_field
+                if sort_order == 'DESC':
+                    sort_field = '-' + sort_field
 
             # Get list of all users in that org
-            filters = request.query_params.get('ids', None)
-            accesses = models.UserOrganizationAccess.objects.filter(organization=org).order_by(sort_field)
-            # TODO: Don't use eval
+            filters = request.GET.getlist('ids')
+            print('filters')
+            print(filters)
+            accesses = models.UserOrganizationAccess.objects.select_related('user', 'user__user').filter(organization=org)
             if filters:
-                try:
-                    filters = list(eval(filters))
-                except Exception as e:
-                    logger.warning('Filters not a list: %s' % str(e))
-                    filters = [filters]
                 accesses = accesses.filter(user_id__in=filters)
+            accesses = self.get_results(accesses, query, sort_field, size)
             serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': accesses})
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
-        except Exception as e:
+        except UserOrganizationAccess.DoesNotExist as e:
             logger.error(str(e))
             headers = {'Content-Type': 'application/json'}
             return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
