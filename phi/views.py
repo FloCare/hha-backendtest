@@ -989,7 +989,7 @@ class AddVisitsView(APIView):
         episode_serializer = EpisodeSerializer(data=episode)
         episode_serializer.is_valid()
         episode_serializer.save()
-        logger.debug('Created Dummy patient and episode for episode_id : ', str(episode_id))
+        logger.debug('Created Dummy patient and episode')
 
     def handle_missing_episode(self, visit, user_profile, payload):
         episode_id = visit.get('episodeID')
