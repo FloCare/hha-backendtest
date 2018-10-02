@@ -962,8 +962,48 @@ class AddVisitsView(APIView):
     #     logger.debug('Events being published for visit_id: %s' % str(visit_id))
     #     return
 
+
+    def create_dummy_patient_and_episode(self, user_profile, episode_id):
+        patient = models.Patient.objects.create(first_name='Dummy',last_name='Patient',title='Mr')
+        user_org = UserOrganizationAccess.objects.get(user=user_profile)
+        mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': user_org.organization.uuid,
+                                                                        'patient_id': patient.uuid})
+        mapping_serializer.is_valid()
+        mapping_serializer.save()
+        episode = {
+            'id': episode_id,
+            'patient': patient.uuid,
+            'socDate': None,
+            'endDate': None,
+            'period': None,
+            'cprCode': None,
+            'transportationLevel': None,
+            'acuityType': None,
+            'classification': None,
+            'allergies': None,
+            'pharmacy': None,
+            'socClinician': None,
+            'attendingPhysician': None,
+            'primaryPhysician': None
+        }
+        episode_serializer = EpisodeSerializer(data=episode)
+        episode_serializer.is_valid()
+        episode_serializer.save()
+        logger.debug('Created Dummy patient and episode for episode_id : ', str(episode_id))
+
+    def handle_missing_episode(self, visit, user_profile, payload):
+        episode_id = visit.get('episodeID')
+        if episode_id:
+            try:
+                models.Episode.objects.get(uuid=episode_id)
+            except models.Episode.DoesNotExist:
+                logger.debug('Episode Does not exist. Creating Dummy for payload: ')
+                logger.debug(payload)
+                self.create_dummy_patient_and_episode(user_profile, episode_id)
+
     def post(self, request):
         # Check user permissions for that episode
+        user = request.user
         visits = request.data.get('visits')
         if not visits:
             logger.error('"visits" not present in request')
@@ -981,6 +1021,9 @@ class AddVisitsView(APIView):
                 logger.warning('Not saving visit. Error: %s' % str(e))
                 failure.append(visit)
                 continue
+            # TODO - remove this - only temporary fix
+            # https://flocare.atlassian.net/browse/FC-115phi/response_serializers.py
+            self.handle_missing_episode(visit, user.profile, request.data)
 
             serializer = VisitSerializer(data=visit)
             visit_miles = visit.get('visitMiles', {})

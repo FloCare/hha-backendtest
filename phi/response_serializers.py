@@ -254,7 +254,9 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
         return self.get_formatted_address(address_object)
 
     def get_formatted_address(self, address):
-        return address.street_address + ', ' + address.city + ', ' + address.state + ', ' + address.country + ', ' + address.zip
+        if address:
+            return address.street_address + ', ' + address.city + ', ' + address.state + ', ' + address.country + ', ' + address.zip
+        return " "
 
     def get_midnightEpochOfVisit(self, obj):
         t = obj.midnight_epoch
