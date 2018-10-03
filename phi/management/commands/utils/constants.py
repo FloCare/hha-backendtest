@@ -44,3 +44,5 @@ EXTERNALREFERRAL = 'External Referral'
 CASEMANAGER = 'Case Manager'
 PATIENTFLAGS = 'Patient Flags'
 BRANCHNPI = 'Branch NPI'
+
+USER_ROLES = ['LPN', 'COTA', 'HHA', 'RN', 'OT', 'PT', 'PTA', 'ST']

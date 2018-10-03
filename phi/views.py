@@ -3,6 +3,7 @@ import logging
 
 import dateutil.parser
 import requests
+from django.core.paginator import Paginator
 from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.db.models import Q
@@ -20,16 +21,17 @@ from backend import errors
 from phi import models
 from phi.constants import query_to_db_field_map, NPI_DATA_URL, total_miles_buffer_allowed
 from phi.serializers import OrganizationPatientMappingSerializer, \
-    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, \
-    PatientWithUsersSerializer, PatientUpdateSerializer, \
-    PhysicianObjectSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, VisitMilesSerializer
+    EpisodeSerializer, PatientPlainObjectSerializer, UserEpisodeAccessSerializer, PatientWithUsersSerializer, \
+    PatientUpdateSerializer, VisitSerializer, PatientWithUsersAndPhysiciansSerializer, \
+    VisitMilesSerializer, PlaceUpdateSerializer
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
-    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
-from user_auth.models import UserOrganizationAccess
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
+from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
+from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
@@ -70,6 +72,28 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error('Incorrect or Incomplete data passed: %s' % str(e))
             return None, None, None, None
+
+    def parse_query_params(self, query_params):
+        if not query_params:
+            return None, None
+        query = query_params.get('query', None)
+        size = query_params.get('size', None)
+        try:
+            size = int(size)
+        except Exception as e:
+            size = None
+
+        return query, size
+
+    def get_results(self, initial_query_set, query, sort_field):
+        queryset = initial_query_set
+        if query:
+            words = query.split()
+            for word in words:
+                queryset = initial_query_set.filter(Q(first_name__istartswith=word) | Q(last_name__istartswith=word))
+        if sort_field:
+            queryset = queryset.order_by(sort_field)
+        return queryset
 
     def update(self, request, pk=None):
         """
@@ -325,6 +349,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
+    def filter_user_ep_objects_by_episode_ids(self, user_ep_objects, episode_ids):
+        return [user_ep_object for user_ep_object in user_ep_objects if user_ep_object.episode.uuid in episode_ids]
+
+    def get_episode_ids_for_patient(self, patient):
+        return list(map(lambda episode: episode.uuid, patient.episodes.all()))
+
+    def get_user_ids_for_patient(self, patient, all_user_ep_access_objects):
+        episode_ids = self.get_episode_ids_for_patient(patient)
+        filtered_user_ep_objects = self.filter_user_ep_objects_by_episode_ids(all_user_ep_access_objects, episode_ids)
+        return list(map(lambda object: object.user.uuid, filtered_user_ep_objects))
+
     # Todo: also send the active episodeId with each patient
     def list(self, request):
         """
@@ -337,7 +372,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
             # Todo: Improve Sorting logic - use DRF builtin
             query_params = request.query_params
-            sort_field = 'first_name'
+            sort_field = 'last_name'
+            per_page = None
+            page = 1
             order = 'ASC'
             if 'sort' in query_params:
                 sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
@@ -345,6 +382,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     order = query_params['order']
             if order == 'DESC':
                 sort_field = '-' + sort_field
+            if 'page' in query_params:
+                page = query_params.get('page', None)
+            if 'perPage' in query_params:
+                per_page = query_params.get('perPage', None)
 
             # Check if this user is admin of the org
             # Note: (A user can be admin of only 1 org)
@@ -352,17 +393,27 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
                 if user_org :
                     logger.debug('User is admin: %s' % str(user))
+                    query_params = request.query_params
+                    query, size = self.parse_query_params(query_params)
                     patient_ids = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).values_list('patient_id')
-                    patients = models.Patient.objects.filter(uuid__in=patient_ids).order_by(sort_field)
-                    patient_list = list()
-                    # Todo: Extremely SLow Query
-                    for patient in patients:
-                        episode_ids = patient.episodes.values_list('uuid', flat=True)
-                        # print('episode_ids:', episode_ids)
-                        user_profile_ids = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_ids).filter(organization=user_org.organization).values_list('user_id', flat=True)
-                        patient_list.append({'patient': patient, 'userIds': list(user_profile_ids)})
+                    patients = models.Patient.objects.select_related('address').prefetch_related('episodes').filter(uuid__in=patient_ids)
+                    if per_page is not None:
+                        paginator = Paginator(self.get_results(patients, query, sort_field), per_page)
+                        patients = paginator.page(page)
+                    episode_id_list = [[episode.uuid for episode in list(patient.episodes.all())] for patient in patients]
+                    episode_id_list = [item for sublist in episode_id_list for item in sublist]
+                    user_episode_access_objects = models.UserEpisodeAccess.objects.filter(episode_id__in=episode_id_list, organization=user_org.organization)
+                    patient_list = list(map(lambda patient: {
+                        'patient': patient,
+                        'userIds': self.get_user_ids_for_patient(patient, user_episode_access_objects)
+                    }, patients))
                     serializer = PatientWithUsersSerializer(patient_list, many=True)
-                    return Response(serializer.data)
+                    response = Response(serializer.data)
+                    # Custom header being sent as part of response and being whitelisted
+                    if per_page is not None:
+                        response['content-range'] = paginator.count
+                        response['Access-Control-Expose-Headers'] = "content-range"
+                    return response
             except Exception as e:
                 logger.error('User is not admin: %s' % str(e))
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
@@ -666,11 +717,10 @@ class PhysiciansViewSet(viewsets.ViewSet):
                 size = None
         return query, sort_field, size
 
-    def get_results(self, query, sort_field, size):
+    def get_results(self, initial_query_set, query, sort_field, size):
+        queryset = initial_query_set
         if query:
-            queryset = models.Physician.objects.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
-        else:
-            queryset = models.Physician.objects.all()
+            queryset = initial_query_set.filter(Q(first_name__istartswith=query) | Q(last_name__istartswith=query))
         if sort_field:
             queryset = queryset.order_by(sort_field)
         if size:
@@ -680,72 +730,85 @@ class PhysiciansViewSet(viewsets.ViewSet):
     def list(self, request):
         try:
             user = request.user
-            try:
-                user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
-                if user_org.exists():
-                    logger.debug('User is admin')
-                    # Todo: Add notion of Physicians being associated to Orgs
-                    query_params = request.query_params
-                    logger.debug('Query Params are: %s' % str(query_params))
-                    query, sort_field, size = self.parse_query_params(query_params)
-                    physicians = self.get_results(query, sort_field, size)
-                    serializer = PhysicianResponseSerializer(physicians, many=True)
-                    logger.debug(str(serializer.data))
-                    return Response(serializer.data)
-                else:
-                    return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-            except Exception as e:
-                logger.error(str(e))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            user_org = UserOrganizationAccess.objects.get(user=user.profile, is_admin=True)
+            query_params = request.query_params
+            query, sort_field, size = self.parse_query_params(query_params)
+            organization_physicians = models.Physician.objects.filter(organization=user_org.organization)
+            physicians = self.get_results(organization_physicians, query, sort_field, size)
+            serializer = PhysicianResponseSerializer(physicians, many=True)
+            logger.debug(str(serializer.data))
+            return Response(serializer.data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})
 
     def create(self, request):
-        user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).filter(is_admin=True)
-        if user_org.exists():
-            physician = request.data.get('physician', None)
-            if not physician:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
-            try:
-                physician_serializer = PhysicianObjectSerializer(data=physician)
-                if physician_serializer.is_valid():
-                    physician_serializer.save()
-                    return Response({'success': True, 'error': None})
-                else:
-                    logger.error('Error in creating physician: %s' % str(physician_serializer.errors))
-                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
-            except Exception as e:
-                logger.error(str(e))
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
-        else:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        request_serializer = CreatePhysicianRequestSerializer(data=request.data.get('physician', None))
+        if not request_serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            request_serializer.save(organization_id=user_org.organization.uuid)
+            return Response(status=status.HTTP_201_CREATED, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})
 
     def retrieve(self, request, pk=None):
-        # Check if user is admin of this org
         try:
             user = request.user
-            user_org = UserOrganizationAccess.objects.filter(user=user.profile).filter(is_admin=True)
-            if user_org.exists():
-                # Todo: Add notion of Physicians being associated to Orgs; Do permission checks
-                physician = models.Physician.objects.get(uuid=pk)
-                serializer = PhysicianResponseSerializer(physician)
-                logger.debug(str(serializer.data))
-                return Response(serializer.data)
-            else:
-                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            user_org = UserOrganizationAccess.objects.get(user=user.profile,is_admin=True)
+            physician = models.Physician.objects.get(uuid=pk, organization=user_org.organization)
+            serializer = PhysicianResponseSerializer(physician)
+            return Response(serializer.data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Physician.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.PHYSICIAN_NOT_EXIST})
 
     def update(self, request, pk=None):
-        pass
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            physician = models.Physician.objects.get(uuid=pk, organization=user_org.organization)
+            request_serializer = CreatePhysicianRequestSerializer(instance=physician, data=request.data)
+            if not request_serializer.is_valid():
+                return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+            episodes = models.Episode.objects.filter(primary_physician=physician)
+            physician_patients = list(map(lambda episode: episode.patient, episodes))
+            with transaction.atomic():
+                request_serializer.save()
+                for patient in physician_patients:
+                    episode = patient.episodes.get(is_active=True)
+                    user_episode_access_list = models.UserEpisodeAccess.objects.filter(episode=episode)
+                    if user_episode_access_list.count() > 0:
+                        users_linked_to_patient = [user_episode_access.user.uuid for user_episode_access in
+                                                   user_episode_access_list]
+                        for user_uuid in users_linked_to_patient:
+                            settings.PUBNUB.publish().channel(str(user_uuid) + '_assignedPatients').message({
+                                'actionType': 'UPDATE',
+                                'patientID': str(patient.uuid),
+                            }).async(my_publish_callback)
+            return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})
+        except models.Physician.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.PHYSICIAN_NOT_EXIST})
 
     def partial_update(self, request, pk=None):
         pass
 
     def destroy(self, request, pk=None):
         pass
+        # TODO Will be handled after checking with Gaurav
+        # try:
+        #     UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+        #     physician = models.Physician.objects.get(uuid=pk)
+        #     with transaction.atomic():
+        #         physician.delete()
+        #         return Response(status=status.HTTP_200_OK, data={})
+        # except UserOrganizationAccess.DoesNotExist:
+        #     return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        # except models.Physician.DoesNotExist:
+        #     return Response(status=status.HTTP_400_BAD_REQUEST,
+        #                     data={'success': False, 'error': errors.PHYSICIAN_NOT_EXIST})
 
 
 def handle_uploaded_file(f, filename):
@@ -841,7 +904,8 @@ class GetVisitsByOrg(APIView):
         user = request.user.profile
         try:
             user_org = UserOrganizationAccess.objects.filter(user=user).get(is_admin=True)
-            visits = models.Visit.objects.filter(organization=user_org.organization).filter(planned_start_time__date=date)
+            midnight_epoch = int(datetime.datetime.strptime(date, "%Y-%m-%d").date().strftime('%s'))*1000
+            visits = models.Visit.objects.filter(organization=user_org.organization).filter(midnight_epoch=midnight_epoch)
             serializer = self.serializer_class(visits, many=True)
             return Response(serializer.data)
         except Exception as e:
@@ -893,8 +957,48 @@ class AddVisitsView(APIView):
     #     logger.debug('Events being published for visit_id: %s' % str(visit_id))
     #     return
 
+
+    def create_dummy_patient_and_episode(self, user_profile, episode_id):
+        patient = models.Patient.objects.create(first_name='Dummy',last_name='Patient',title='Mr')
+        user_org = UserOrganizationAccess.objects.get(user=user_profile)
+        mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': user_org.organization.uuid,
+                                                                        'patient_id': patient.uuid})
+        mapping_serializer.is_valid()
+        mapping_serializer.save()
+        episode = {
+            'id': episode_id,
+            'patient': patient.uuid,
+            'socDate': None,
+            'endDate': None,
+            'period': None,
+            'cprCode': None,
+            'transportationLevel': None,
+            'acuityType': None,
+            'classification': None,
+            'allergies': None,
+            'pharmacy': None,
+            'socClinician': None,
+            'attendingPhysician': None,
+            'primaryPhysician': None
+        }
+        episode_serializer = EpisodeSerializer(data=episode)
+        episode_serializer.is_valid()
+        episode_serializer.save()
+        logger.debug('Created Dummy patient and episode')
+
+    def handle_missing_episode(self, visit, user_profile, payload):
+        episode_id = visit.get('episodeID')
+        if episode_id:
+            try:
+                models.Episode.objects.get(uuid=episode_id)
+            except models.Episode.DoesNotExist:
+                logger.debug('Episode Does not exist. Creating Dummy for payload: ')
+                logger.debug(payload)
+                self.create_dummy_patient_and_episode(user_profile, episode_id)
+
     def post(self, request):
         # Check user permissions for that episode
+        user = request.user
         visits = request.data.get('visits')
         if not visits:
             logger.error('"visits" not present in request')
@@ -905,18 +1009,16 @@ class AddVisitsView(APIView):
 
         # Check permission for, validate and save each visit
         for visit in visits:
-            episode_id = visit.get('episodeID')
-            if not episode_id:
-                logger.warning('Not saving. EpisodeID not received for visit: %s' % str(visit))
-                failure.append(visit)
-                continue
             # Todo: Handle case of same-user-multiple-orgs
             try:
-                org = models.UserEpisodeAccess.objects.filter(user=request.user.profile).get(episode_id=episode_id).organization
-            except Exception as e:
+                org = UserOrganizationAccess.objects.get(user=request.user.profile).organization
+            except UserOrganizationAccess.DoesNotExist as e:
                 logger.warning('Not saving visit. Error: %s' % str(e))
                 failure.append(visit)
                 continue
+            # TODO - remove this - only temporary fix
+            # https://flocare.atlassian.net/browse/FC-115phi/response_serializers.py
+            self.handle_missing_episode(visit, user.profile, request.data)
 
             serializer = VisitSerializer(data=visit)
             visit_miles = visit.get('visitMiles', {})
@@ -963,10 +1065,10 @@ class UpdateVisitView(APIView):
         # Todo: Handle case of same-user-multiple-orgs
         # Get organization of requesting user
         try:
-            org = models.UserEpisodeAccess.objects.filter(user=request.user.profile).get(episode_id=visit.episode_id).organization
-        except Exception as e:
+            org = UserOrganizationAccess.objects.get(user=request.user.profile).organization
+        except UserOrganizationAccess.DoesNotExist as e:
             logger.error('Not saving visit. Error: %s' % str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.VISIT_NOT_EXIST})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'User has no organisation'})
 
         serializer = VisitSerializer(instance=visit, data=request.data)
         visit_miles = request.data.get('visitMiles', {})
@@ -1187,3 +1289,238 @@ class ReportsViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+# Todo: Used for online patients feature in the app
+class GetPatientsByOrg(APIView):
+    queryset = models.OrganizationPatientsMapping.objects.all()
+    permission_classes = (IsAuthenticated,)
+    serializer_class = PatientsForOrgSerializer
+
+    def get(self, request):
+        user = request.user.profile
+        try:
+            try:
+                user_org = UserOrganizationAccess.objects.get(user=user)
+            except Exception as e:
+                logger.error('User part of no org or multiple orgs: %s' % str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.NO_OR_MULTIPLE_ORGS_FOR_USER})
+            mappings = models.OrganizationPatientsMapping.objects.filter(organization=user_org.organization).select_related('patient', 'patient__address')
+            serializer = self.serializer_class(mappings, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error('Cannot fetch patients for org for this user: %s. Error: %s' % (str(user), str(e)))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+# Todo: Used for online patients feature in the app
+class AssignPatientToUser(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    local_counter = 1
+
+    def post(self, request):
+        """
+        - find org of calling user
+        - check if org has access to patientID passed
+        - get active episode for that patientID
+        - check if user doesn't already have access to this episode
+        - link episode to user
+        """
+        patient_id = request.data.get('patientID', None)
+        if not patient_id:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
+        try:
+            user = request.user.profile
+
+            try:
+                # Find this user's organization
+                # This assumes user can only belong to 1 org
+                user_org = UserOrganizationAccess.objects.get(user=user).organization
+            except Exception as e:
+                logger.error('User associated with no or multiple Orgs: %s' % str(e))
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.NO_OR_MULTIPLE_ORGS_FOR_USER})
+
+            # Throw error if patient doesn't belong to this org
+            mapping = models.OrganizationPatientsMapping.objects.filter(organization=user_org).filter(patient_id=patient_id)
+            if not mapping.exists():
+                logger.error(errors.INVALID_PATIENT_PASSED)
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.INVALID_PATIENT_PASSED})
+
+            try:
+                episode = models.Episode.objects.filter(patient_id=patient_id).get(is_active=True)
+            except Exception as e:
+                logger.error('Missing or Extra active episode for a patientIDs passed')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+            org_id = user_org.uuid
+            user_id = user.uuid
+
+            # Throw error if user already has access to any of the episodes
+            access = models.UserEpisodeAccess.objects.filter(user_id=user_id, organization_id=org_id).filter(episode=episode)
+            if access.exists():
+                logger.error('User already has access to the episode. Cannot add another entry')
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PATIENT_ALREADY_ASSIGNED})
+
+            # Update the DB
+            logger.debug('Saving UserEpisodeAccess Serializer')
+            data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
+            access_serializer = UserEpisodeAccessSerializer(data=data)
+            access_serializer.is_valid()
+            access_serializer.save()
+            logger.debug('UserEpisodeAccess saved successfully')
+
+            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                'actionType': 'ASSIGN',
+                'patientID': str(patient_id),
+                'pn_apns': {
+                    "aps": {
+                        "content-available": 1
+                    },
+                    "payload": {
+                        "messageCounter": AssignPatientToUser.local_counter,
+                        "patientID": str(patient_id)
+                    }
+                }
+            }).async(my_publish_callback)
+
+            settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
+                'pn_apns': {
+                    "aps": {
+                        "alert": {
+                            "body": "You have a new Patient",
+                        },
+                        "sound": "default",
+                    },
+                    "payload": {
+                        "messageCounter": AssignPatientToUser.local_counter,
+                        "patientID": str(patient_id),
+                        "navigateTo": 'patient_list'
+                    }
+                },
+                'pn_gcm': {
+                    'data': {
+                        'notificationBody': "You have a new Patient",
+                        "sound": "default",
+                        "navigateTo": 'patient_list',
+                        'messageCounter': AssignPatientToUser.local_counter,
+                        'patientID': str(patient_id)
+                    }
+                }
+            }).async(my_publish_callback)
+
+            AssignPatientToUser.local_counter += 1
+            return Response({'success': True, 'error': None})
+
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class PlacesViewSet(viewsets.ViewSet):
+    model = models.Place
+    queryset = models.Place.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    query_to_db_map = {
+        'contactNumber': 'contact_number',
+        'name': 'name'
+    }
+
+    def get_order_by_field(self, query_params):
+        order = 'name'
+        fields = models.Place._meta.fields
+        fields_list = map(lambda field: field.name, fields)
+        if 'sort' in query_params:
+            sort_value = query_params['sort']
+            if sort_value in self.query_to_db_map.keys() and self.query_to_db_map[sort_value] in fields_list:
+                order = self.query_to_db_map[query_params['sort']]
+                if 'order' in query_params and query_params['order'] == 'DESC':
+                    order = '-' + order
+        return order
+
+    def create(self, request):
+        request_serializer = CreatePlaceRequestSerializer(data=request.data)
+        if not request_serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+        data = request_serializer.validated_data
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            address_serializer = AddressSerializer(data=request.data['address'])
+            with transaction.atomic():
+                address_serializer.is_valid()
+                address_obj = address_serializer.save()
+                place = models.Place.objects.create(name=data['name'], contact_number=data['contact_number'],
+                                                    organization=user_org.organization, address=address_obj)
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'CREATE_PLACE',
+                    'placeID': str(place.uuid)
+                }).async(my_publish_callback)
+                return Response(status=status.HTTP_201_CREATED, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+
+    def update(self, request, pk=None):
+        request_serializer = CreatePlaceRequestSerializer(data=request.data)
+        if not request_serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            place = models.Place.objects.get(uuid=pk)
+            place_serializer = PlaceUpdateSerializer(instance=place, data=request.data)
+            address_serializer = AddressSerializer(instance=place.address, data=request.data['address'])
+            with transaction.atomic():
+                place_serializer.is_valid()
+                place_serializer.save()
+                address_serializer.is_valid()
+                address_serializer.save()
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'UPDATE_PLACE',
+                    'placeID': str(place.uuid)
+                }).async(my_publish_callback)
+                return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Place.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
+
+    def retrieve(self, request, pk=None):
+        user = request.user
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=user.profile)
+            place = models.Place.objects.get(uuid=pk, organization=user_org.organization)
+            return Response(status=status.HTTP_200_OK, data=PlaceResponseSerializer(place).data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Place.DoesNotExist as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
+
+    def list(self, request):
+        user = request.user
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=user.profile)
+            order_field = self.get_order_by_field(request.query_params)
+            places = models.Place.objects.filter(organization=user_org.organization).order_by(order_field)
+            return Response(status=status.HTTP_200_OK, data=PlaceResponseSerializer(places, many=True).data)
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+
+    def destroy(self, request, pk=None):
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            place = models.Place.objects.get(uuid=pk)
+            address = place.address
+            with transaction.atomic():
+                place.delete()
+                address.delete()
+                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
+                    'actionType': 'DELETE_PLACE',
+                    'placeID': str(pk)
+                }).async(my_publish_callback)
+                return Response(status=status.HTTP_200_OK, data={})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except models.Place.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
+

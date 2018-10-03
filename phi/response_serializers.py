@@ -178,6 +178,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source='user_id')
     episodeID = serializers.UUIDField(source="episode_id", required=False)
+    placeID = serializers.UUIDField(source='place_id', required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
@@ -212,7 +213,7 @@ class VisitResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'userID', 'episodeID', 'timeOfCompletion', 'isDone', 'isDeleted',
+        fields = ('visitID', 'userID', 'episodeID', 'placeID', 'timeOfCompletion', 'isDone', 'isDeleted',
                   'midnightEpochOfVisit', 'plannedStartTime', 'visitMiles', 'reportID')
 
 
@@ -220,12 +221,12 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     # userID = serializers.UUIDField(source='user_id')
     user = serializers.SerializerMethodField(required=False)
-    patientName = serializers.SerializerMethodField(required=False)
+    name = serializers.SerializerMethodField(required=False)
     # episodeID = serializers.UUIDField(source="episode_id", required=False)
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
-    # midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
+    midnightEpochOfVisit = serializers.SerializerMethodField(required=False)
     # plannedStartTime = serializers.SerializerMethodField(required=False)
     visitMiles = VisitMilesResponseSerializer(source='visit_miles')
     address = serializers.SerializerMethodField(required=False)
@@ -237,18 +238,50 @@ class VisitResponseForReportSerializer(serializers.ModelSerializer):
         name = obj.user.user.last_name + ' ' + obj.user.user.first_name
         return name
 
-    def get_patientName(self, obj):
-        patient_name = obj.episode.patient.first_name + ' ' + obj.episode.patient.last_name
-        return patient_name
+    def get_name(self, obj):
+        if obj.episode:
+            return obj.episode.patient.first_name + ' ' + obj.episode.patient.last_name
+        else:
+            return obj.place.name
 
     def get_address(self, obj):
-        addr = obj.episode.patient.address
-        address = addr.street_address + ', ' + addr.city + ', ' + addr.state + ', ' + addr.country + ', ' + addr.zip
-        return address
+        if obj.episode:
+            address_object = obj.episode.patient.address
+        elif obj.place:
+            address_object = obj.place.address
+        else:
+            return " "
+        return self.get_formatted_address(address_object)
+
+    def get_formatted_address(self, address):
+        if address:
+            address_string = ""
+            if address.street_address:
+                address_string += address.street_address
+            if address.city:
+                address_string += ', ' + address.city
+            if address.state:
+                address_string += ', ' + address.state
+            if address.country:
+                address_string += ', ' + address.country
+            if address.zip:
+                address_string += ', ' + address.zip
+            return address_string
+        return " "
+
+    def get_midnightEpochOfVisit(self, obj):
+        t = obj.midnight_epoch
+        if t:
+            try:
+                return int(t)
+            except Exception as e:
+                print('Error in fetching timestamp:', str(e))
+        return None
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'user', 'patientName', 'address', 'timeOfCompletion', 'isDone', 'isDeleted', 'visitMiles')
+        fields = ('visitID', 'user', 'name', 'address', 'timeOfCompletion', 'isDone', 'isDeleted',
+                  'visitMiles', 'midnightEpochOfVisit')
 
 
 class VisitDetailsResponseSerializer(serializers.Serializer):
@@ -364,3 +397,27 @@ class ReportDetailsForWebSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.ReportItem
         fields = ('reportID', 'reportCreatedAt', 'visit',)
+
+
+class PlaceResponseSerializer(serializers.ModelSerializer):
+    placeID = serializers.UUIDField(source='uuid')
+    contactNumber = serializers.CharField(source='contact_number', required=False)
+    name = serializers.CharField()
+    address = AddressSerializer()
+
+    class Meta:
+        model = models.Place
+        fields = ('placeID', 'contactNumber', 'name', 'address')
+
+
+
+# Todo: Used for online patients feature in the app
+class PatientsForOrgSerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='patient.uuid')
+    firstName = serializers.CharField(source='patient.first_name')
+    lastName = serializers.CharField(source='patient.last_name')
+    address = AddressSerializer(source='patient.address')
+
+    class Meta:
+        model = models.OrganizationPatientsMapping
+        fields = ('patientID', 'firstName', 'lastName', 'address',)

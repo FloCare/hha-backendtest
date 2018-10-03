@@ -2,6 +2,7 @@ from django.db import models
 from flocarebase.models import BaseModel
 from user_auth import models as user_models
 import uuid
+from django.db import transaction
 
 
 class Diagnosis(BaseModel):
@@ -61,12 +62,16 @@ class Patient(BaseModel):
 class Physician(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    npi = models.CharField(max_length=10, unique=True)
+    npi = models.CharField(max_length=10)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     phone1 = models.CharField(max_length=15, null=True)
     phone2 = models.CharField(max_length=15, null=True)
     fax = models.CharField(max_length=15, null=True)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, related_name='physicians', null=True)
+
+    class Meta:
+        unique_together = ('organization', 'npi')
 
     def __str__(self):
         physician = self.first_name
@@ -139,11 +144,19 @@ class Episode(BaseModel):
         return episode
 
 
+class Place(BaseModel):
+    uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    contact_number = models.CharField(max_length=20, null=True)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    address = models.OneToOneField(user_models.Address, related_name='address', on_delete=models.CASCADE)
+
+
 class Visit(BaseModel):
     id = models.UUIDField(primary_key=True, editable=False)
 
     episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
-    # place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
+    place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
     user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
     # Organization is added to Visit to make Querying Visits from same Org easier.
     # This is reduntant info, otherwise can be obtained using UserEpisodeAccess Model
@@ -155,6 +168,15 @@ class Visit(BaseModel):
     is_done = models.BooleanField(default=False)
     time_of_completion = models.DateTimeField(null=True)
     is_deleted = models.NullBooleanField(default=False, null=True)
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            try:
+                self.report_item.save()
+                self.report_item.report.save()
+            except ReportItem.DoesNotExist:
+                pass
 
     def __str__(self):
         visit = self.episode.patient.first_name
@@ -176,6 +198,14 @@ class VisitMiles(BaseModel):
     total_miles = models.FloatField(null=True)
     # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
     miles_comments = models.CharField(null=True, max_length=300)
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            try:
+                self.visit.save()
+            except Visit.DoesNotExist:
+                pass
 
     def __str__(self):
         return str(self.visit) + '--' + str(self.odometer_start) + ' -- ' + str(self.odometer_end) + ' -- ' +\
