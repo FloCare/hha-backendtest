@@ -32,12 +32,16 @@ class BaseModel(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, default=None)
 
     created_by = models.CharField(max_length=50, null=True)
     updated_by = models.CharField(max_length=50, null=True)
 
     class Meta:
         abstract = True
+
+    def is_deleted(self):
+        return not not self.deleted_at
 
     def is_new_record(self):
         return not self.created_at
