@@ -10,4 +10,4 @@ db_to_query_field_map = {
 
 NPI_DATA_URL = 'http://npi.npi.io/npi/'
 
-total_miles_buffer_allowed = 3
+total_miles_buffer_allowed = 1
