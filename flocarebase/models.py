@@ -25,10 +25,19 @@ class BaseModelManager(models.Manager):
             object.updated_by = getattr(current_user, 'username', ANON_USER)
         return super(BaseModelManager, self).bulk_create(objects, batch_size)
 
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at=None)
+
+
+class AllObjectsManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset()
+
 
 class BaseModel(models.Model):
 
     objects = BaseModelManager()
+    all_objects = AllObjectsManager()
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
