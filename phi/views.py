@@ -922,12 +922,16 @@ class GetVisitsView(APIView):
         data = request.data
         if 'visitIDs' in data:
             visit_ids = data['visitIDs']
-            # Allow users to query all visits from the same Org
-            orgs = UserOrganizationAccess.objects.filter(user=request.user.profile).values_list('organization',
-                                                                                                flat=True)
-            visit_objects = models.Visit.objects.filter(organization__in=orgs, id__in=visit_ids)
-            success = list(visit_objects)
-            success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+            try:
+                # Allow users to query all visits from the same Org
+                orgs = UserOrganizationAccess.objects.filter(user=request.user.profile).values_list('organization',
+                                                                                                    flat=True)
+                visit_objects = models.Visit.objects.filter(organization__in=orgs, id__in=visit_ids)
+                success = list(visit_objects)
+                success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+            except Exception as e:
+                logger.error('Error in fetching visits data: %s' % str(e))
+                success_ids = list()
             failure_ids = list(set(visit_ids) - set(success_ids))
             return success, failure_ids
         return None, None
@@ -1101,9 +1105,13 @@ class DeleteVisitView(APIView):
         data = request.data
         if 'visitIDs' in data:
             visit_ids = data['visitIDs']
-            visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
-            success_ids = list(map(lambda visit: str(visit.id), visit_objects))
-            visit_objects.delete()
+            try:
+                visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
+                visit_objects.delete()
+                success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+            except Exception as e:
+                logger.error('Error in deleting visits: %s' % str(e))
+                success_ids = list()
             failure_ids = list(set(visit_ids) - set(success_ids))
             return success_ids, failure_ids
         return None, None
