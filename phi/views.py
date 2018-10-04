@@ -1107,8 +1107,8 @@ class DeleteVisitView(APIView):
             visit_ids = data['visitIDs']
             try:
                 visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
-                visit_objects.delete()
                 success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+                visit_objects.delete()
             except Exception as e:
                 logger.error('Error in deleting visits: %s' % str(e))
                 success_ids = list()
