@@ -2,6 +2,7 @@ from django.db import models
 from flocarebase.middleware import get_current_request
 import logging
 from flocarebase.constants import ANON_USER
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,11 @@ def get_current_user():
         return None
 
 
+class BaseQuerySet(models.QuerySet):
+    def soft_delete(self):
+        return super(BaseQuerySet, self).update(deleted_at=timezone.now())
+
+
 class BaseModelManager(models.Manager):
     def bulk_create(self, objects, batch_size=None):
         current_user = get_current_user()
@@ -26,7 +32,8 @@ class BaseModelManager(models.Manager):
         return super(BaseModelManager, self).bulk_create(objects, batch_size)
 
     def get_queryset(self):
-        return super().get_queryset().filter(deleted_at=None)
+        return BaseQuerySet(self.model).filter(deleted_at=None)
+        # return super().get_queryset().filter(deleted_at=None)
 
 
 class AllObjectsManager(models.Manager):
@@ -52,6 +59,9 @@ class BaseModel(models.Model):
     def is_deleted(self):
         return not not self.deleted_at
 
+    def is_active(self):
+        return not self.deleted_at
+
     def is_new_record(self):
         return not self.created_at
 
@@ -62,3 +72,7 @@ class BaseModel(models.Model):
         self.updated_by = getattr(current_user, 'username', ANON_USER)
 
         super(BaseModel, self).save(*args, **kwargs)
+
+    def soft_delete(self):
+        self.deleted_at = timezone.now()
+        return self.save()
