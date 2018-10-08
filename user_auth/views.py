@@ -73,8 +73,6 @@ class UserOrganizationView(APIView):
 
             # Get list of all users in that org
             filters = request.GET.getlist('ids')
-            print('filters')
-            print(filters)
             accesses = models.UserOrganizationAccess.objects.select_related('user', 'user__user').filter(organization=org)
             if filters:
                 accesses = accesses.filter(user_id__in=filters)
