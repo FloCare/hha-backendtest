@@ -1531,7 +1531,7 @@ class PlacesViewSet(viewsets.ViewSet):
             place = models.Place.objects.get(uuid=pk)
             address = place.address
 
-            visits = place.visit.all()
+            visits = place.visits.all()
             visit_miles = models.VisitMiles.objects.filter(visit__in=visits)
 
             with transaction.atomic():
