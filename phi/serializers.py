@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class PatientPlainObjectSerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='uuid', required=False)
     firstName = serializers.CharField(source='first_name')
     lastName = serializers.CharField(source='last_name')
     primaryContact = serializers.CharField(source='primary_contact')
@@ -20,7 +21,7 @@ class PatientPlainObjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Patient
-        fields = ('firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
+        fields = ('patientID', 'firstName', 'lastName', 'primaryContact', 'address_id', 'emergencyContactName',
                   'emergencyContactNumber', 'emergencyContactRelationship', 'dob',)
 
 
