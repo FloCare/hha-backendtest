@@ -192,13 +192,23 @@ class UsersViewSet(viewsets.ViewSet):
                 user_profile = models.UserProfile.objects.get(uuid=pk)
                 user = user_profile.user
                 user_org_access = models.UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user=user_profile)
+                # Todo: UserAuth app should be independent of PHI app
+                if user_profile.visits:
+                    visits = user_profile.visits.all()
+                    visit_miles = [visit.visit_miles for visit in visits if visit.visit_miles]
+                if user_profile.episode_accesses:
+                    user_episode_accesses = user_profile.episode_accesses.all()
                 try:
-                    # Todo: Soft delete NOT DELETE all entities related to a a user instead of delete
-                    # Todo: Also delete entries from UserEpisodeAccess, Visit, VisitMiles
                     with transaction.atomic():
                         user_profile.delete()
                         user.delete()
                         user_org_access.delete()
+                        if user_episode_accesses:
+                            user_episode_accesses.soft_delete()
+                        if visits:
+                            visits.soft_delete()
+                            if visit_miles:
+                                visit_miles.soft_delete()
                         return Response({'success': True, 'error': None})
                 except Exception as e:
                     logger.error(str(e))
