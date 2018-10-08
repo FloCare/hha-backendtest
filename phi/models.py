@@ -179,9 +179,14 @@ class Visit(BaseModel):
                 pass
 
     def __str__(self):
-        visit = self.episode.patient.first_name
-        if self.episode.patient.last_name:
-            visit += (' ' + self.episode.patient.last_name)
+        if self.episode:
+            visit = self.episode.patient.first_name
+            if self.episode.patient.last_name:
+                visit += (' ' + self.episode.patient.last_name)
+        elif self.place:
+            visit = self.place.name
+        else:
+            visit = ''
         visit += ('-' + self.user.user.username)
         if self.midnight_epoch:
             visit += ('-' + str(self.midnight_epoch))
