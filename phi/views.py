@@ -37,6 +37,7 @@ import logging
 import datetime
 import requests
 import uuid
+import traceback
 from phi.forms import UploadFileForm
 
 logger = logging.getLogger(__name__)
@@ -416,6 +417,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     return response
             except Exception as e:
                 logger.error('User is not admin: %s' % str(e))
+                logger.debug(traceback.format_exc())
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
 
         #     # Todo: Don't go to this part of the API ???
