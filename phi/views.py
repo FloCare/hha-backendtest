@@ -965,7 +965,8 @@ class AddVisitsView(APIView):
 
 
     def create_dummy_patient_and_episode(self, user_profile, episode_id):
-        patient = models.Patient.objects.create(first_name='Dummy',last_name='Patient',title='Mr')
+        address = Address.objects.create()
+        patient = models.Patient.objects.create(first_name='Dummy',last_name='Patient',title='Mr', address=address)
         user_org = UserOrganizationAccess.objects.get(user=user_profile)
         mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': user_org.organization.uuid,
                                                                         'patient_id': patient.uuid})
