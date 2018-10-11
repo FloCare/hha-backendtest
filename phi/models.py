@@ -53,6 +53,13 @@ class Patient(BaseModel):
             patient_identifier += (' ' + str(self.dob))
         return patient_identifier
 
+    def soft_delete(self):
+        with transaction.atomic():
+            self.address.soft_delete()
+            [episode.soft_delete() for episode in self.episodes.all()]
+            [mapping.soft_delete() for mapping in self.organization_mappings.all()]
+            super().soft_delete()
+
 
 # class Place(BaseModel):
 #     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -143,6 +150,11 @@ class Episode(BaseModel):
             episode += (' ' + str(self.soc_date))
         return episode
 
+    def soft_delete(self):
+        with transaction.atomic():
+            [access.soft_delete() for access in self.user_accesses.all()]
+            super().soft_delete()
+
 
 class Place(BaseModel):
     uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
@@ -150,6 +162,11 @@ class Place(BaseModel):
     contact_number = models.CharField(max_length=20, null=True)
     organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, related_name='places')
     address = models.OneToOneField(user_models.Address, related_name='address', on_delete=models.CASCADE)
+
+    def soft_delete(self):
+        with transaction.atomic():
+            self.address.soft_delete()
+            super().soft_delete()
 
 
 class Visit(BaseModel):
@@ -193,6 +210,14 @@ class Visit(BaseModel):
         if self.planned_start_time:
             visit += ('-' + str(self.planned_start_time))
         return visit
+
+    def soft_delete(self):
+        with transaction.atomic():
+            try:
+                self.visit_miles.soft_delete()
+            except VisitMiles.DoesNotExist as e:
+                print(e)
+            super().soft_delete()
 
 
 class VisitMiles(BaseModel):
@@ -255,6 +280,11 @@ class Report(BaseModel):
 
     def __str__(self):
         return str(self.uuid) + str(self.user)
+
+    def soft_delete(self):
+        with transaction.atomic():
+            [item.soft_delete() for item in self.report_items.all()]
+            super().soft_delete()
 
 
 class ReportItem(BaseModel):

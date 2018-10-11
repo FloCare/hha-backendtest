@@ -63,9 +63,19 @@ class UserProfile(BaseModel):
     def __str__(self):
         return str(self.id) + ' ' + self.user.username
 
+    def soft_delete(self):
+        [access.soft_delete() for access in self.org_accesses.all()]
+        if self.visits and self.visits.exists():
+            [visit.soft_delete() for visit in self.visits.all()]
+        if self.reports and self.reports.exists():
+            [report.soft_delete() for report in self.reports.all()]
+        if self.episode_accesses and self.episode_accesses.exists():
+            [access.soft_delete() for access in self.episode_access.all()]
+        if self.org_accesses and self.org_accesses.exists():
+            [access.soft_delete() for access in self.org_accesses.all()]
+        super().soft_delete()
 
-# done
-# Never queried using id
+
 class UserOrganizationAccess(BaseModel):
     """
     Lists out the users of an organization

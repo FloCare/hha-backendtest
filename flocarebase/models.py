@@ -18,6 +18,7 @@ def get_current_user():
         return None
 
 
+# Todo: Queryset delete currently doesn't take into account CASCADING deletes. Implement this.
 class BaseQuerySet(models.QuerySet):
     def soft_delete(self):
         return super(BaseQuerySet, self).update(deleted_at=timezone.now())
@@ -33,7 +34,6 @@ class BaseModelManager(models.Manager):
 
     def get_queryset(self):
         return BaseQuerySet(self.model).filter(deleted_at=None)
-        # return super().get_queryset().filter(deleted_at=None)
 
 
 class AllObjectsManager(models.Manager):

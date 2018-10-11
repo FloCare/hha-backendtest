@@ -1,8 +1,4 @@
-import datetime
-import logging
-
 import dateutil.parser
-import requests
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.db import transaction, IntegrityError
@@ -31,7 +27,7 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
     ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
 from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
-from user_auth.models import UserOrganizationAccess, Address
+from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
@@ -267,20 +263,10 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         :param pk:
         :return:
         """
-        # Check if user is admin of this org
-
-        # TODO:
-        # Delete org patient mapping
-        # Delete UserEpisodeAccess for this org
-        # Delete Active Episodes
-        # Delete Visits for all active episodes
-        # Delete Visit Miles for all visits
-        # Delete Patient
-        # Delete Address
-
+        # Delete Patient and its related entities
         try:
-            # Check if user is admin of this org
             user = request.user
+            # Check if user is admin of this org
             user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             organization = user_org.organization
             if user_org:
@@ -288,38 +274,25 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                 episode_ids = patient.episodes.all().filter(is_active=True).values_list('uuid', flat=True)
 
                 # Org has access to patient
-                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
-                if org_has_access.exists():
-                    visits = models.Visit.objects.filter(episode__in=patient.episodes.all())
-                    visit_miles = models.VisitMiles.objects.filter(visit__in=visits)
+                try:
+                    user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization=organization).filter(episode_id__in=episode_ids)
+                    user_ids = [access.user.uuid for access in user_episode_accesses]
 
                     with transaction.atomic():
-                        user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization=organization).filter(episode_id__in=episode_ids)
-
                         # Soft delete ALL the related entities
-                        org_has_access.soft_delete()
-                        user_episode_accesses.soft_delete()
-                        visit_miles.soft_delete()
-                        visits.soft_delete()
-                        patient.episodes.all().soft_delete()
-                        patient.address.soft_delete()
                         patient.soft_delete()
 
-                        # Todo: Test this, should work, has been moved below soft delete statements
-                        for user_episode_access in user_episode_accesses:
+                        for user_id in user_ids:
                             settings.PUBNUB.publish().channel(
-                                str(user_episode_access.user.uuid) + '_assignedPatients').message({
+                                str(user_id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
 
-                        # patient.delete()    # this will also delete the episodes and visits
-                        # address.delete()
                     logger.info('Delete successful')
-                    # else:
-                    #     # TODO: IMP: Complete this before pushing to production
-                    #     return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
+                except models.OrganizationPatientsMapping.DoesNotExist:
+                    logger.info('Org does not have %s access to this patient: %s' % (organization.uuid, patient.uuid))
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             logger.error(str(e))
@@ -970,7 +943,6 @@ class AddVisitsView(APIView):
     #     logger.debug('Events being published for visit_id: %s' % str(visit_id))
     #     return
 
-
     def create_dummy_patient_and_episode(self, user_profile, episode_id):
         patient = models.Patient.objects.create(first_name='Dummy',last_name='Patient',title='Mr')
         user_org = UserOrganizationAccess.objects.get(user=user_profile)
@@ -1116,9 +1088,13 @@ class DeleteVisitView(APIView):
             visit_ids = data['visitIDs']
             try:
                 visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
-                success_ids = list(map(lambda visit: str(visit.id), visit_objects))
-                visit_objects.soft_delete()
-                # visit_objects.delete()
+                if visit_objects.exists():
+                    success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+                    # Todo: Should use bulk delete
+                    [visit.soft_delete() for visit in visit_objects]
+                else:
+                    logger.error("These visits don't exist for this user")
+                    success_ids = list()
             except Exception as e:
                 logger.error('Error in deleting visits: %s' % str(e))
                 success_ids = list()
@@ -1127,7 +1103,6 @@ class DeleteVisitView(APIView):
         return None, None
 
     def delete(self, request):
-        # TODO Add authorization
         success_ids, failure_ids = self.get_results(request)
         if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
@@ -1529,18 +1504,9 @@ class PlacesViewSet(viewsets.ViewSet):
             user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
             # Todo: Add prefetch_related?
             place = models.Place.objects.get(uuid=pk)
-            address = place.address
-
-            visits = place.visits.all()
-            visit_miles = models.VisitMiles.objects.filter(visit__in=visits)
 
             with transaction.atomic():
-                address.soft_delete()
-                visit_miles.soft_delete()
-                visits.soft_delete()
                 place.soft_delete()
-                # place.delete()
-                # address.delete()
                 settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
                     'actionType': 'DELETE_PLACE',
                     'placeID': str(pk)
