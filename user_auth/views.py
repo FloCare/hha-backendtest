@@ -11,7 +11,6 @@ from user_auth.constants import query_to_db_field_map
 from user_auth.permissions import IsAdminForOrg
 from backend import errors
 from django.db import transaction
-from user_auth.models import Organization, UserProfile, User, Address, UserOrganizationAccess
 from phi.views import my_publish_callback
 import logging
 
@@ -114,12 +113,12 @@ class UserProfileView(APIView):
 
 
 class UsersViewSet(viewsets.ViewSet):
-    queryset = User.objects.all()
+    queryset = models.User.objects.all()
     permission_classes = (IsAuthenticated,)
 
     def create(self, request):
         try:
-            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            user_org = models.UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
             if user_org:
                 user_request = request.data.get('user', None)
                 if not user_request:
@@ -127,17 +126,16 @@ class UsersViewSet(viewsets.ViewSet):
                 try:
                     with transaction.atomic():
                         # Save user to db
-                        username = str(user_request['firstName']).strip().lower() + '.' + str(user_request['lastName']).strip().lower()
-                        user = User.objects.create_user(first_name=user_request['firstName'], last_name=user_request['lastName'],
+                        user = models.User.objects.create_user(first_name=user_request['firstName'], last_name=user_request['lastName'],
                                                         username=user_request['email'], password=user_request['password'], email=user_request['email'])
                         user.save()
 
                         # Save user profile to db
-                        profile = UserProfile(user=user, title='', contact_no=user_request['phone'])
+                        profile = models.UserProfile(user=user, title='', contact_no=user_request['phone'])
                         profile.save()
 
                         # Add entry to UserOrganizationAccess: For that org, add all users, and their 'roles'
-                        access = UserOrganizationAccess(user=profile, organization=user_org.organization, user_role=user_request['role'])
+                        access = models.UserOrganizationAccess(user=profile, organization=user_org.organization, user_role=user_request['role'])
                         access.save()
 
                         return Response({'success': True, 'error': None})
@@ -153,9 +151,9 @@ class UsersViewSet(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         # Check if user is admin of this org
         try:
-            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            user_org = models.UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
             if user_org:
-                user_org1 = UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user_id=pk)
+                user_org1 = models.UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user_id=pk)
                 serializer = UserDetailsResponseSerializer({'user': user_org1})
                 return Response(serializer.data)
             else:
@@ -166,7 +164,7 @@ class UsersViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         try:
-            user_org = UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
+            user_org = models.UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
             if user_org:
                 up_obj = models.UserProfile.objects.get(uuid=pk)
                 serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
@@ -188,16 +186,14 @@ class UsersViewSet(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         try:
             user = request.user
-            user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
+            user_org = models.UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             if user_org:
                 user_profile = models.UserProfile.objects.get(uuid=pk)
                 user = user_profile.user
-                user_org_access = models.UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user=user_profile)
                 try:
                     with transaction.atomic():
-                        user_profile.delete()
-                        user.delete()
-                        user_org_access.delete()
+                        user_profile.soft_delete()
+                        user.is_active = False
                         return Response({'success': True, 'error': None})
                 except Exception as e:
                     logger.error(str(e))

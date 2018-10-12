@@ -1,8 +1,4 @@
-import datetime
-import logging
-
 import dateutil.parser
-import requests
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.db import transaction, IntegrityError
@@ -31,7 +27,7 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
     ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
 from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
-from user_auth.models import UserOrganizationAccess, Address
+from user_auth.models import UserOrganizationAccess
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
@@ -60,7 +56,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
     local_counter = 1
 
-    def parse_data(self, data):
+    @staticmethod
+    def parse_data(data):
         try:
             patient = data['patient']
             address = patient.pop('address')
@@ -115,11 +112,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 # Check if the passed users belong to this organization
                 # Someone might maliciously pass invalid users
-                # TODO: This IS BAAAAD. Change this ASAP to bulk API.
-                for userid in users:
-                    u = UserOrganizationAccess.objects.filter(organization=organization).filter(user_id=userid)
-                    if not u.exists():
-                        raise Exception('Invalid user passed')
+                users_count = UserOrganizationAccess.objects.filter(organization=organization).filter(user_id__in=users).count()
+                if len(users) != users_count:
+                    raise Exception('Invalid user passed')
 
                 patient = models.Patient.objects.get(uuid=pk)
 
@@ -166,18 +161,26 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                     'actionType': 'UPDATE',
                                     'patientID': str(patient.uuid),
                                 }).async(my_publish_callback)
-                            except Exception as e:
+                            except models.UserEpisodeAccess.DoesNotExist as e:
                                 logger.warning(str(e))
-                                access_serializer = UserEpisodeAccessSerializer(
-                                    data={
-                                        'organization_id': organization.uuid,
-                                        'user_id': user_id,
-                                        'episode_id': episode_id,
-                                        'user_role': 'CareGiver'
-                                    })
-                                access_serializer.is_valid()
-                                access_serializer.save()
-                                logger.debug('new episode access created for userid: %s' % str(user_id))
+                                try:
+                                    # Check if UserEpisodeAccess entry exists and is_deleted, if yes, mark undelete
+                                    access = models.UserEpisodeAccess.all_objects.exclude(deleted_at=None).get(organization=organization, episode_id=episode_id, user_id=user_id)
+                                    access.deleted_at = None
+                                    access.save()
+                                except models.UserEpisodeAccess.DoesNotExist as e:
+                                    logger.warning(str(e))
+
+                                    access_serializer = UserEpisodeAccessSerializer(
+                                        data={
+                                            'organization_id': organization.uuid,
+                                            'user_id': user_id,
+                                            'episode_id': episode_id,
+                                            'user_role': 'CareGiver'
+                                        })
+                                    access_serializer.is_valid()
+                                    access_serializer.save()
+                                    logger.debug('new episode access created for userid: %s' % str(user_id))
 
                                 # SILENT NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
@@ -227,6 +230,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         for user_episode_access in user_access_to_delete.iterator():
                             user_id = user_episode_access.user_id
                             logger.debug('User Access to delete: %s' % str(user_episode_access))
+
+                            user_episode_access.soft_delete()
+
                             settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': str(patient.uuid),
@@ -238,22 +244,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             }).async(my_publish_callback)
 
                             try:
-                                # Delete visits for that user
+                                # Hard delete future visits for that user
                                 logger.debug('Deleting visits for this user: %s' % str(user_id))
                                 # Get midNightEpoch for today
                                 today_midnight_epoch = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000
-                                future_visits = models.Visit.objects.filter(episode_id=episode_id).filter(user_id=user_id).filter(midnight_epoch__gte=today_midnight_epoch)
+                                future_visits = models.Visit.objects.filter(episode_id=episode_id).filter(user_id=user_id).filter(is_done=False).filter(midnight_epoch__gte=today_midnight_epoch)
                                 future_visits.delete()
                                 logger.debug('%s Visits deleted successfully' % str(len(future_visits)))
                             except Exception as e:
                                 logger.warning('Could not delete visits for user_id: %s, episode_id: %s. Error: %s' % (str(user_id), str(episode_id), str(e)))
 
                         AccessiblePatientViewSet.local_counter += 1
-                        try:
-                            user_access_to_delete.delete()
-                        except Exception as e:
-                            logger.error('Error Deleting UserEpisodeAccesses: %s' % str(e))
-                            return Response({'success': False})
                     return Response({'success': True})
 
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
@@ -263,55 +264,41 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
     def destroy(self, request, pk=None):
         """
-        Delete the details of this patient, if user has access to it.
+        Soft Delete the patient, if user has access to it.
         :param request:
         :param pk:
         :return:
         """
-        # Check if user is admin of this org
-
-        # TODO:
-        # Delete org patient mapping
-        # delete UserEpisodeAccess for this org
-        # Check if patient is mapped to some other org
-        # If Yes, delete these episodes
-        # If No, delete episodes, patients, addresses
-
+        # Delete Patient and its related entities
         try:
             user = request.user
+            # Check if user is admin of this org
             user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             organization = user_org.organization
             if user_org:
-                patient = models.Patient.objects.get(uuid=pk)
-                episode_ids = patient.episodes.values_list('uuid', flat=True)      # Choose is_active
+                patient = models.Patient.objects.prefetch_related('episodes').get(uuid=pk)
+                episode_ids = patient.episodes.all().filter(is_active=True).values_list('uuid', flat=True)
 
                 # Org has access to patient
-                org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
-                if org_has_access.exists():
+                try:
+                    user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization=organization).filter(episode_id__in=episode_ids)
+                    user_ids = [access.user.uuid for access in user_episode_accesses]
+
                     with transaction.atomic():
-                        # models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
-                        # models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id__in=episode_ids).delete()
-                        # q = models.OrganizationPatientsMapping.objects.filter(patient_id=patient.id)
-                        # if len(q) == 0:
+                        # Soft delete ALL the related entities
+                        patient.soft_delete()
 
-                        user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization=organization).filter(
-                            episode_id__in=episode_ids)
-
-                        for user_episode_access in user_episode_accesses:
+                        for user_id in user_ids:
                             settings.PUBNUB.publish().channel(
-                                str(user_episode_access.user.uuid) + '_assignedPatients').message({
+                                str(user_id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
 
-                        address = patient.address
-                        patient.delete()    # this will also delete the episodes and visits
-                        address.delete()
                     logger.info('Delete successful')
-                    # else:
-                    #     # TODO: IMP: Complete this before pushing to production
-                    #     return Response(status=500, data={'success': False, 'error': 'Server Error'})
                     return Response({'success': True, 'error': None})
+                except models.OrganizationPatientsMapping.DoesNotExist:
+                    logger.info('Org does not have %s access to this patient: %s' % (organization.uuid, patient.uuid))
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
         except Exception as e:
             logger.error(str(e))
@@ -450,7 +437,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         user = request.user
         data = request.data
-        patient, address, users, physicianId = self.parse_data(data)
+        patient, address, users, physicianId = AccessiblePatientViewSet.parse_data(data)
         if (not patient) or (not address):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
         try:
@@ -582,6 +569,76 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class BulkCreatePatientView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        data = request.data
+        user = request.user
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=user.profile)
+            organization = user_org.organization
+            success_counter = 0
+            for patient_item in data:
+                with transaction.atomic():
+                    patient, address, users, physician_id = AccessiblePatientViewSet.parse_data(patient_item)
+                    if not patient:
+                        logger.info('patient key not present. Skipping create')
+                        continue
+                    patient_id = patient.get('patientID', None)
+                    if patient_id and models.Patient.all_objects.filter(uuid=patient_id).exists():
+                        logger.info('Patient exists. Skipping create')
+                        continue
+                    if physician_id:
+                        if not models.Physician.objects.filter(uuid=physician_id).exists():
+                            logger.warning('PhysicianId Does not exist. Skipping create')
+                    logger.info('address')
+                    logger.info(address)
+                    address_serializer = AddressSerializer(data=address)
+                    if not address_serializer.is_valid():
+                        logger.warning(address_serializer.errors)
+                    address_obj = address_serializer.save()
+                    patient['address_id'] = address_obj.uuid
+                    patient_serializer = PatientPlainObjectSerializer(data=patient)
+                    if not patient_serializer.is_valid():
+                        logger.warning(patient_serializer.errors)
+                    patient_obj = patient_serializer.save()
+
+                    episode = {
+                        'patient': patient_obj.uuid,
+                        'socDate': patient.get('soc_date') or None,
+                        'endDate': patient.get('end_date') or None,
+                        'period': patient.get('period') or None,
+                        'cprCode': patient.get('cpr_code') or None,
+                        'transportationLevel': patient.get('transportation_level') or None,
+                        'acuityType': patient.get('acuity_type') or None,
+                        'classification': None,
+                        'allergies': None,
+                        'pharmacy': None,
+                        'socClinician': None,
+                        'attendingPhysician': None,
+                        'primaryPhysician': physician_id
+                    }
+                    episode_id = patient.get('episodeID', None)
+                    if episode_id:
+                        episode['id'] = episode_id
+                    logger.info('Saving episode: %s' % str(episode))
+                    episode_serializer = EpisodeSerializer(data=episode)
+                    episode_serializer.is_valid()
+                    episode_serializer.save()
+                    mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
+                                                                                    'patient_id': patient_obj.uuid})
+                    mapping_serializer.is_valid()
+                    mapping_serializer.save()
+                    is_deleted = patient.get('archived', False)
+                    if is_deleted:
+                        patient_obj.soft_delete()
+                    success_counter += 1
+            return Response(status=status.HTTP_200_OK, data={'success': success_counter})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.USER_NOT_EXIST})
 
 
 # Being Used for app API
@@ -963,7 +1020,6 @@ class AddVisitsView(APIView):
     #     logger.debug('Events being published for visit_id: %s' % str(visit_id))
     #     return
 
-
     def create_dummy_patient_and_episode(self, user_profile, episode_id):
         address = Address.objects.create()
         patient = models.Patient.objects.create(first_name='Dummy',last_name='Patient',title='Mr', address=address)
@@ -997,7 +1053,7 @@ class AddVisitsView(APIView):
         episode_id = visit.get('episodeID')
         if episode_id:
             try:
-                models.Episode.objects.get(uuid=episode_id)
+                models.Episode.all_objects.get(uuid=episode_id)
             except models.Episode.DoesNotExist:
                 logger.debug('Episode Does not exist. Creating Dummy for payload: ')
                 logger.debug(payload)
@@ -1110,8 +1166,13 @@ class DeleteVisitView(APIView):
             visit_ids = data['visitIDs']
             try:
                 visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
-                success_ids = list(map(lambda visit: str(visit.id), visit_objects))
-                visit_objects.delete()
+                if visit_objects.exists():
+                    success_ids = list(map(lambda visit: str(visit.id), visit_objects))
+                    # Todo: Should use bulk delete
+                    [visit.soft_delete() for visit in visit_objects]
+                else:
+                    logger.error("These visits don't exist for this user")
+                    success_ids = list()
             except Exception as e:
                 logger.error('Error in deleting visits: %s' % str(e))
                 success_ids = list()
@@ -1120,7 +1181,6 @@ class DeleteVisitView(APIView):
         return None, None
 
     def delete(self, request):
-        # TODO Add authorization
         success_ids, failure_ids = self.get_results(request)
         if (not success_ids) and (not failure_ids):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
@@ -1157,7 +1217,7 @@ class CreateReportForVisits(APIView):
                     report = models.Report(uuid=report_id, user=user.profile)
                     report.save()
                     visit_ids = list(map(lambda item : uuid.UUID(item['visitID']), report_items))
-                    visits = models.Visit.objects.select_related('visit_miles').in_bulk(visit_ids, field_name="id")
+                    visits = models.Visit.all_objects.select_related('visit_miles').in_bulk(visit_ids, field_name="id")
                     visit_ids_in_db = visits.keys()
                     missing_visit_ids = list(set(visit_ids) - set(visit_ids_in_db))
                     if len(missing_visit_ids) > 0:
@@ -1375,10 +1435,17 @@ class AssignPatientToUser(APIView):
 
             # Update the DB
             logger.debug('Saving UserEpisodeAccess Serializer')
-            data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
-            access_serializer = UserEpisodeAccessSerializer(data=data)
-            access_serializer.is_valid()
-            access_serializer.save()
+            try:
+                # Check if entry exists in deleted objects
+                deleted_access = models.UserEpisodeAccess.all_objects.exclude(deleted_at=None).get(user_id=user_id, organization_id=org_id, episode=episode)
+                deleted_access.deleted_at = None
+                deleted_access.save()
+            except Exception as e:
+                logger.info('No UserEpisodeAccess entry found in deleted objects')
+                data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
+                access_serializer = UserEpisodeAccessSerializer(data=data)
+                access_serializer.is_valid()
+                access_serializer.save()
             logger.debug('UserEpisodeAccess saved successfully')
 
             settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
@@ -1520,11 +1587,11 @@ class PlacesViewSet(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         try:
             user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            # Todo: Add prefetch_related?
             place = models.Place.objects.get(uuid=pk)
-            address = place.address
+
             with transaction.atomic():
-                place.delete()
-                address.delete()
+                place.soft_delete()
                 settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
                     'actionType': 'DELETE_PLACE',
                     'placeID': str(pk)

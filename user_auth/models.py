@@ -29,7 +29,7 @@ class Organization(BaseModel):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=50)      # Todo: Make Enum
-    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
+    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE, related_name='organizations')
     contact_no = models.CharField(max_length=15, null=True)
 
     def __str__(self):
@@ -57,23 +57,33 @@ class UserProfile(BaseModel):
     title = models.CharField(max_length=50)
     contact_no = models.CharField(max_length=15, null=True)
     qualification = models.CharField(max_length=40, null=True)
-    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE)
+    address = models.ForeignKey(Address, null=True, on_delete=models.CASCADE, related_name='user_profile')
     organizations = models.ManyToManyField(Organization, through='UserOrganizationAccess')
 
     def __str__(self):
         return str(self.id) + ' ' + self.user.username
 
+    def soft_delete(self):
+        [access.soft_delete() for access in self.org_accesses.all()]
+        if self.visits and self.visits.exists():
+            [visit.soft_delete() for visit in self.visits.all()]
+        if self.reports and self.reports.exists():
+            [report.soft_delete() for report in self.reports.all()]
+        if self.episode_accesses and self.episode_accesses.exists():
+            [access.soft_delete() for access in self.episode_access.all()]
+        if self.org_accesses and self.org_accesses.exists():
+            [access.soft_delete() for access in self.org_accesses.all()]
+        super().soft_delete()
 
-# done
-# Never queried using id
+
 class UserOrganizationAccess(BaseModel):
     """
     Lists out the users of an organization
     """
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_role')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='user_accesses')
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='org_accesses')
     user_role = models.CharField(max_length=100)   # Todo: Make enum
     is_admin = models.BooleanField(default=False)
 
