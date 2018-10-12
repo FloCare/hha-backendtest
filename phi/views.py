@@ -616,7 +616,6 @@ class BulkCreatePatientView(APIView):
                     if physician_id:
                         if not models.Physician.objects.filter(uuid=physician_id).exists():
                             logger.debug('PhysicianId Does not exist. Skipping create')
-                    is_deleted = patient.get('archived', False)
                     logger.debug('address')
                     logger.debug(address)
                     address_serializer = AddressSerializer(data=address)
@@ -650,16 +649,14 @@ class BulkCreatePatientView(APIView):
                     logger.debug('Saving episode: %s' % str(episode))
                     episode_serializer = EpisodeSerializer(data=episode)
                     episode_serializer.is_valid()
-                    episode_obj = episode_serializer.save()
+                    episode_serializer.save()
                     mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
                                                                                     'patient_id': patient_obj.uuid})
                     mapping_serializer.is_valid()
-                    org_mapping = mapping_serializer.save()
+                    mapping_serializer.save()
+                    is_deleted = patient.get('archived', False)
                     if is_deleted:
-                        address_obj.soft_delete()
                         patient_obj.soft_delete()
-                        episode_obj.soft_delete()
-                        org_mapping.soft_delete()
                     success_counter += 1
             return Response(status=status.HTTP_200_OK, data={'success': success_counter})
         except UserOrganizationAccess.DoesNotExist:
