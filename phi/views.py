@@ -597,7 +597,6 @@ class BulkCreatePatientView(APIView):
 
     def post(self, request):
         data = request.data
-        logger.debug(data)
         user = request.user
         try:
             user_org = UserOrganizationAccess.objects.get(user=user.profile)
@@ -607,25 +606,25 @@ class BulkCreatePatientView(APIView):
                 with transaction.atomic():
                     patient, address, users, physician_id = AccessiblePatientViewSet.parse_data(patient_item)
                     if not patient:
-                        logger.debug('patient key not present. Skipping create')
+                        logger.info('patient key not present. Skipping create')
                         continue
                     patient_id = patient.get('patientID', None)
                     if patient_id and models.Patient.all_objects.filter(uuid=patient_id).exists():
-                        logger.debug('Patient exists. Skipping create')
+                        logger.info('Patient exists. Skipping create')
                         continue
                     if physician_id:
                         if not models.Physician.objects.filter(uuid=physician_id).exists():
-                            logger.debug('PhysicianId Does not exist. Skipping create')
-                    logger.debug('address')
-                    logger.debug(address)
+                            logger.warning('PhysicianId Does not exist. Skipping create')
+                    logger.info('address')
+                    logger.info(address)
                     address_serializer = AddressSerializer(data=address)
                     if not address_serializer.is_valid():
-                        logger.debug(address_serializer.errors)
+                        logger.warning(address_serializer.errors)
                     address_obj = address_serializer.save()
                     patient['address_id'] = address_obj.uuid
                     patient_serializer = PatientPlainObjectSerializer(data=patient)
                     if not patient_serializer.is_valid():
-                        logger.debug(patient_serializer.errors)
+                        logger.warning(patient_serializer.errors)
                     patient_obj = patient_serializer.save()
 
                     episode = {
@@ -646,7 +645,7 @@ class BulkCreatePatientView(APIView):
                     episode_id = patient.get('episodeID', None)
                     if episode_id:
                         episode['id'] = episode_id
-                    logger.debug('Saving episode: %s' % str(episode))
+                    logger.info('Saving episode: %s' % str(episode))
                     episode_serializer = EpisodeSerializer(data=episode)
                     episode_serializer.is_valid()
                     episode_serializer.save()
