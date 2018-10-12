@@ -263,7 +263,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
     def destroy(self, request, pk=None):
         """
-        Delete the details of this patient, if user has access to it.
+        Soft Delete the patient, if user has access to it.
         :param request:
         :param pk:
         :return:
@@ -272,31 +272,41 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
         # TODO:
         # Delete org patient mapping
-        # delete UserEpisodeAccess for this org
-        # Check if patient is mapped to some other org
-        # If Yes, delete these episodes
-        # If No, delete episodes, patients, addresses
+        # Delete UserEpisodeAccess for this org
+        # Delete Active Episodes
+        # Delete Visits for all active episodes
+        # Delete Visit Miles for all visits
+        # Delete Patient
+        # Delete Address
 
         try:
+            # Check if user is admin of this org
             user = request.user
             user_org = UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
             organization = user_org.organization
             if user_org:
-                patient = models.Patient.objects.get(uuid=pk)
-                episode_ids = patient.episodes.values_list('uuid', flat=True)      # Choose is_active
+                patient = models.Patient.objects.prefetch_related('episodes').get(uuid=pk)
+                episode_ids = patient.episodes.all().filter(is_active=True).values_list('uuid', flat=True)
 
                 # Org has access to patient
                 org_has_access = models.OrganizationPatientsMapping.objects.filter(organization=organization).filter(patient=patient)
                 if org_has_access.exists():
+                    visits = models.Visit.objects.filter(episode__in=patient.episodes.all())
+                    visit_miles = models.VisitMiles.objects.filter(visit__in=visits)
+
                     with transaction.atomic():
-                        # models.OrganizationPatientsMapping.objects.filter(organization_id=organization.id).filter(patient_id=patient.id).delete()
-                        # models.UserEpisodeAccess.objects.filter(organization_id=organization.id).filter(episode_id__in=episode_ids).delete()
-                        # q = models.OrganizationPatientsMapping.objects.filter(patient_id=patient.id)
-                        # if len(q) == 0:
+                        user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization=organization).filter(episode_id__in=episode_ids)
 
-                        user_episode_accesses = models.UserEpisodeAccess.objects.filter(organization=organization).filter(
-                            episode_id__in=episode_ids)
+                        # Soft delete ALL the related entities
+                        org_has_access.soft_delete()
+                        user_episode_accesses.soft_delete()
+                        visit_miles.soft_delete()
+                        visits.soft_delete()
+                        patient.episodes.all().soft_delete()
+                        patient.address.soft_delete()
+                        patient.soft_delete()
 
+                        # Todo: Test this, should work, has been moved below soft delete statements
                         for user_episode_access in user_episode_accesses:
                             settings.PUBNUB.publish().channel(
                                 str(user_episode_access.user.uuid) + '_assignedPatients').message({
@@ -304,9 +314,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 'patientID': str(patient.uuid),
                             }).async(my_publish_callback)
 
-                        address = patient.address
-                        patient.delete()    # this will also delete the episodes and visits
-                        address.delete()
+                        # patient.delete()    # this will also delete the episodes and visits
+                        # address.delete()
                     logger.info('Delete successful')
                     # else:
                     #     # TODO: IMP: Complete this before pushing to production
@@ -1183,7 +1192,8 @@ class DeleteVisitView(APIView):
             try:
                 visit_objects = models.Visit.objects.filter(user=user.profile, id__in=visit_ids)
                 success_ids = list(map(lambda visit: str(visit.id), visit_objects))
-                visit_objects.delete()
+                visit_objects.soft_delete()
+                # visit_objects.delete()
             except Exception as e:
                 logger.error('Error in deleting visits: %s' % str(e))
                 success_ids = list()
@@ -1592,11 +1602,20 @@ class PlacesViewSet(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         try:
             user_org = UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            # Todo: Add prefetch_related?
             place = models.Place.objects.get(uuid=pk)
             address = place.address
+
+            visits = place.visits.all()
+            visit_miles = models.VisitMiles.objects.filter(visit__in=visits)
+
             with transaction.atomic():
-                place.delete()
-                address.delete()
+                address.soft_delete()
+                visit_miles.soft_delete()
+                visits.soft_delete()
+                place.soft_delete()
+                # place.delete()
+                # address.delete()
                 settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
                     'actionType': 'DELETE_PLACE',
                     'placeID': str(pk)

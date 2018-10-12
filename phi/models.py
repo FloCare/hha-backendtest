@@ -39,7 +39,7 @@ class Patient(BaseModel):
     emergency_contact_relationship = models.CharField(max_length=50, null=True)
     created_on = models.DateTimeField(auto_now_add=True)
     archived = models.BooleanField(default=False)
-    address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE)
+    address = models.ForeignKey(user_models.Address, null=True, on_delete=models.CASCADE, related_name='patients')
     medical_record_no = models.CharField(max_length=50, null=True)
     hic_no = models.CharField(max_length=50, null=True)
 
@@ -131,7 +131,7 @@ class Episode(BaseModel):
     classification = models.CharField(max_length=100, null=True)
     allergies = models.CharField(max_length=100, null=True)
 
-    pharmacy = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True)
+    pharmacy = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, null=True, related_name='pharmacy_episodes')
 
     soc_clinician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='soc_episodes', null=True)
     attending_physician = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='attending_episodes', null=True)      # noqa
@@ -148,16 +148,16 @@ class Place(BaseModel):
     uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=20, null=True)
-    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, related_name='places')
     address = models.OneToOneField(user_models.Address, related_name='address', on_delete=models.CASCADE)
 
 
 class Visit(BaseModel):
     id = models.UUIDField(primary_key=True, editable=False)
 
-    episode = models.ForeignKey(Episode, related_name='visit', null=True, on_delete=models.CASCADE)
-    place = models.ForeignKey(Place, related_name='visit', null=True, on_delete=models.CASCADE)
-    user = models.ForeignKey(user_models.UserProfile, related_name='visit', on_delete=models.CASCADE)
+    episode = models.ForeignKey(Episode, related_name='visits', null=True, on_delete=models.CASCADE)
+    place = models.ForeignKey(Place, related_name='visits', null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(user_models.UserProfile, related_name='visits', on_delete=models.CASCADE)
     # Organization is added to Visit to make Querying Visits from same Org easier.
     # This is reduntant info, otherwise can be obtained using UserEpisodeAccess Model
     organization = models.ForeignKey(user_models.Organization, related_name='visits', on_delete=models.CASCADE, null=True)
@@ -179,9 +179,14 @@ class Visit(BaseModel):
                 pass
 
     def __str__(self):
-        visit = self.episode.patient.first_name
-        if self.episode.patient.last_name:
-            visit += (' ' + self.episode.patient.last_name)
+        if self.episode:
+            visit = self.episode.patient.first_name
+            if self.episode.patient.last_name:
+                visit += (' ' + self.episode.patient.last_name)
+        elif self.place:
+            visit = self.place.name
+        else:
+            visit = ''
         visit += ('-' + self.user.user.username)
         if self.midnight_epoch:
             visit += ('-' + str(self.midnight_epoch))
@@ -219,9 +224,9 @@ class UserEpisodeAccess(BaseModel):
     """
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    episode = models.ForeignKey(Episode, on_delete=models.CASCADE)
-    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
-    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
+    episode = models.ForeignKey(Episode, on_delete=models.CASCADE, related_name='user_accesses')
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='episode_accesses')
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, related_name='user_episode_accesses')
     user_role = models.CharField(max_length=100)            # Todo: Make Enum
 
     def __str__(self):
@@ -234,8 +239,8 @@ class UserEpisodeAccess(BaseModel):
 class OrganizationPatientsMapping(BaseModel):
     id = models.IntegerField(unique=True, auto_created=True, serialize=False, verbose_name='ID', null=True)
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    organization = models.ForeignKey(user_models.Organization, on_delete=models.CASCADE, related_name='patients_mapping')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='organization_mappings')
 
     def __str__(self):
         return str(self.organization) + '--' + str(self.patient)
@@ -246,7 +251,7 @@ class OrganizationPatientsMapping(BaseModel):
 
 class Report(BaseModel):
     uuid = models.UUIDField(unique=True, primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE)
+    user = models.ForeignKey(user_models.UserProfile, on_delete=models.CASCADE, related_name='reports')
 
     def __str__(self):
         return str(self.uuid) + str(self.user)
