@@ -27,7 +27,7 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
     ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
 from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
-from user_auth.models import UserOrganizationAccess
+from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
 import logging
 import datetime
@@ -1049,15 +1049,31 @@ class AddVisitsView(APIView):
         episode_serializer.save()
         logger.debug('Created Dummy patient and episode')
 
+    def create_dummy_place(self, user_profile, place_id):
+        address = Address.objects.create()
+        user_org = UserOrganizationAccess.objects.get(user=user_profile)
+        models.Place.objects.create(uuid=place_id, name='Dummy Place',organization=user_org.organization, address=address)
+        logger.info('Created Dummy place ')
+
     def handle_missing_episode(self, visit, user_profile, payload):
         episode_id = visit.get('episodeID')
         if episode_id:
             try:
                 models.Episode.all_objects.get(uuid=episode_id)
             except models.Episode.DoesNotExist:
-                logger.debug('Episode Does not exist. Creating Dummy for payload: ')
+                logger.debug('Episode Does not exist. Creating Dummy patient for payload: ')
                 logger.debug(payload)
                 self.create_dummy_patient_and_episode(user_profile, episode_id)
+
+    def handle_missing_place(self, visit, user_profile, payload):
+        place_id = visit.get('placeID')
+        if place_id:
+            try:
+                models.Place.all_objects.get(uuid=place_id)
+            except models.Place.DoesNotExist:
+                logger.debug('Place Does not exist. Creating Dummy place for payload: ')
+                logger.debug(payload)
+                self.create_dummy_place(user_profile, place_id)
 
     def post(self, request):
         # Check user permissions for that episode
@@ -1082,6 +1098,7 @@ class AddVisitsView(APIView):
             # TODO - remove this - only temporary fix
             # https://flocare.atlassian.net/browse/FC-115phi/response_serializers.py
             self.handle_missing_episode(visit, user.profile, request.data)
+            self.handle_missing_place(visit, user.profile, request.data)
 
             serializer = VisitSerializer(data=visit)
             visit_miles = visit.get('visitMiles', {})
