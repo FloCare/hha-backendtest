@@ -55,7 +55,8 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
     local_counter = 1
 
-    def parse_data(self, data):
+    @staticmethod
+    def parse_data(data):
         try:
             patient = data['patient']
             address = patient.pop('address')
@@ -434,7 +435,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         """
         user = request.user
         data = request.data
-        patient, address, users, physicianId = self.parse_data(data)
+        patient, address, users, physicianId = AccessiblePatientViewSet.parse_data(data)
         if (not patient) or (not address):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
         try:
@@ -566,6 +567,76 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+class BulkCreatePatientView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        data = request.data
+        user = request.user
+        try:
+            user_org = UserOrganizationAccess.objects.get(user=user.profile)
+            organization = user_org.organization
+            success_counter = 0
+            for patient_item in data:
+                with transaction.atomic():
+                    patient, address, users, physician_id = AccessiblePatientViewSet.parse_data(patient_item)
+                    if not patient:
+                        logger.info('patient key not present. Skipping create')
+                        continue
+                    patient_id = patient.get('patientID', None)
+                    if patient_id and models.Patient.all_objects.filter(uuid=patient_id).exists():
+                        logger.info('Patient exists. Skipping create')
+                        continue
+                    if physician_id:
+                        if not models.Physician.objects.filter(uuid=physician_id).exists():
+                            logger.warning('PhysicianId Does not exist. Skipping create')
+                    logger.info('address')
+                    logger.info(address)
+                    address_serializer = AddressSerializer(data=address)
+                    if not address_serializer.is_valid():
+                        logger.warning(address_serializer.errors)
+                    address_obj = address_serializer.save()
+                    patient['address_id'] = address_obj.uuid
+                    patient_serializer = PatientPlainObjectSerializer(data=patient)
+                    if not patient_serializer.is_valid():
+                        logger.warning(patient_serializer.errors)
+                    patient_obj = patient_serializer.save()
+
+                    episode = {
+                        'patient': patient_obj.uuid,
+                        'socDate': patient.get('soc_date') or None,
+                        'endDate': patient.get('end_date') or None,
+                        'period': patient.get('period') or None,
+                        'cprCode': patient.get('cpr_code') or None,
+                        'transportationLevel': patient.get('transportation_level') or None,
+                        'acuityType': patient.get('acuity_type') or None,
+                        'classification': None,
+                        'allergies': None,
+                        'pharmacy': None,
+                        'socClinician': None,
+                        'attendingPhysician': None,
+                        'primaryPhysician': physician_id
+                    }
+                    episode_id = patient.get('episodeID', None)
+                    if episode_id:
+                        episode['id'] = episode_id
+                    logger.info('Saving episode: %s' % str(episode))
+                    episode_serializer = EpisodeSerializer(data=episode)
+                    episode_serializer.is_valid()
+                    episode_serializer.save()
+                    mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
+                                                                                    'patient_id': patient_obj.uuid})
+                    mapping_serializer.is_valid()
+                    mapping_serializer.save()
+                    is_deleted = patient.get('archived', False)
+                    if is_deleted:
+                        patient_obj.soft_delete()
+                    success_counter += 1
+            return Response(status=status.HTTP_200_OK, data={'success': success_counter})
+        except UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.USER_NOT_EXIST})
 
 
 # Being Used for app API
@@ -979,7 +1050,7 @@ class AddVisitsView(APIView):
         episode_id = visit.get('episodeID')
         if episode_id:
             try:
-                models.Episode.objects.get(uuid=episode_id)
+                models.Episode.all_objects.get(uuid=episode_id)
             except models.Episode.DoesNotExist:
                 logger.debug('Episode Does not exist. Creating Dummy for payload: ')
                 logger.debug(payload)
@@ -1143,7 +1214,7 @@ class CreateReportForVisits(APIView):
                     report = models.Report(uuid=report_id, user=user.profile)
                     report.save()
                     visit_ids = list(map(lambda item : uuid.UUID(item['visitID']), report_items))
-                    visits = models.Visit.objects.select_related('visit_miles').in_bulk(visit_ids, field_name="id")
+                    visits = models.Visit.all_objects.select_related('visit_miles').in_bulk(visit_ids, field_name="id")
                     visit_ids_in_db = visits.keys()
                     missing_visit_ids = list(set(visit_ids) - set(visit_ids_in_db))
                     if len(missing_visit_ids) > 0:
