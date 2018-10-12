@@ -110,11 +110,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 
                 # Check if the passed users belong to this organization
                 # Someone might maliciously pass invalid users
-                # TODO: This IS BAAAAD. Change this ASAP to bulk API.
-                for userid in users:
-                    u = UserOrganizationAccess.objects.filter(organization=organization).filter(user_id=userid)
-                    if not u.exists():
-                        raise Exception('Invalid user passed')
+                users_count = UserOrganizationAccess.objects.filter(organization=organization).filter(user_id__in=users).count()
+                if len(users) != users_count:
+                    raise Exception('Invalid user passed')
 
                 patient = models.Patient.objects.get(uuid=pk)
 
@@ -161,18 +159,26 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                     'actionType': 'UPDATE',
                                     'patientID': str(patient.uuid),
                                 }).async(my_publish_callback)
-                            except Exception as e:
+                            except models.UserEpisodeAccess.DoesNotExist as e:
                                 logger.warning(str(e))
-                                access_serializer = UserEpisodeAccessSerializer(
-                                    data={
-                                        'organization_id': organization.uuid,
-                                        'user_id': user_id,
-                                        'episode_id': episode_id,
-                                        'user_role': 'CareGiver'
-                                    })
-                                access_serializer.is_valid()
-                                access_serializer.save()
-                                logger.debug('new episode access created for userid: %s' % str(user_id))
+                                try:
+                                    # Check if UserEpisodeAccess entry exists and is_deleted, if yes, mark undelete
+                                    access = models.UserEpisodeAccess.all_objects.exclude(deleted_at=None).get(organization=organization, episode_id=episode_id, user_id=user_id)
+                                    access.deleted_at = None
+                                    access.save()
+                                except models.UserEpisodeAccess.DoesNotExist as e:
+                                    logger.warning(str(e))
+
+                                    access_serializer = UserEpisodeAccessSerializer(
+                                        data={
+                                            'organization_id': organization.uuid,
+                                            'user_id': user_id,
+                                            'episode_id': episode_id,
+                                            'user_role': 'CareGiver'
+                                        })
+                                    access_serializer.is_valid()
+                                    access_serializer.save()
+                                    logger.debug('new episode access created for userid: %s' % str(user_id))
 
                                 # SILENT NOTIFICATION
                                 settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
@@ -222,6 +228,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         for user_episode_access in user_access_to_delete.iterator():
                             user_id = user_episode_access.user_id
                             logger.debug('User Access to delete: %s' % str(user_episode_access))
+
+                            user_episode_access.soft_delete()
+
                             settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                                 'actionType': 'UNASSIGN',
                                 'patientID': str(patient.uuid),
@@ -233,22 +242,17 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             }).async(my_publish_callback)
 
                             try:
-                                # Delete visits for that user
+                                # Hard delete future visits for that user
                                 logger.debug('Deleting visits for this user: %s' % str(user_id))
                                 # Get midNightEpoch for today
                                 today_midnight_epoch = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000
-                                future_visits = models.Visit.objects.filter(episode_id=episode_id).filter(user_id=user_id).filter(midnight_epoch__gte=today_midnight_epoch)
+                                future_visits = models.Visit.objects.filter(episode_id=episode_id).filter(user_id=user_id).filter(is_done=False).filter(midnight_epoch__gte=today_midnight_epoch)
                                 future_visits.delete()
                                 logger.debug('%s Visits deleted successfully' % str(len(future_visits)))
                             except Exception as e:
                                 logger.warning('Could not delete visits for user_id: %s, episode_id: %s. Error: %s' % (str(user_id), str(episode_id), str(e)))
 
                         AccessiblePatientViewSet.local_counter += 1
-                        try:
-                            user_access_to_delete.delete()
-                        except Exception as e:
-                            logger.error('Error Deleting UserEpisodeAccesses: %s' % str(e))
-                            return Response({'success': False})
                     return Response({'success': True})
 
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
@@ -1357,10 +1361,17 @@ class AssignPatientToUser(APIView):
 
             # Update the DB
             logger.debug('Saving UserEpisodeAccess Serializer')
-            data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
-            access_serializer = UserEpisodeAccessSerializer(data=data)
-            access_serializer.is_valid()
-            access_serializer.save()
+            try:
+                # Check if entry exists in deleted objects
+                deleted_access = models.UserEpisodeAccess.all_objects.exclude(deleted_at=None).get(user_id=user_id, organization_id=org_id, episode=episode)
+                deleted_access.deleted_at = None
+                deleted_access.save()
+            except Exception as e:
+                logger.info('No UserEpisodeAccess entry found in deleted objects')
+                data = {'organization_id': org_id, 'user_id': user_id, 'episode_id': episode.uuid, 'user_role': 'CareGiver'}
+                access_serializer = UserEpisodeAccessSerializer(data=data)
+                access_serializer.is_valid()
+                access_serializer.save()
             logger.debug('UserEpisodeAccess saved successfully')
 
             settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
