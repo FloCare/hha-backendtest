@@ -574,6 +574,12 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
 class BulkCreatePatientView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    def create_episode(self, episode_data):
+        logger.info('Saving episode: %s' % str(episode_data))
+        episode_serializer = EpisodeSerializer(data=episode_data)
+        episode_serializer.is_valid()
+        episode_serializer.save()
+
     def post(self, request):
         data = request.data
         user = request.user
@@ -624,10 +630,21 @@ class BulkCreatePatientView(APIView):
                     episode_id = patient.get('episodeID', None)
                     if episode_id:
                         episode['id'] = episode_id
-                    logger.info('Saving episode: %s' % str(episode))
-                    episode_serializer = EpisodeSerializer(data=episode)
-                    episode_serializer.is_valid()
-                    episode_serializer.save()
+                        try:
+                            # Should be dummy patient - Replace the dummy with new patient
+                            # TODO Delete this hack code
+                            episode = models.Episode.all_objects.get(uuid=episode_id)
+                            old_patient = episode.patient
+                            episode.patient_id = patient_obj.uuid
+                            episode.save()
+                            op_mappings = models.OrganizationPatientsMapping.all_objects.filter(patient_id=old_patient.uuid)
+                            op_mappings.update(patient_id=patient_obj.uuid)
+                            old_patient.delete()
+                            success_counter += 1
+                            continue
+                        except models.Episode.DoesNotExist:
+                            pass
+                    self.create_episode(episode)
                     mapping_serializer = OrganizationPatientMappingSerializer(data={'organization_id': organization.uuid,
                                                                                     'patient_id': patient_obj.uuid})
                     mapping_serializer.is_valid()
