@@ -225,7 +225,8 @@ class VisitMiles(BaseModel):
     visit = models.OneToOneField(Visit, related_name='visit_miles', on_delete=models.CASCADE)
     odometer_start = models.FloatField(null=True)
     odometer_end = models.FloatField(null=True)
-    total_miles = models.FloatField(null=True)
+    computed_miles = models.FloatField(null=True)
+    extra_miles = models.FloatField(null=True)
     # TODO Enforce check on app side? -- VARCHAR like equivalent ?? Take space only if required
     miles_comments = models.CharField(null=True, max_length=300)
 
@@ -238,8 +239,7 @@ class VisitMiles(BaseModel):
                 pass
 
     def __str__(self):
-        return str(self.visit) + '--' + str(self.odometer_start) + ' -- ' + str(self.odometer_end) + ' -- ' +\
-               str(self.total_miles)
+        return str(self.visit) + '--' + str(self.computed_miles) + '--' + str(self.extra_miles)
 
 
 class UserEpisodeAccess(BaseModel):

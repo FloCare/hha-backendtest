@@ -190,7 +190,7 @@ class VisitMilesSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source="visit_id", required=False)
     odometerStart = serializers.FloatField(source='odometer_start', required=False, allow_null=True)
     odometerEnd = serializers.FloatField(source='odometer_end', required=False, allow_null=True)
-    totalMiles = serializers.FloatField(source='total_miles', required=False, allow_null=True)
+    totalMiles = serializers.FloatField(source='computed_miles', required=False, allow_null=True)
     milesComments = serializers.CharField(source='miles_comments', required=False, allow_null=True)
 
     def create(self, validated_data):
