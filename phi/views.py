@@ -29,6 +29,7 @@ from phi.response_serializers import PatientListSerializer, PatientDetailsRespon
 from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
 from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
+from phi.migration_helpers import MigrationHelpers
 import logging
 import datetime
 import requests
@@ -1092,6 +1093,8 @@ class AddVisitsView(APIView):
                 logger.debug(payload)
                 self.create_dummy_place(user_profile, place_id)
 
+
+
     def post(self, request):
         # Check user permissions for that episode
         user = request.user
@@ -1119,6 +1122,7 @@ class AddVisitsView(APIView):
 
             serializer = VisitSerializer(data=visit)
             visit_miles = visit.get('visitMiles', {})
+            MigrationHelpers.handle_miles_migration(visit_miles)
             visit_miles_serializer = VisitMilesSerializer(data=visit_miles)
             if serializer.is_valid() and visit_miles_serializer.is_valid():
                 try:
@@ -1169,6 +1173,7 @@ class UpdateVisitView(APIView):
 
         serializer = VisitSerializer(instance=visit, data=request.data)
         visit_miles = request.data.get('visitMiles', {})
+        MigrationHelpers.handle_miles_migration(visit_miles)
         visit_miles_serialised_object = VisitMilesSerializer(instance=visit.visit_miles, data=visit_miles)
 
         if not (serializer.is_valid() and visit_miles_serialised_object.is_valid()):
@@ -1260,8 +1265,10 @@ class CreateReportForVisits(APIView):
                     total_miles_travelled = 0
                     for visit_id in visits:
                         visit_miles = visits[visit_id].visit_miles
-                        if visit_miles and visit_miles.odometer_start is not None and visit_miles.odometer_end is not None:
-                            total_miles_travelled += visit_miles.odometer_end - visit_miles.odometer_start
+                        if visit_miles and visit_miles.computed_miles is not None:
+                            total_miles_travelled += visit_miles.computed_miles
+                            if visit_miles.extra_miles is not None:
+                                total_miles_travelled += visit_miles.extra_miles
                     difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)
                     if difference_in_db_and_app > total_miles_buffer_allowed:
                         raise TotalMilesDidNotMatchException(total_miles_in_app_report, total_miles_travelled)

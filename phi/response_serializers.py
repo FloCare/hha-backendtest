@@ -166,12 +166,13 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
 class VisitMilesResponseSerializer(serializers.ModelSerializer):
     odometerStart = serializers.FloatField(source='odometer_start', allow_null=True)
     odometerEnd = serializers.FloatField(source='odometer_end', allow_null=True)
-    totalMiles = serializers.FloatField(source='computed_miles', allow_null=True)
+    computedMiles = serializers.FloatField(source='computed_miles', allow_null=True)
+    extraMiles = serializers.FloatField(source='extra_miles', allow_null=True)
     milesComments = serializers.CharField(source='miles_comments', allow_null=True)
 
     class Meta:
         model = models.VisitMiles
-        fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'milesComments')
+        fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'computedMiles', 'milesComments')
 
 
 class VisitResponseSerializer(serializers.ModelSerializer):
