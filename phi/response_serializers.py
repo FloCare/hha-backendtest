@@ -172,7 +172,7 @@ class VisitMilesResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.VisitMiles
-        fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'computedMiles', 'milesComments')
+        fields = ('odometerStart', 'odometerEnd', 'computedMiles', 'extraMiles', 'milesComments')
 
 
 class VisitResponseSerializer(serializers.ModelSerializer):
