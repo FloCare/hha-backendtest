@@ -22,6 +22,7 @@ from phi.serializers import OrganizationPatientMappingSerializer, \
     VisitMilesSerializer, PlaceUpdateSerializer
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
+from phi.exceptions.InvalidDataForSerializerException import InvalidDataForSerializerException
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
@@ -30,6 +31,7 @@ from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicia
 from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
 from phi.migration_helpers import MigrationHelpers
+from phi.data_services.VisitDataService import VisitDataService
 import logging
 import datetime
 import requests
@@ -1166,30 +1168,55 @@ class UpdateVisitView(APIView):
         # Todo: Handle case of same-user-multiple-orgs
         # Get organization of requesting user
         try:
-            org = UserOrganizationAccess.objects.get(user=request.user.profile).organization
+            UserOrganizationAccess.objects.get(user=request.user.profile).organization
         except UserOrganizationAccess.DoesNotExist as e:
             logger.error('Not saving visit. Error: %s' % str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': 'User has no organisation'})
 
-        serializer = VisitSerializer(instance=visit, data=request.data)
-        visit_miles = request.data.get('visitMiles', {})
-        MigrationHelpers.handle_miles_migration(visit_miles)
-        visit_miles_serialised_object = VisitMilesSerializer(instance=visit.visit_miles, data=visit_miles)
-
-        if not (serializer.is_valid() and visit_miles_serialised_object.is_valid()):
-            logger.error(str(serializer.errors))
-            logger.error(str(visit_miles_serialised_object.errors))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         try:
-            serializer.save(user=request.user.profile, organization=org)
-            visit_miles_serialised_object.save()
+            DataServices.visit_data_service().update_visit(request.user.profile, visit, request.data)
+        except InvalidDataForSerializerException as e:
+            logger.error('Invalid data for serializer exception, %s ' % str(e))
+            logger.error(traceback.format_exc(e))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         except IntegrityError as e:
             logger.error('IntegrityError. Cannot update visit: %s' % str(e))
+            logger.error(traceback.format_exc(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.DATA_INVALID})
         except Exception as e:
             logger.error('Cannot update visit: %s' % str(e))
+            logger.error(traceback.format_exc(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
         return Response({'success': True, 'error': None})
+
+
+class BulkUpdateVisitView(APIView):
+    queryset = models.Visit.objects.all()
+    permission_classes = (IsAuthenticated,)
+
+    def update_single_visit(self, user_profile, visit_id, data):
+        try:
+            visit = models.Visit.objects.get(pk=visit_id)
+            DataServices.visit_data_service().update_visit(user_profile, visit, data)
+        except models.Visit.DoesNotExist:
+            logger.error('Visit with id : %s does not exist' % str(visit_id))
+
+    def post(self, request):
+        data = request.data
+        counter = 0
+        visits = data.get('visits', [])
+        for visit in visits:
+            try:
+                self.update_single_visit(request.user.profile, visit['visitID'], visit)
+                counter += 1
+            except InvalidDataForSerializerException as e:
+                logger.error('Invalid data for serializer exception, %s ' % str(e))
+                logger.error(traceback.format_exc(e))
+            except IntegrityError as e:
+                logger.error('IntegrityError. Cannot update visit: %s' % str(e))
+                logger.error(traceback.format_exc(e))
+        return Response(status=status.HTTP_200_OK, data={'success': True, 'count': counter})
+
 
 
 # Todo: When an episode access is removed, deleteAPI is also fired to corresponding remove visits.
@@ -1643,3 +1670,9 @@ class PlacesViewSet(viewsets.ViewSet):
         except models.Place.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
 
+
+
+class DataServices:
+    @staticmethod
+    def visit_data_service():
+        return VisitDataService()
