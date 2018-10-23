@@ -1638,7 +1638,7 @@ class PlacesViewSet(viewsets.ViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
 
 
-class AssignedPatientsHistoryDetailView(APIView):
+class PatientsForSyncView(APIView):
     queryset = models.Patient.objects.all()
     serializer_class = AssignedPatientsHistorySerializer
     permission_classes = (IsAuthenticated,)
@@ -1651,7 +1651,7 @@ class AssignedPatientsHistoryDetailView(APIView):
         return Response(response.data)
 
 
-class PlacesHistoryDetailView(APIView):
+class PlacesForSyncView(APIView):
     queryset = models.Place.objects.all()
     serializer_class = PlaceHistoryResponseSerializer
     permission_classes = (IsAuthenticated,)
