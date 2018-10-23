@@ -410,7 +410,6 @@ class PlaceResponseSerializer(serializers.ModelSerializer):
         fields = ('placeID', 'contactNumber', 'name', 'address')
 
 
-
 # Todo: Used for online patients feature in the app
 class PatientsForOrgSerializer(serializers.ModelSerializer):
     patientID = serializers.UUIDField(source='patient.uuid')
@@ -421,3 +420,45 @@ class PatientsForOrgSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.OrganizationPatientsMapping
         fields = ('patientID', 'firstName', 'lastName', 'address',)
+
+
+# Todo: Used for endpoints for syncing past data with app
+class AssignedPatientsHistorySerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='uuid')
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    address = AddressSerializer()
+    name = serializers.SerializerMethodField()
+    primaryContact = serializers.CharField(source='primary_contact')
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelation = serializers.CharField(source='emergency_contact_relationship', required=False)
+    dob = serializers.DateField(required=False)
+    timestamp = serializers.DateTimeField(source='created_on')
+    episode = serializers.SerializerMethodField()
+    inactive = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Patient
+        fields = ('patientID', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName', 'dob',
+                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'address', 'episode', 'inactive')
+
+    def get_episode(self, obj):
+        return EpisodeResponseSerializer(obj.episodes.select_related('primary_physician').get(is_active=True)).data
+
+    def get_inactive(self, obj):
+        if bool(obj.deleted_at):
+            return True
+        active_ids = self.context.get("active_ids")
+        if active_ids:
+            if str(obj.uuid) not in active_ids:
+                return True
+        return False
+
+    def get_name(self, obj):
+        if obj.first_name and obj.last_name:
+            return '{} {}'.format(obj.first_name, obj.last_name)
+        elif obj.first_name:
+            return obj.first_name
+        else:
+            return obj.last_name
