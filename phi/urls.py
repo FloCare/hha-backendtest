@@ -37,6 +37,7 @@ urlpatterns = [
 
             # Todo: Endpoints for syncing past data with app - for new installations (version 0.6.0)
             url(r'get-assigned-patients-history', views.AssignedPatientsHistoryDetailView.as_view()),   # app
+            url(r'get-places-history', views.PlacesHistoryDetailView.as_view()),   # app
         ])
     ),
 ]

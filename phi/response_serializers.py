@@ -3,6 +3,9 @@ from user_auth.serializers import AddressSerializer
 from user_auth.serializers import AddressIDWithLatLngSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer
 from phi import models
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PatientListSerializer(serializers.ModelSerializer):
@@ -444,7 +447,12 @@ class AssignedPatientsHistorySerializer(serializers.ModelSerializer):
                   'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'address', 'episode', 'inactive')
 
     def get_episode(self, obj):
-        return EpisodeResponseSerializer(obj.episodes.select_related('primary_physician').get(is_active=True)).data
+        try:
+            # Todo: IMP: If the episode is marked 'is_active=False' on Patient Deletion, this will start failing.
+            return EpisodeResponseSerializer(obj.episodes.select_related('primary_physician').get(is_active=True)).data
+        except Exception as e:
+            logger.error(str(e))
+            return None
 
     def get_inactive(self, obj):
         if bool(obj.deleted_at):
@@ -462,3 +470,19 @@ class AssignedPatientsHistorySerializer(serializers.ModelSerializer):
             return obj.first_name
         else:
             return obj.last_name
+
+
+# Todo: Used for endpoints for syncing past data with app
+class PlaceHistoryResponseSerializer(serializers.ModelSerializer):
+    placeID = serializers.UUIDField(source='uuid')
+    contactNumber = serializers.CharField(source='contact_number', required=False)
+    name = serializers.CharField()
+    address = AddressSerializer()
+    inactive = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Place
+        fields = ('placeID', 'contactNumber', 'name', 'address', 'inactive')
+
+    def get_inactive(self, obj):
+        return bool(obj.deleted_at)
