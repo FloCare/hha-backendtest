@@ -35,6 +35,10 @@ urlpatterns = [
             url(r'^create-report-for-visits/$', views.CreateReportForVisits.as_view()),                 # app
             url(r'^get-reports-for-user/$', views.GetReportsForUser.as_view()),                         # app
             url(r'^get-reports-detail-by-ids/$', views.GetReportsDetailByIDs.as_view()),                # app
+
+            # Todo: Endpoints for syncing past data with app - for new installations (version 0.6.0)
+            url(r'get-patients-for-sync', views.PatientsForSyncView.as_view()),   # app
+            url(r'get-places-for-sync', views.PlacesForSyncView.as_view()),   # app
         ])
     ),
 ]

@@ -26,7 +26,8 @@ from phi.exceptions.InvalidDataForSerializerException import InvalidDataForSeria
 from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     EpisodeDetailsResponseSerializer, VisitDetailsResponseSerializer, PhysicianResponseSerializer, \
     VisitResponseSerializer, PatientDetailsWithOldIdsResponseSerializer, VisitForOrgResponseSerializer, \
-    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer, PatientsForOrgSerializer
+    ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer, PlaceResponseSerializer,\
+    PatientsForOrgSerializer, AssignedPatientsHistorySerializer, PlaceHistoryResponseSerializer
 from phi.request_serializers import CreatePlaceRequestSerializer, CreatePhysicianRequestSerializer
 from user_auth.models import UserOrganizationAccess, Address
 from user_auth.serializers import AddressSerializer
@@ -1670,6 +1671,33 @@ class PlacesViewSet(viewsets.ViewSet):
         except models.Place.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.PLACE_NOT_EXIST})
 
+
+class PatientsForSyncView(APIView):
+    queryset = models.Patient.objects.all()
+    serializer_class = AssignedPatientsHistorySerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        accesses = models.UserEpisodeAccess.all_objects.select_related('episode__patient__address').filter(user=request.user.profile)
+        patients = [access.episode.patient for access in accesses]
+        active_patient_ids = [str(access.episode.patient.uuid) for access in accesses if not bool(access.deleted_at)]
+        response = self.serializer_class(patients, context={'active_ids': active_patient_ids}, many=True)
+        return Response(response.data)
+
+
+class PlacesForSyncView(APIView):
+    queryset = models.Place.objects.all()
+    serializer_class = PlaceHistoryResponseSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        try:
+            access = UserOrganizationAccess.objects.select_related('organization').get(user=request.user.profile)
+            places = models.Place.all_objects.select_related('address').filter(organization=access.organization)
+            return Response(status=status.HTTP_200_OK, data=self.serializer_class(places, many=True).data)
+        except Exception as e:
+            logger.error(str(e))
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
 
 
 class DataServices:
