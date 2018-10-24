@@ -15,7 +15,7 @@ def update_comments_and_total_miles(apps, schema_editor):
             if odometer_start:
                 miles_comments += 'OdometerStart: %s; ' % str(odometer_start)
             if odometer_end:
-                miles_comments = 'OdometerEnd: %s; ' % str(odometer_end)
+                miles_comments += 'OdometerEnd: %s; ' % str(odometer_end)
 
             initial_comment = VisitMile.miles_comments
             if initial_comment and initial_comment.strip():
