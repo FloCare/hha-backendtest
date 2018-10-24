@@ -11,11 +11,15 @@ def update_comments_and_total_miles(apps, schema_editor):
         try:
             odometer_start = VisitMile.odometer_start
             odometer_end = VisitMile.odometer_end
-            miles_comments = MILES_COMMENTS_DEFAULT_TEXT % (str(odometer_start), str(odometer_end))
+            miles_comments = ''
+            if odometer_start:
+                miles_comments += 'OdometerStart: %s; ' % str(odometer_start)
+            if odometer_end:
+                miles_comments = 'OdometerEnd: %s; ' % str(odometer_end)
 
             initial_comment = VisitMile.miles_comments
             if initial_comment and initial_comment.strip():
-                miles_comments += ('; %s' % str(initial_comment))
+                miles_comments += ('%s' % str(initial_comment))
 
             print('')
             if (odometer_start and odometer_end) and (not VisitMile.total_miles):
