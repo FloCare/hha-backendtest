@@ -12,9 +12,9 @@ def update_comments_and_total_miles(apps, schema_editor):
             odometer_start = VisitMile.odometer_start
             odometer_end = VisitMile.odometer_end
             miles_comments = ''
-            if odometer_start:
+            if odometer_start is not None:
                 miles_comments += 'OdometerStart: %s; ' % str(odometer_start)
-            if odometer_end:
+            if odometer_end is not None:
                 miles_comments += 'OdometerEnd: %s; ' % str(odometer_end)
 
             initial_comment = VisitMile.miles_comments
@@ -22,7 +22,7 @@ def update_comments_and_total_miles(apps, schema_editor):
                 miles_comments += ('%s' % str(initial_comment))
 
             print('')
-            if (odometer_start and odometer_end) and (not VisitMile.total_miles):
+            if (odometer_start is not None) and (odometer_end is not None):
                 total_miles = odometer_end-odometer_start
                 print('Updating total_miles to: ', total_miles)
                 VisitMile.total_miles = total_miles
