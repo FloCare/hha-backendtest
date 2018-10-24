@@ -192,7 +192,7 @@ class VisitMilesSerializer(serializers.ModelSerializer):
     odometerEnd = serializers.FloatField(source='odometer_end', required=False, allow_null=True)
     computedMiles = serializers.FloatField(source='computed_miles', required=False, allow_null=True)
     extraMiles = serializers.FloatField(source='extra_miles', required=False, allow_null=True)
-    milesComments = serializers.CharField(source='miles_comments', required=False, allow_null=True)
+    milesComments = serializers.CharField(source='miles_comments', required=False, allow_null=True, allow_blank=True)
 
     def create(self, validated_data):
         return self.Meta.model.objects.create(**validated_data)
