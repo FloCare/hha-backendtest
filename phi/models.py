@@ -215,6 +215,10 @@ class Visit(BaseModel):
         with transaction.atomic():
             try:
                 self.visit_miles.soft_delete()
+                try:
+                    self.report_item.soft_delete()
+                except ReportItem.DoesNotExist:
+                    pass
             except VisitMiles.DoesNotExist as e:
                 print(e)
             super().soft_delete()
