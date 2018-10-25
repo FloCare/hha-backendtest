@@ -24,7 +24,9 @@ def my_publish_callback(envelope, status):
         print( 'Message successfully published to specified channel.')
     else:
         print(' NOT Message successfully published to specified channel.')
-        pass
+        if status.error_data:
+            print('Error:', status.error_data.exception)
+
 
 class Command(BaseCommand):
     help = 'Update users data in the DB from the CSV'
@@ -68,14 +70,14 @@ class Command(BaseCommand):
                         patient.emergency_contact_name = emergency_contact_name
                     patient.save()
 
-                    episodes = Episode.objects.filter(patient_id=patient.id, is_active=True)
+                    episodes = Episode.objects.filter(patient_id=patient.uuid, is_active=True)
                     if episodes.count() > 0:
-                        all_episode_ids = [episode.id for episode in episodes]
+                        all_episode_ids = [episode.uuid for episode in episodes]
                         user_episode_access_list = UserEpisodeAccess.objects.filter(episode_id__in=all_episode_ids)
                         if user_episode_access_list.count() > 0:
-                            users_linked_to_patient = [user_episode_access.user.id for user_episode_access in user_episode_access_list]
+                            users_linked_to_patient = [user_episode_access.user.uuid for user_episode_access in user_episode_access_list]
                             for user_id in users_linked_to_patient:
-                                self.publish_update_message(user_id, patient.id)
+                                self.publish_update_message(str(user_id), str(patient.uuid))
                 except Exception as e:
                     self.stderr.write('Patient Update failed. Error: %s' % str(e))
                     raise e

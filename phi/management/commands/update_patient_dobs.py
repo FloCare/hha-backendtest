@@ -21,10 +21,11 @@ def _readfile(file_path):
 
 def my_publish_callback(envelope, status):
     if not status.is_error():
-        print( 'Message successfully published to specified channel.')
+        print('Message successfully published to specified channel.')
     else:
         print(' NOT Message successfully published to specified channel.')
-        pass
+        if status.error_data:
+            print('Error:', status.error_data.exception)
 
 
 class Command(BaseCommand):
@@ -51,14 +52,12 @@ class Command(BaseCommand):
                 patient.save()
                 episodes = Episode.objects.filter(patient_id=patient.uuid, is_active=True)
                 if episodes.count() > 0:
-                    print('episodes > 0')
                     all_episode_ids = [episode.uuid for episode in episodes]
                     user_episode_access_list = UserEpisodeAccess.objects.filter(episode_id__in=all_episode_ids)
                     if user_episode_access_list.count() > 0:
-                        print('count > 0')
                         users_linked_to_patient = [user_episode_access.user.uuid for user_episode_access in user_episode_access_list]
                         for user_id in users_linked_to_patient:
-                            self.publish_update_message(user_id, patient.uuid)
+                            self.publish_update_message(str(user_id), str(patient.uuid))
         except Exception as e:
             print('Error:', str(e))
             print('Not Found:', firstName, lastName)
