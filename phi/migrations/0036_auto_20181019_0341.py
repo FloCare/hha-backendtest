@@ -31,6 +31,8 @@ def update_comments_and_total_miles(apps, schema_editor):
 
             print('New Miles Comments:', miles_comments)
             print('')
+            if miles_comments == '':
+                miles_comments = None
             VisitMile.miles_comments = miles_comments
             VisitMile.save()
         except Exception as e:
