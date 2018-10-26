@@ -3,6 +3,9 @@ from user_auth.serializers import AddressSerializer
 from user_auth.serializers import AddressIDWithLatLngSerializer
 from user_auth.response_serializers import UserProfileResponseSerializer
 from phi import models
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PatientListSerializer(serializers.ModelSerializer):
@@ -166,12 +169,13 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
 class VisitMilesResponseSerializer(serializers.ModelSerializer):
     odometerStart = serializers.FloatField(source='odometer_start', allow_null=True)
     odometerEnd = serializers.FloatField(source='odometer_end', allow_null=True)
-    totalMiles = serializers.FloatField(source='total_miles', allow_null=True)
+    computedMiles = serializers.FloatField(source='computed_miles', allow_null=True)
+    extraMiles = serializers.FloatField(source='extra_miles', allow_null=True)
     milesComments = serializers.CharField(source='miles_comments', allow_null=True)
 
     class Meta:
         model = models.VisitMiles
-        fields = ('odometerStart', 'odometerEnd', 'totalMiles', 'milesComments')
+        fields = ('odometerStart', 'odometerEnd', 'computedMiles', 'extraMiles', 'milesComments')
 
 
 class VisitResponseSerializer(serializers.ModelSerializer):
@@ -410,7 +414,6 @@ class PlaceResponseSerializer(serializers.ModelSerializer):
         fields = ('placeID', 'contactNumber', 'name', 'address')
 
 
-
 # Todo: Used for online patients feature in the app
 class PatientsForOrgSerializer(serializers.ModelSerializer):
     patientID = serializers.UUIDField(source='patient.uuid')
@@ -421,3 +424,66 @@ class PatientsForOrgSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.OrganizationPatientsMapping
         fields = ('patientID', 'firstName', 'lastName', 'address',)
+
+
+# Todo: Used for endpoints for syncing past data with app
+class AssignedPatientsHistorySerializer(serializers.ModelSerializer):
+    patientID = serializers.UUIDField(source='uuid')
+    firstName = serializers.CharField(source='first_name')
+    lastName = serializers.CharField(source='last_name')
+    address = AddressSerializer()
+    name = serializers.SerializerMethodField()
+    primaryContact = serializers.CharField(source='primary_contact')
+    emergencyContactName = serializers.CharField(source='emergency_contact_name', required=False)
+    emergencyContactNumber = serializers.CharField(source='emergency_contact_number', required=False)
+    emergencyContactRelation = serializers.CharField(source='emergency_contact_relationship', required=False)
+    dob = serializers.DateField(required=False)
+    timestamp = serializers.DateTimeField(source='created_on')
+    episode = serializers.SerializerMethodField()
+    inactive = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Patient
+        fields = ('patientID', 'name', 'firstName', 'lastName', 'primaryContact', 'emergencyContactName', 'dob',
+                  'emergencyContactNumber', 'emergencyContactRelation', 'timestamp', 'address', 'episode', 'inactive')
+
+    def get_episode(self, obj):
+        try:
+            # Todo: IMP: If the episode is marked 'is_active=False' on Patient Deletion, this will start failing.
+            return EpisodeResponseSerializer(obj.episodes(manager='all_objects').select_related('primary_physician').get(is_active=True)).data
+        except Exception as e:
+            logger.error(str(e))
+            return None
+
+    def get_inactive(self, obj):
+        if bool(obj.deleted_at):
+            return True
+        active_ids = self.context.get("active_ids")
+        if active_ids:
+            if str(obj.uuid) not in active_ids:
+                return True
+        return False
+
+    def get_name(self, obj):
+        if obj.first_name and obj.last_name:
+            return '{} {}'.format(obj.first_name, obj.last_name)
+        elif obj.first_name:
+            return obj.first_name
+        else:
+            return obj.last_name
+
+
+# Todo: Used for endpoints for syncing past data with app
+class PlaceHistoryResponseSerializer(serializers.ModelSerializer):
+    placeID = serializers.UUIDField(source='uuid')
+    contactNumber = serializers.CharField(source='contact_number', required=False)
+    name = serializers.CharField()
+    address = AddressSerializer()
+    inactive = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Place
+        fields = ('placeID', 'contactNumber', 'name', 'address', 'inactive')
+
+    def get_inactive(self, obj):
+        return bool(obj.deleted_at)
