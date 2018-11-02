@@ -1,33 +1,14 @@
-from django.test import TestCase, Client
-from phi.models import *
-from user_auth.models import *
-from rest_framework.authtoken.models import Token
-from django.urls import reverse
+from .utils import UserRequestTestCase
 from backend import errors
+from phi.models import *
 from rest_framework import status
+from unittest.mock import patch, MagicMock
+from user_auth.models import *
+
 import json
 import random
 
 
-class UserRequestTestCase(TestCase):
-
-    @classmethod
-    def initObjects(cls):
-        user = User.objects.create_user(first_name='firstName', last_name='lastName', username='username',
-                                        password='password', email='email')
-        user_profile = UserProfile.objects.create(user=user, title='', contact_no='phone')
-        cls.user = user
-        cls.user_profile = user_profile
-        Token.objects.create(user=user)
-        token = Token.objects.all()
-        cls.authorization_header = "Token " + token[0].key
-        cls.client = Client()
-
-    def getBaseHeaders(self):
-        return {"HTTP_AUTHORIZATION": self.authorization_header}
-
-
-# TODO Stub settings.pubnub
 class TestPlacesViewSet(UserRequestTestCase):
 
     @classmethod
@@ -63,9 +44,11 @@ class TestPlacesViewSet(UserRequestTestCase):
         response = self.client.post(url, json.dumps(payload), "application/json", **self.getBaseHeaders())
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_creates_place_and_address(self):
+    @patch('django.conf.settings.PUBNUB')
+    def test_creates_place_and_address(self, settings_mock):
         "Creates Place and address for correct request"
         self.makeUserAdmin(self.user_profile)
+        user_org = UserOrganizationAccess.objects.get(user=self.user_profile)
         payload = {
             "name": "place_name",
             "contactNumber" : "contact_number",
@@ -89,10 +72,20 @@ class TestPlacesViewSet(UserRequestTestCase):
         addresses = Address.objects.all()
         self.assertEqual(addresses.count(), 1)
         self.validate_address_object_equal(addresses[0], payload["address"])
+        settings_mock.publish.assert_called_with()
+        channel_call_params = 'organisation_' + str(user_org.organization.uuid)
+        settings_mock.publish().channel.assert_called_with(channel_call_params)
+        message_call_params = {
+            'actionType': 'CREATE_PLACE',
+            'placeID': str(places[0].uuid)
+        }
+        settings_mock.publish().channel(channel_call_params).message.assert_called_with(message_call_params)
 
-    def test_creates_place_for_contact_number_null(self):
+    @patch('django.conf.settings.PUBNUB')
+    def test_creates_place_for_contact_number_null(self, settings_mock):
         "Creates place if contact number is null"
         self.makeUserAdmin(self.user_profile)
+        user_org = UserOrganizationAccess.objects.get(user=self.user_profile)
         payload = {
             "name": "place_name",
             "contactNumber": None,
@@ -116,6 +109,14 @@ class TestPlacesViewSet(UserRequestTestCase):
         addresses = Address.objects.all()
         self.assertEqual(addresses.count(), 1)
         self.validate_address_object_equal(addresses[0], payload["address"])
+        settings_mock.publish.assert_called_with()
+        channel_call_params = 'organisation_' + str(user_org.organization.uuid)
+        settings_mock.publish().channel.assert_called_with(channel_call_params)
+        message_call_params = {
+            'actionType': 'CREATE_PLACE',
+            'placeID': str(places[0].uuid)
+        }
+        settings_mock.publish().channel(channel_call_params).message.assert_called_with(message_call_params)
 
     def test_update_fails_if_user_is_not_admin(self):
         "Should fail if user is not admin"
@@ -161,9 +162,11 @@ class TestPlacesViewSet(UserRequestTestCase):
         }
         self.assertDictEqual(response.data, expected_response)
 
-    def test_update_updates_place_and_address(self):
+    @patch('django.conf.settings.PUBNUB')
+    def test_update_updates_place_and_address(self, settings_mock):
         "Should update place and address objects"
         self.makeUserAdmin(self.user_profile)
+        user_org = UserOrganizationAccess.objects.get(user=self.user_profile)
         place = self.createPlaceAndAddress()
         payload = {
             "name": "place_name",
@@ -186,6 +189,14 @@ class TestPlacesViewSet(UserRequestTestCase):
         self.assertEqual(places[0].name, payload["name"])
         self.assertEqual(places[0].contact_number, payload["contactNumber"])
         self.validate_address_object_equal(places[0].address, payload["address"])
+        settings_mock.publish.assert_called_with()
+        channel_call_params = 'organisation_' + str(user_org.organization.uuid)
+        settings_mock.publish().channel.assert_called_with(channel_call_params)
+        message_call_params = {
+            'actionType': 'UPDATE_PLACE',
+            'placeID': str(places[0].uuid)
+        }
+        settings_mock.publish().channel(channel_call_params).message.assert_called_with(message_call_params)
 
     def test_retrieve_place_does_not_exist(self):
         "Should return 400 if place does not exist"
