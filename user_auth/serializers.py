@@ -6,7 +6,7 @@ class AddressSerializer(serializers.ModelSerializer):
     addressID = serializers.UUIDField(source='uuid', required=False)
     zipCode = serializers.CharField(source='zip', required=False)
     streetAddress = serializers.CharField(source='street_address', required=False)
-    apartmentNo = serializers.CharField(source='apartment_no', required=False)
+    apartmentNo = serializers.CharField(source='apartment_no', required=False, allow_null=True)
     city = serializers.CharField(required=False)
     state = serializers.CharField(required=False)
     country = serializers.CharField(required=False)
