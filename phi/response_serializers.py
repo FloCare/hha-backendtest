@@ -107,11 +107,12 @@ class PhysicianResponseSerializer(serializers.ModelSerializer):
 
 class PlacesResponseSerializer(serializers.ModelSerializer):
     placeID = serializers.UUIDField(source='uuid', required=False)
+    name = serializers.CharField(required=False)
     address = AddressIDWithLatLngSerializer()
 
     class Meta:
         model = models.Episode
-        fields = ('placeID', 'address')
+        fields = ('placeID', 'name', 'address')
 
 
 class EpisodeWithPatientsResponseSerializer(serializers.ModelSerializer):
