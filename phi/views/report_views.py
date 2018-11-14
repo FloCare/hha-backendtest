@@ -5,7 +5,7 @@ from phi import models
 from phi.constants import total_miles_buffer_allowed
 from phi.exceptions.TotalMilesDidNotMatchException import TotalMilesDidNotMatchException
 from phi.exceptions.VisitsNotFoundException import VisitsNotFoundException
-from phi.response_serializers import ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
+from phi.serializers.response_serializers import ReportSerializer, ReportDetailSerializer, ReportDetailsForWebSerializer
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated

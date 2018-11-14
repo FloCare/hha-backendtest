@@ -5,11 +5,12 @@ from django.db import transaction
 from django.db.models import Q
 from phi import models
 from phi.constants import query_to_db_field_map
-from phi.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
+from phi.serializers.response_serializers import PatientListSerializer, PatientDetailsResponseSerializer, \
     PatientDetailsWithOldIdsResponseSerializer, PatientsForOrgSerializer
-from phi.serializers import OrganizationPatientMappingSerializer, EpisodeSerializer, UserEpisodeAccessSerializer, \
+from phi.serializers.serializers import OrganizationPatientMappingSerializer, EpisodeSerializer, UserEpisodeAccessSerializer, \
     PatientPlainObjectSerializer, PatientWithUsersSerializer, PatientUpdateSerializer, \
     PatientWithUsersAndPhysiciansSerializer
+from phi.exceptions.InvalidDataForSerializerException import InvalidDataForSerializerException
 from phi.views.utils import my_publish_callback
 from rest_framework import generics
 from rest_framework import status
@@ -78,6 +79,7 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
         :param pk:
         :return:
         """
+        print(request.data)
         try:
             data = request.data
             users = data.get('users', [])
@@ -122,7 +124,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 logger.warning('Key is not present: %s' % str(e))
                             patient_obj = models.Patient.objects.get(uuid=data['id'])
                             serializer = PatientUpdateSerializer(patient_obj, data=data['patient'], partial=True)
-                            serializer.is_valid()
+                            if not serializer.is_valid():
+                                # logger.error(serializer.errors)
+                                raise InvalidDataForSerializerException(serializer.errors)
                             serializer.save()
 
                         # Attach Physicians Passed to this Episode

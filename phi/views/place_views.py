@@ -2,9 +2,9 @@ from backend import errors
 from django.conf import settings
 from django.db import transaction
 from phi import models
-from phi.request_serializers import CreatePlaceRequestSerializer
-from phi.response_serializers import PlaceResponseSerializer
-from phi.serializers import PlaceUpdateSerializer
+from phi.serializers.request_serializers import CreatePlaceRequestSerializer
+from phi.serializers.response_serializers import PlaceResponseSerializer
+from phi.serializers.serializers import PlaceUpdateSerializer
 from phi.views.utils import my_publish_callback
 from rest_framework import status
 from rest_framework import viewsets

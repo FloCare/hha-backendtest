@@ -1,5 +1,5 @@
 from phi.exceptions.InvalidDataForSerializerException import InvalidDataForSerializerException
-from phi.serializers import VisitMilesSerializer, VisitSerializer
+from phi.serializers.serializers import VisitMilesSerializer, VisitSerializer
 from phi.migration_helpers import MigrationHelpers
 
 

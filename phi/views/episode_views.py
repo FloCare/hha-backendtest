@@ -1,6 +1,6 @@
 from backend import errors
 from phi import models
-from phi.response_serializers import EpisodeDetailsResponseSerializer
+from phi.serializers.response_serializers import EpisodeDetailsResponseSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView

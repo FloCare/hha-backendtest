@@ -28,12 +28,20 @@ class Base(Configuration):
         'django.contrib.sessions',
         'django.contrib.messages',
         'django.contrib.staticfiles',
+        'django_nose',
         'corsheaders',
         'rest_framework',
         'rest_framework.authtoken',
         'flocarebase.apps.FlocarebaseConfig',
         'user_auth.apps.UserAuthConfig',
         'phi.apps.PhiConfig',
+    ]
+
+    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+
+    NOSE_ARGS = [
+        '--cover-erase',
+        '--cover-package=phi',
     ]
 
     MIDDLEWARE = [

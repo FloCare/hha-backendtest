@@ -4,8 +4,10 @@ from phi import models
 from phi.data_services.VisitDataService import VisitDataService
 from phi.exceptions.InvalidDataForSerializerException import InvalidDataForSerializerException
 from phi.migration_helpers import MigrationHelpers
-from phi.response_serializers import VisitDetailsResponseSerializer, VisitResponseSerializer, VisitForOrgResponseSerializer
-from phi.serializers import OrganizationPatientMappingSerializer, EpisodeSerializer, VisitSerializer, VisitMilesSerializer
+from phi.serializers.response_serializers import VisitDetailsResponseSerializer, VisitResponseSerializer, \
+    VisitForOrgResponseSerializer
+from phi.serializers.serializers import OrganizationPatientMappingSerializer, EpisodeSerializer, VisitSerializer, \
+    VisitMilesSerializer
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response

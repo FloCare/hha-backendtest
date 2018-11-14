@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from phi import models
 from phi.forms import UploadFileForm
-from phi.response_serializers import AssignedPatientsHistorySerializer, PlaceHistoryResponseSerializer
+from phi.serializers.response_serializers import AssignedPatientsHistorySerializer, PlaceHistoryResponseSerializer
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response

@@ -5,8 +5,8 @@ from django.db.models import Q
 from django.http import JsonResponse
 from phi import models
 from phi.constants import NPI_DATA_URL
-from phi.request_serializers import CreatePhysicianRequestSerializer
-from phi.response_serializers import PhysicianResponseSerializer
+from phi.serializers.request_serializers import CreatePhysicianRequestSerializer
+from phi.serializers.response_serializers import PhysicianResponseSerializer
 from phi.views.utils import my_publish_callback
 from rest_framework import status
 from rest_framework import viewsets
