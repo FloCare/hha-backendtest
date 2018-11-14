@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from phi import models
-from user_auth.serializers import AddressSerializer
+from user_auth.serializers.serializers import AddressSerializer
 import datetime
 import dateutil
 import logging

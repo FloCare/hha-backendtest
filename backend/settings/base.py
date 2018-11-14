@@ -41,7 +41,6 @@ class Base(Configuration):
 
     NOSE_ARGS = [
         '--cover-erase',
-        '--cover-package=phi',
     ]
 
     MIDDLEWARE = [

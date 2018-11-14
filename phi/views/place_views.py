@@ -11,7 +11,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from user_auth.models import UserOrganizationAccess
-from user_auth.serializers import AddressSerializer
+from user_auth.serializers.serializers import AddressSerializer
 
 import logging
 

@@ -16,9 +16,8 @@ if __name__ == "__main__":
     include_coverage = 'include_coverage' in sys.argv
     if include_coverage:
         import coverage
-        cov = coverage.coverage(source=['phi/views', '', 'phi/serializers'], omit=['*init.py'], branch=True)
+        cov = coverage.coverage(source=['phi/views', '', 'phi/serializers', 'user_auth/views', 'user_auth/serializers'], omit=['*init__.py'], branch=True)
         cov.set_option('report:show_missing', True)
-        cov.erase()
         cov.start()
         sys.argv.remove('include_coverage')
         execute_from_command_line(sys.argv)
