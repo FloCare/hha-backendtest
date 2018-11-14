@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth import models
 from user_auth.data_services.user_data_service import UserDataService
-from user_auth.exceptions import UserAlreadyExistsError
+from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError
 from user_auth.serializers.request_serializers import CreateUserRequestSerializer
 from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
 from user_auth.serializers.serializers import RoleSerializer, UserProfileUpdateSerializer
@@ -91,18 +91,18 @@ class UsersViewSet(viewsets.ViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_ALREADY_EXISTS})
 
     def retrieve(self, request, pk=None):
-        # Check if user is admin of this org
         try:
-            user_org = models.UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
-            if user_org:
-                user_org1 = models.UserOrganizationAccess.objects.filter(organization=user_org.organization).get(user_id=pk)
-                serializer = UserDetailsResponseSerializer({'user': user_org1})
+            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+            if user_org.organization == requested_user_org_access.organization:
+                serializer = UserDetailsResponseSerializer({'user': requested_user_org_access})
                 return Response(serializer.data)
             else:
-                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+                raise UserDoesNotExistError(pk)
+        except models.UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except UserDoesNotExistError:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_NOT_EXIST})
 
     def update(self, request, pk=None):
         try:

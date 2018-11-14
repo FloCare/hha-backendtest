@@ -1,6 +1,6 @@
 from user_auth import models
 from django.db import IntegrityError
-from user_auth.exceptions import UserAlreadyExistsError
+from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,3 +26,9 @@ class UserDataService:
             # TODO Make it more specific
             logger.error(e)
             raise UserAlreadyExistsError(user_data)
+
+    def get_user_org_access_by_user_id(self, user_id):
+        try:
+            return models.UserOrganizationAccess.objects.get(user_id=user_id)
+        except models.UserOrganizationAccess.DoesNotExist:
+            raise UserDoesNotExistError(user_id)
