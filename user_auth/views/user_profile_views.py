@@ -8,6 +8,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth import models
+from user_auth.data_services.user_data_service import UserDataService
+from user_auth.exceptions import UserAlreadyExistsError
+from user_auth.serializers.request_serializers import CreateUserRequestSerializer
 from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
 from user_auth.serializers.serializers import RoleSerializer, UserProfileUpdateSerializer
 
@@ -72,35 +75,20 @@ class UsersViewSet(viewsets.ViewSet):
 
     def create(self, request):
         try:
-            user_org = models.UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
-            if user_org:
-                user_request = request.data.get('user', None)
-                if not user_request:
-                    return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
-                try:
-                    with transaction.atomic():
-                        # Save user to db
-                        user = models.User.objects.create_user(first_name=user_request['firstName'], last_name=user_request['lastName'],
-                                                        username=user_request['email'], password=user_request['password'], email=user_request['email'])
-                        user.save()
-
-                        # Save user profile to db
-                        profile = models.UserProfile(user=user, title='', contact_no=user_request['phone'])
-                        profile.save()
-
-                        # Add entry to UserOrganizationAccess: For that org, add all users, and their 'roles'
-                        access = models.UserOrganizationAccess(user=profile, organization=user_org.organization, user_role=user_request['role'])
-                        access.save()
-
-                        return Response({'success': True, 'error': None})
-                except Exception as e:
-                    return Response(status=status.HTTP_412_PRECONDITION_FAILED,
-                                    data={'success': False, 'error': errors.DATA_INVALID})
-            else:
-                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            user_request = request.data.get('user', None)
+            if not user_request:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
+            request_serializer = CreateUserRequestSerializer(data=user_request)
+            if not request_serializer.is_valid():
+                return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+            with transaction.atomic():
+                user_data_service().create_user(request_serializer.validated_data, user_org.organization)
+                return Response({'success': True, 'error': None})
+        except models.UserOrganizationAccess.DoesNotExist:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except UserAlreadyExistsError:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_ALREADY_EXISTS})
 
     def retrieve(self, request, pk=None):
         # Check if user is admin of this org
@@ -155,3 +143,7 @@ class UsersViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+
+
+def user_data_service():
+    return UserDataService()

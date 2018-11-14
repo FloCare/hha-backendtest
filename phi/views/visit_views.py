@@ -1,7 +1,7 @@
 from backend import errors
 from django.db import IntegrityError
 from phi import models
-from phi.data_services.VisitDataService import VisitDataService
+from phi.data_services.visit_data_service import VisitDataService
 from phi.exceptions.InvalidDataForSerializerException import InvalidDataForSerializerException
 from phi.migration_helpers import MigrationHelpers
 from phi.serializers.response_serializers import VisitDetailsResponseSerializer, VisitResponseSerializer, \
