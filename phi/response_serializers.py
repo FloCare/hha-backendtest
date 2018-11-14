@@ -162,6 +162,7 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
     episode = EpisodeWithPatientsResponseSerializer()
     place = PlacesResponseSerializer()
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    midnightEpoch = serializers.CharField(source='midnight_epoch', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
@@ -174,7 +175,7 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'userID', 'episode', 'place', 'timeOfCompletion', 'isDone', 'isDeleted', 'plannedStartTime')
+        fields = ('visitID', 'userID', 'episode', 'place', 'timeOfCompletion', 'midnightEpoch', 'isDone', 'isDeleted', 'plannedStartTime')
 
 
 class VisitMilesResponseSerializer(serializers.ModelSerializer):
