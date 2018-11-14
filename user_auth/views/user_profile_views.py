@@ -8,8 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth import models
-from user_auth.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
-from user_auth.serializers import RoleSerializer, UserProfileUpdateSerializer
+from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
+from user_auth.serializers.serializers import RoleSerializer, UserProfileUpdateSerializer
 
 import logging
 
