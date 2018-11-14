@@ -79,7 +79,7 @@ class UserOrganizationView(APIView):
             serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': accesses})
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
-        except UserOrganizationAccess.DoesNotExist as e:
+        except models.UserOrganizationAccess.DoesNotExist as e:
             logger.error(str(e))
             headers = {'Content-Type': 'application/json'}
             return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
