@@ -31,14 +31,11 @@ class UserProfileView(APIView):
         data = request.data
         if 'userID' in data:
             user_id = data['userID']
-            try:
-                profile = models.UserProfile.objects.get(pk=user_id)
-            except models.UserProfile.DoesNotExist:
-                raise UserDoesNotExistError(user_id)
+            profile = models.UserProfile.objects.get(pk=user_id)
         else:
             profile = user.profile
         user_org_access = models.UserOrganizationAccess.objects.filter(user=user.profile)
-        return user_org_access,profile
+        return user_org_access, profile
 
     def post(self, request):
         try:
@@ -49,8 +46,7 @@ class UserProfileView(APIView):
             response = dict(user_profile_serializer.data)
             response.update({'roles': roles})
             return Response(response)
-        except UserDoesNotExistError as e:
-            logger.error(e)
+        except models.UserProfile.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.USER_NOT_EXIST})
 
 
