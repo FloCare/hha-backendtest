@@ -32,3 +32,22 @@ class UserDataService:
             return models.UserOrganizationAccess.objects.get(user_id=user_id)
         except models.UserOrganizationAccess.DoesNotExist:
             raise UserDoesNotExistError(user_id)
+
+    def update_user_by_uuid(self, uuid, user_data):
+        user_profile = models.UserProfile.objects.get(uuid=uuid)
+        user = user_profile.user
+        user.first_name = user_data.get('first_name', user.first_name)
+        user.last_name = user_data.get('last_name', user.last_name)
+        new_password = user_data.get('password')
+        if new_password:
+            user.set_password(new_password)
+        user.email = user_data.get('email', user.email)
+        user.username = user_data.get('email', user.username)
+        user.save()
+
+        user_profile.contact_no = user_data.get('contact_no', user_profile.contact_no)
+        user_profile.save()
+
+        user_org_access = models.UserOrganizationAccess.objects.get(user=user_profile)
+        user_org_access.user_role = user_data.get('role', user_org_access.user_role)
+        user_org_access.save()

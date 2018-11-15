@@ -10,9 +10,10 @@ from rest_framework.views import APIView
 from user_auth import models
 from user_auth.data_services.user_data_service import UserDataService
 from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError
-from user_auth.serializers.request_serializers import CreateUserRequestSerializer
+from user_auth.serializers.request_serializers import CreateUserRequestSerializer, UpdateUserRequestSerializer
 from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
-from user_auth.serializers.serializers import RoleSerializer, UserProfileUpdateSerializer
+from user_auth.serializers.serializers import RoleSerializer
+from flocarebase.common.pubnub_service import PubnubService
 
 import logging
 
@@ -106,24 +107,29 @@ class UsersViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         try:
-            user_org = models.UserOrganizationAccess.objects.filter(user=request.user.profile).get(is_admin=True)
-            if user_org:
-                up_obj = models.UserProfile.objects.get(uuid=pk)
-                serializer = UserProfileUpdateSerializer(up_obj.user, data=request.data['user'], partial=True)
-                serializer.is_valid()
-                serializer.save()
-
-                settings.PUBNUB.publish().channel('organisation_' + str(user_org.organization.uuid)).message({
-                    'actionType': 'USER_UPDATE',
-                    'userID': str(up_obj.uuid)
-                }).async(my_publish_callback)
-
+            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            request_data = request.data.get('user', None)
+            if not request_data:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
+            requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+            if user_org.organization == requested_user_org_access.organization:
+                request_serializer = UpdateUserRequestSerializer(data=request_data)
+                if not request_serializer.is_valid():
+                    return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+                with transaction.atomic():
+                    user_data_service().update_user_by_uuid(pk, request_serializer.validated_data)
+                    channel = pub_nub_service().get_organization_channel(user_org.organization)
+                    user_update_message = pub_nub_service().get_user_update_message(requested_user_org_access.user)
+                    pub_nub_service().publish(channel, user_update_message)
                 return Response({'success': True, 'error': None})
             else:
-                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+                raise UserDoesNotExistError(pk)
+        except models.UserOrganizationAccess.DoesNotExist:
+            logger.error('User org does not exist')
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except UserDoesNotExistError:
+            logger.error('User does not exists for ID: ' + str(pk))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_NOT_EXIST})
 
     def destroy(self, request, pk=None):
         try:
@@ -147,3 +153,7 @@ class UsersViewSet(viewsets.ViewSet):
 
 def user_data_service():
     return UserDataService()
+
+
+def pub_nub_service():
+    return PubnubService()
