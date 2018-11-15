@@ -26,48 +26,32 @@ class UserProfileView(APIView):
     serializer_class = UserProfileResponseSerializer
     permission_classes = (IsAuthenticated,)
 
-    def get_results(self, request):
+    def get_access_and_profile(self, request):
         user = request.user
         data = request.data
         if 'userID' in data:
             user_id = data['userID']
             try:
-                # Get Requested user Profile
                 profile = models.UserProfile.objects.get(pk=user_id)
-                # Get all orgs for logged in user
-                orgs = models.UserOrganizationAccess.objects.filter(user=user.profile).values_list('organization', flat=True)
-                # Get if logged-in user has access to requested user profile
-                accesses = models.UserOrganizationAccess.objects.filter(organization_id__in=orgs).filter(user=profile)
-                return accesses, profile
-            except Exception as e:
-                logger.error('Error in querying DB: %s' % str(e))
-            return None, None
+            except models.UserProfile.DoesNotExist:
+                raise UserDoesNotExistError(user_id)
         else:
             profile = user.profile
-            try:
-                accesses = models.UserOrganizationAccess.objects.filter(user=profile)
-                return accesses, profile
-            except Exception as e:
-                logger.error('Error in querying DB: %s' % str(e))
-            return None, None
+        user_org_access = models.UserOrganizationAccess.objects.filter(user=user.profile)
+        return user_org_access,profile
 
     def post(self, request):
         try:
-            accesses, profile = self.get_results(request)
-            if (not accesses) or (not accesses.exists()):
-                roles = []
-            else:
-                serializer = RoleSerializer(accesses, many=True)
-                roles = serializer.data
-            if not profile:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.USER_NOT_EXIST})
+            accesses, profile = self.get_access_and_profile(request)
+            serializer = RoleSerializer(accesses, many=True)
+            roles = serializer.data
             user_profile_serializer = UserProfileResponseSerializer(profile)
             response = dict(user_profile_serializer.data)
             response.update({'roles': roles})
             return Response(response)
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.UNKNOWN_ERROR})
+        except UserDoesNotExistError as e:
+            logger.error(e)
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.USER_NOT_EXIST})
 
 
 class UsersViewSet(viewsets.ViewSet):
