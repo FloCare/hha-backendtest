@@ -51,3 +51,9 @@ class UserDataService:
         user_org_access = models.UserOrganizationAccess.objects.get(user=user_profile)
         user_org_access.user_role = user_data.get('role', user_org_access.user_role)
         user_org_access.save()
+
+    def delete_user_by_user_profile(self, user_profile):
+        user_profile.soft_delete()
+        user = user_profile.user
+        user.is_active = False
+        user.save()

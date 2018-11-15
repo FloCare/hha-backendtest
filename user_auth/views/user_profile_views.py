@@ -134,21 +134,21 @@ class UsersViewSet(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         try:
             user = request.user
-            user_org = models.UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
-            if user_org:
-                user_profile = models.UserProfile.objects.get(uuid=pk)
-                user = user_profile.user
-                try:
-                    with transaction.atomic():
-                        user_profile.soft_delete()
-                        user.is_active = False
-                        return Response({'success': True, 'error': None})
-                except Exception as e:
-                    logger.error(str(e))
+            user_org = models.UserOrganizationAccess.objects.get(user=user.profile, is_admin=True)
+            requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+            if user_org.organization == requested_user_org_access.organization:
+                user_profile = requested_user_org_access.user
+                with transaction.atomic():
+                    user_data_service().delete_user_by_user_profile(user_profile)
+                    return Response({'success': True, 'error': None})
+            else:
+                raise UserDoesNotExistError(pk)
+        except models.UserOrganizationAccess.DoesNotExist:
+            logger.error('User org does not exist')
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
-        except Exception as e:
-            logger.error(str(e))
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.UNKNOWN_ERROR})
+        except UserDoesNotExistError:
+            logger.error('User does not exists for ID: ' + str(pk))
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_NOT_EXIST})
 
 
 def user_data_service():
