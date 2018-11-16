@@ -1,11 +1,10 @@
 from backend import errors
-from django.contrib.auth.models import User
-from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth import models
 from user_auth.constants import query_to_db_field_map
+from user_auth.data_services.user_data_service import UserDataService
 from user_auth.permissions import IsAdminForOrg
 from user_auth.serializers.response_serializers import AdminUserResponseSerializer
 
@@ -21,60 +20,47 @@ class UserOrganizationView(APIView):
     permission_classes = (IsAuthenticated, IsAdminForOrg)
 
     def parse_query_params(self, query_params):
-        if not query_params:
-            return None, None, None, None
-        sort_field = query_params.get('sort', None)
+        sort_field = query_params.get('sort', 'first_name')
         sort_order = query_params.get('order', 'ASC')
-        field_list = models.UserProfile._meta.fields + User._meta.fields
-        allowed_fields = map(lambda field: field.name, field_list)
-        if sort_field:
-            if sort_field not in allowed_fields:
-                sort_field = 'first_name'
-        else:
-            sort_field = 'first_name'
+        sort_field = query_to_db_field_map.get(sort_field)
+        if sort_order == 'DESC':
+            sort_field = '-' + sort_field
         query = query_params.get('query', None)
         size = query_params.get('size', None)
-        try:
-            size = int(size)
-        except Exception:
-            size = None
-        return query, sort_field, sort_order, size
+        size = int(size) if size else None
+        return query, sort_field, size
 
-    def get_results(self, initial_query_set, query, sort_field, size):
-        query_set = initial_query_set
+    def filter_by_params(self, user_ids, org, query, sort_field, size):
+        accesses = user_data_service().get_user_org_access_for_org(org, ('user', 'user__user'))
+        if user_ids:
+            accesses = user_data_service().filter_org_access_by_user_ids(accesses, user_ids)
+        query_set = accesses
         if query:
-            query_set = initial_query_set.filter(Q(user__user__first_name__istartswith=query) | Q(user__user__last_name__istartswith=query))
+            query_set = user_data_service().filter_acccesses_by_name(accesses, query)
         if sort_field:
-            query_set.order_by(sort_field)
+            query_set = query_set.order_by(sort_field)
         if size:
             query_set = query_set[:size]
         return query_set
 
     def get(self, request):
         try:
-            user = request.user
-            # Get the organization for this user
-            user_org = models.UserOrganizationAccess.objects.filter(user=user.profile).get(is_admin=True)
-            org = user_org.organization
-
-            # Todo: Improve Sorting logic - use DRF builtin
-            query, sort_field, sort_order, size = self.parse_query_params(request.query_params)
-            query_params = request.query_params
-            if 'sort' in query_params:
-                sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
-                if sort_order == 'DESC':
-                    sort_field = '-' + sort_field
+            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            organization = user_org.organization
+            query, sort_field, size = self.parse_query_params(request.query_params)
 
             # Get list of all users in that org
-            filters = request.GET.getlist('ids')
-            accesses = models.UserOrganizationAccess.objects.select_related('user', 'user__user').filter(organization=org)
-            if filters:
-                accesses = accesses.filter(user_id__in=filters)
-            accesses = self.get_results(accesses, query, sort_field, size)
-            serializer = AdminUserResponseSerializer({'success': True, 'organization': org, 'users': accesses})
+            user_ids = request.GET.getlist('ids')
+            accesses = self.filter_by_params(user_ids, organization, query, sort_field, size)
+            # TODO Remove organization - why is org required?
+            serializer = AdminUserResponseSerializer({'success': True, 'organization': organization, 'users': accesses})
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
         except models.UserOrganizationAccess.DoesNotExist as e:
             logger.error(str(e))
             headers = {'Content-Type': 'application/json'}
             return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
+
+
+def user_data_service():
+    return UserDataService()

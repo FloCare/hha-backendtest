@@ -64,7 +64,6 @@ class PhysiciansViewSet(viewsets.ViewSet):
             organization_physicians = models.Physician.objects.filter(organization=user_org.organization)
             physicians = self.get_results(organization_physicians, query, sort_field, size)
             serializer = PhysicianResponseSerializer(physicians, many=True)
-            logger.debug(str(serializer.data))
             return Response(serializer.data)
         except UserOrganizationAccess.DoesNotExist:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'error': errors.ACCESS_DENIED})

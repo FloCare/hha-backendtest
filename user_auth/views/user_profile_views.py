@@ -1,7 +1,5 @@
 from backend import errors
-from django.conf import settings
 from django.db import transaction
-from phi.views import my_publish_callback
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
