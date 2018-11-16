@@ -1211,6 +1211,8 @@ class BulkUpdateVisitView(APIView):
         data = request.data
         counter = 0
         visits = data.get('visits', [])
+        logger.info('payload for bulk update view')
+        logger.info(request.data)
         for visit in visits:
             try:
                 self.update_single_visit(request.user.profile, visit['visitID'], visit)
