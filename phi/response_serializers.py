@@ -105,6 +105,16 @@ class PhysicianResponseSerializer(serializers.ModelSerializer):
         fields = ('physicianID', 'npi', 'firstName', 'lastName', 'phone1', 'phone2', 'fax')
 
 
+class PlacesResponseSerializer(serializers.ModelSerializer):
+    placeID = serializers.UUIDField(source='uuid', required=False)
+    name = serializers.CharField(required=False)
+    address = AddressIDWithLatLngSerializer()
+
+    class Meta:
+        model = models.Episode
+        fields = ('placeID', 'name', 'address')
+
+
 class EpisodeWithPatientsResponseSerializer(serializers.ModelSerializer):
     episodeID = serializers.UUIDField(source='uuid', required=False)
     patient = PatientWithAddressSerializer()
@@ -150,7 +160,9 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
     visitID = serializers.UUIDField(source='id')
     userID = serializers.UUIDField(source='user_id')
     episode = EpisodeWithPatientsResponseSerializer()
+    place = PlacesResponseSerializer()
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    midnightEpoch = serializers.CharField(source='midnight_epoch', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
@@ -163,7 +175,7 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'userID', 'episode', 'timeOfCompletion', 'isDone', 'isDeleted', 'plannedStartTime')
+        fields = ('visitID', 'userID', 'episode', 'place', 'timeOfCompletion', 'midnightEpoch', 'isDone', 'isDeleted', 'plannedStartTime')
 
 
 class VisitMilesResponseSerializer(serializers.ModelSerializer):
