@@ -2,9 +2,9 @@ from backend import errors
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from user_auth import models
 from user_auth.constants import query_to_db_field_map
 from user_auth.data_services.user_data_service import UserDataService
+from user_auth.exceptions import UserOrgAccessDoesNotExistError
 from user_auth.permissions import IsAdminForOrg
 from user_auth.serializers.response_serializers import AdminUserResponseSerializer
 
@@ -45,7 +45,7 @@ class UserOrganizationView(APIView):
 
     def get(self, request):
         try:
-            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
             organization = user_org.organization
             query, sort_field, size = self.parse_query_params(request.query_params)
 
@@ -56,10 +56,8 @@ class UserOrganizationView(APIView):
             serializer = AdminUserResponseSerializer({'success': True, 'organization': organization, 'users': accesses})
             headers = {'Content-Type': 'application/json'}
             return Response(serializer.data, headers=headers)
-        except models.UserOrganizationAccess.DoesNotExist as e:
-            logger.error(str(e))
-            headers = {'Content-Type': 'application/json'}
-            return Response({'success': False, 'error': errors.ACCESS_DENIED}, headers=headers)
+        except UserOrgAccessDoesNotExistError:
+            return Response({'success': False, 'error': errors.ACCESS_DENIED})
 
 
 def user_data_service():

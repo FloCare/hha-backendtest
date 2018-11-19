@@ -34,6 +34,12 @@ class UserDataService:
         except models.UserOrganizationAccess.DoesNotExist:
             raise UserDoesNotExistError(user_id)
 
+    def get_user_org_access_by_user_profile(self, user_profile):
+        try:
+            return models.UserOrganizationAccess.objects.get(user=user_profile)
+        except models.UserOrganizationAccess.DoesNotExist:
+            raise UserDoesNotExistError(user_profile.uuid)
+
     def get_user_org_access_for_org(self, organization, select_related_fields):
         return models.UserOrganizationAccess.objects.select_related(*select_related_fields).filter(organization=organization)
 
