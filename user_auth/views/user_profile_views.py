@@ -1,13 +1,14 @@
 from backend import errors
 from django.db import transaction
+from flocarebase.exceptions import InvalidPayloadError
 from rest_framework import status
-from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth import models
 from user_auth.data_services.user_data_service import UserDataService
-from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError
+from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError, UserOrgAccessDoesNotExistError
+from user_auth.permissions import IsAdminForOrg
 from user_auth.serializers.request_serializers import CreateUserRequestSerializer, UpdateUserRequestSerializer
 from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
 from user_auth.serializers.serializers import RoleSerializer
@@ -73,22 +74,28 @@ class UpdateStaffView(APIView):
 
 class CreateStaffView(APIView):
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsAdminForOrg)
+
+    def validate_and_format_request(self, request):
+        user_request = request.data.get('user', None)
+        if not user_request:
+            raise InvalidPayloadError('user data missing')
+        request_serializer = CreateUserRequestSerializer(data=user_request)
+        if not request_serializer.is_valid():
+            raise InvalidPayloadError(request_serializer.errors)
+        return request_serializer.validated_data
 
     def post(self, request):
         try:
-            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
-            user_request = request.data.get('user', None)
-            if not user_request:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.DATA_INVALID})
-            request_serializer = CreateUserRequestSerializer(data=user_request)
-            if not request_serializer.is_valid():
-                return Response(status=status.HTTP_400_BAD_REQUEST, data=request_serializer.errors)
+            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            formatted_request_data = self.validate_and_format_request(request)
             with transaction.atomic():
-                user_data_service().create_user(request_serializer.validated_data, user_org.organization)
+                user_data_service().create_user(formatted_request_data, user_org.organization)
                 return Response({'success': True, 'error': None})
-        except models.UserOrganizationAccess.DoesNotExist:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
+        except InvalidPayloadError as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': e.message})
+        except UserOrgAccessDoesNotExistError:
+            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
         except UserAlreadyExistsError:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_ALREADY_EXISTS})
 

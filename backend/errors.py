@@ -1,5 +1,6 @@
 UNKNOWN_ERROR = 'Something went wrong'
 ACCESS_DENIED = 'Access Denied'
+USER_ORG_MAPPING_NOT_PRESENT = 'User Org Mapping Not Present'
 DATA_INVALID = 'Invalid data passed'
 VISIT_NOT_EXIST = 'Visit does not exist'
 USER_NOT_EXIST = 'User does not exist'
