@@ -28,6 +28,12 @@ class UserDataService:
             logger.error(e)
             raise UserAlreadyExistsError(user_data)
 
+    def get_user_profile_by_uuid(self, user_id):
+        try:
+            models.UserProfile.objects.get(pk=user_id)
+        except models.UserProfile.DoesNotExist:
+            raise UserDoesNotExistError(user_id)
+
     def get_user_org_access_by_user_id(self, user_id):
         try:
             return models.UserOrganizationAccess.objects.get(user_id=user_id)

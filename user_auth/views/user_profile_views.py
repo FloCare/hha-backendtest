@@ -58,7 +58,7 @@ class UpdateStaffView(APIView):
 
     def put(self, request, pk):
         try:
-            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile)
+            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError:
             return Response(status=status.HTTP_401_UNAUTHORIZED,
                             data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
@@ -123,7 +123,7 @@ class DeleteStaffView(APIView):
 
     def delete(self, request, pk=None):
         try:
-            user_org = models.UserOrganizationAccess.objects.get(user=request.user.profile, is_admin=True)
+            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError:
             return Response(status=status.HTTP_401_UNAUTHORIZED,
                             data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
@@ -142,7 +142,8 @@ class DeleteStaffView(APIView):
                 raise UserDoesNotExistError(pk)
         except UserOrgAccessDoesNotExistError:
             logger.error('User org does not exist')
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
         except UserDoesNotExistError:
             logger.error('User does not exists for ID: ' + str(pk))
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'success': False, 'error': errors.USER_NOT_EXIST})
@@ -159,10 +160,10 @@ class UserProfileView(APIView):
         data = request.data
         if 'userID' in data:
             user_id = data['userID']
-            profile = models.UserProfile.objects.get(pk=user_id)
+            profile = user_data_service().get_user_profile_by_uuid(user_id)
         else:
             profile = user.profile
-        user_org_access = models.UserOrganizationAccess.objects.filter(user=user.profile)
+        user_org_access = user_data_service().get_user_org_access_by_user_profile(profile)
         return user_org_access, profile
 
     def post(self, request):
@@ -174,8 +175,11 @@ class UserProfileView(APIView):
             response = dict(user_profile_serializer.data)
             response.update({'roles': roles})
             return Response(response)
-        except models.UserProfile.DoesNotExist:
+        except UserDoesNotExistError:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'error': errors.USER_NOT_EXIST})
+        except UserOrgAccessDoesNotExistError:
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
 
 
 def user_data_service():
