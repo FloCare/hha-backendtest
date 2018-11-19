@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth.constants import query_to_db_field_map
 from user_auth.data_services.user_data_service import UserDataService
+from user_auth.decorators import handle_user_org_missing
 from user_auth.exceptions import UserOrgAccessDoesNotExistError
 from user_auth.permissions import IsAdminForOrg
 from user_auth.serializers.response_serializers import AdminUserResponseSerializer
@@ -43,21 +44,19 @@ class UserOrganizationView(APIView):
             query_set = query_set[:size]
         return query_set
 
+    @handle_user_org_missing
     def get(self, request):
-        try:
-            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
-            organization = user_org.organization
-            query, sort_field, size = self.parse_query_params(request.query_params)
+        user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+        organization = user_org.organization
+        query, sort_field, size = self.parse_query_params(request.query_params)
 
-            # Get list of all users in that org
-            user_ids = request.GET.getlist('ids')
-            accesses = self.filter_by_params(user_ids, organization, query, sort_field, size)
-            # TODO Remove organization - why is org required?
-            serializer = AdminUserResponseSerializer({'success': True, 'organization': organization, 'users': accesses})
-            headers = {'Content-Type': 'application/json'}
-            return Response(serializer.data, headers=headers)
-        except UserOrgAccessDoesNotExistError:
-            return Response({'success': False, 'error': errors.ACCESS_DENIED})
+        # Get list of all users in that org
+        user_ids = request.GET.getlist('ids')
+        accesses = self.filter_by_params(user_ids, organization, query, sort_field, size)
+        # TODO Remove organization - why is org required?
+        serializer = AdminUserResponseSerializer({'success': True, 'organization': organization, 'users': accesses})
+        headers = {'Content-Type': 'application/json'}
+        return Response(serializer.data, headers=headers)
 
 
 def user_data_service():

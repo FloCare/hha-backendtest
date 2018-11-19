@@ -89,11 +89,11 @@ class CreateStaffView(APIView):
     @handle_request_execptions
     def post(self, request):
         try:
-            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
-        except UserOrgAccessDoesNotExistError:
-            return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False,
-                                                                       'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
-        try:
+            try:
+                user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            except UserOrgAccessDoesNotExistError:
+                return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False,
+                                                                           'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
             formatted_request_data = self.validate_and_format_request(request)
             with transaction.atomic():
                 user_data_service().create_user(formatted_request_data, user_org.organization)
