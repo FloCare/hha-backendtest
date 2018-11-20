@@ -102,7 +102,8 @@ class Base(Configuration):
             'format': '%(levelname)s %(message)s',
         },
         'verbose': {
-            'format': '%(levelname)s (%(asctime)s)(%(module)s)(%(filename)s)(%(funcName)s)'
+            '()': 'colorlog.ColoredFormatter',
+            'format': '%(log_color)s%(levelname)s (%(asctime)s)(%(module)s)(%(filename)s)(%(funcName)s)'
                       '(%(lineno)d) %(message)s'
         }
     }
