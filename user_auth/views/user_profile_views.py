@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth import models
-from user_auth.data_services.user_data_service import UserDataService
+from user_auth.data_services import UserDataService, UserOrgAccessDataService
 from user_auth.decorators import handle_request_execptions, handle_user_missing, handle_user_org_missing
 from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError, UserOrgAccessDoesNotExistError
 from user_auth.permissions import IsAdminForOrg
@@ -28,11 +28,11 @@ class GetStaffView(APIView):
     @handle_user_missing
     def get(self, request, pk=None):
         try:
-            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError:
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False,
                                                                        'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
-        requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
         serializer = UserDetailsResponseSerializer({'user': requested_user_org_access})
@@ -57,12 +57,12 @@ class UpdateStaffView(APIView):
     @handle_user_missing
     def put(self, request, pk):
         try:
-            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError:
             return Response(status=status.HTTP_401_UNAUTHORIZED,
                             data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
         formatted_request_data = self.validate_and_format_request(request)
-        requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
         with transaction.atomic():
@@ -90,7 +90,7 @@ class CreateStaffView(APIView):
     def post(self, request):
         try:
             try:
-                user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+                user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
             except UserOrgAccessDoesNotExistError:
                 return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False,
                                                                            'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
@@ -112,15 +112,15 @@ class DeleteStaffView(APIView):
     @handle_user_missing
     def delete(self, request, pk=None):
         try:
-            user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError:
             return Response(status=status.HTTP_401_UNAUTHORIZED,
                             data={'success': False, 'error': errors.USER_ORG_MAPPING_NOT_PRESENT})
 
-        requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
-        requested_user_org_access = user_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
         user_profile = requested_user_org_access.user
@@ -143,7 +143,7 @@ class UserProfileView(APIView):
             profile = user_data_service().get_user_profile_by_uuid(user_id)
         else:
             profile = user.profile
-        user_org_access = user_data_service().get_user_org_access_by_user_profile(profile)
+        user_org_access = user_org_access_data_service().get_user_org_access_by_user_profile(profile)
         return user_org_access, profile
 
     @handle_user_org_missing
@@ -160,6 +160,10 @@ class UserProfileView(APIView):
 
 def user_data_service():
     return UserDataService()
+
+
+def user_org_access_data_service():
+    return UserOrgAccessDataService()
 
 
 def pub_nub_service():

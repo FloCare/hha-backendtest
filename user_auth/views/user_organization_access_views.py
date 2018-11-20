@@ -1,11 +1,9 @@
-from backend import errors
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from user_auth.constants import query_to_db_field_map
-from user_auth.data_services.user_data_service import UserDataService
+from user_auth.data_services import UserDataService, UserOrgAccessDataService
 from user_auth.decorators import handle_user_org_missing
-from user_auth.exceptions import UserOrgAccessDoesNotExistError
 from user_auth.permissions import IsAdminForOrg
 from user_auth.serializers.response_serializers import AdminUserResponseSerializer
 
@@ -32,12 +30,12 @@ class UserOrganizationView(APIView):
         return query, sort_field, size
 
     def filter_by_params(self, user_ids, org, query, sort_field, size):
-        accesses = user_data_service().get_user_org_access_for_org(org, ('user', 'user__user'))
+        accesses = user_org_access_data_service().get_user_org_access_for_org(org, ('user', 'user__user'))
         if user_ids:
-            accesses = user_data_service().filter_org_access_by_user_ids(accesses, user_ids)
+            accesses = user_org_access_data_service().filter_org_access_by_user_ids(accesses, user_ids)
         query_set = accesses
         if query:
-            query_set = user_data_service().filter_acccesses_by_name(accesses, query)
+            query_set = user_org_access_data_service().filter_acccesses_by_name(accesses, query)
         if sort_field:
             query_set = query_set.order_by(sort_field)
         if size:
@@ -46,7 +44,7 @@ class UserOrganizationView(APIView):
 
     @handle_user_org_missing
     def get(self, request):
-        user_org = user_data_service().get_user_org_access_by_user_profile(request.user.profile)
+        user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         organization = user_org.organization
         query, sort_field, size = self.parse_query_params(request.query_params)
 
@@ -61,3 +59,7 @@ class UserOrganizationView(APIView):
 
 def user_data_service():
     return UserDataService()
+
+
+def user_org_access_data_service():
+    return UserOrgAccessDataService()
