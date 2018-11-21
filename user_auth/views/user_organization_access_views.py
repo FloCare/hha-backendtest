@@ -1,15 +1,17 @@
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.views import APIView
 from user_auth.constants import query_to_db_field_map
 from user_auth.data_services import UserDataService, UserOrgAccessDataService
 from user_auth.decorators import handle_user_org_missing
 from user_auth.permissions import IsAdminForOrg
+from flocarebase.response_formats import SuccessResponse, FailureResponse
 from user_auth.serializers.response_serializers import AdminUserResponseSerializer
 
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 # Being used for web API
 class UserOrganizationView(APIView):
@@ -53,8 +55,7 @@ class UserOrganizationView(APIView):
         accesses = self.filter_by_params(user_ids, organization, query, sort_field, size)
         # TODO Remove organization - why is org required?
         serializer = AdminUserResponseSerializer({'success': True, 'organization': organization, 'users': accesses})
-        headers = {'Content-Type': 'application/json'}
-        return Response(serializer.data, headers=headers)
+        return SuccessResponse(status.HTTP_200_OK, serializer.data)
 
 
 def user_data_service():
