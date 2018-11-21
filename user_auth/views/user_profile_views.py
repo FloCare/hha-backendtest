@@ -11,8 +11,8 @@ from user_auth.decorators import handle_request_execptions, handle_user_missing,
 from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError, UserOrgAccessDoesNotExistError
 from user_auth.permissions import IsAdminForOrg
 from user_auth.serializers.request_serializers import CreateUserRequestSerializer, UpdateUserRequestSerializer
-from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer
-from user_auth.serializers.serializers import RoleSerializer
+from user_auth.serializers.response_serializers import UserProfileResponseSerializer, UserDetailsResponseSerializer,\
+    RoleSerializer
 from flocarebase.common.pubnub_service import PubnubService
 
 import logging
