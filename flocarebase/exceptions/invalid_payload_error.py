@@ -4,4 +4,4 @@ class InvalidPayloadError(Exception):
         self.message = message
 
     def __str__(self):
-        return "Invalid Payload. Errors : " + str(self.message)
+        return str(self.message)
