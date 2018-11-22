@@ -29,7 +29,7 @@ class UserDataService:
 
     def get_user_profile_by_uuid(self, user_id):
         try:
-            models.UserProfile.objects.get(pk=user_id)
+            return models.UserProfile.objects.get(pk=user_id)
         except models.UserProfile.DoesNotExist:
             raise UserDoesNotExistError(user_id)
 
