@@ -36,8 +36,6 @@ class UserOrganizationView(APIView):
         if sort_field:
             if sort_field not in allowed_fields:
                 sort_field = 'first_name'
-        else:
-            sort_field = 'first_name'
         query = query_params.get('query', None)
         size = query_params.get('size', None)
         try:
@@ -51,7 +49,7 @@ class UserOrganizationView(APIView):
         if query:
             query_set = initial_query_set.filter(Q(user__user__first_name__istartswith=query) | Q(user__user__last_name__istartswith=query))
         if sort_field:
-            query_set.order_by(sort_field)
+            query_set = query_set.order_by(sort_field)
         if size:
             query_set = query_set[:size]
         return query_set
