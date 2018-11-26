@@ -1,6 +1,4 @@
-from django.test import TestCase
 from user_auth.data_services import UserDataService
-from user_auth.models import *
 from user_auth.exceptions import *
 from flocarebase.common.test_helpers import *
 

@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status as http_status
 from backend import errors
-NO_ERROR_MESSAGE = 'NO_ERROR_MESSAGE'
+DEFAULT_ERROR_MESSAGE = 'Something went wrong'
 
 
 class SuccessResponse(Response):
@@ -11,7 +11,7 @@ class SuccessResponse(Response):
 
 class FailureResponse(Response):
     def __init__(self, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR, code=errors.UNKNOWN_ERROR,
-                 message=NO_ERROR_MESSAGE, data=None):
+                 message=DEFAULT_ERROR_MESSAGE, data=None):
         response_body = {
             'error_code': code,
             'error_message': message,

@@ -5,7 +5,7 @@ from user_auth.constants import query_to_db_field_map
 from user_auth.data_services import UserDataService, UserOrgAccessDataService
 from user_auth.decorators import handle_user_org_missing
 from user_auth.permissions import IsAdminForOrg
-from flocarebase.response_formats import SuccessResponse, FailureResponse
+from flocarebase.response_formats import SuccessResponse
 from user_auth.serializers.response_serializers import AdminUserResponseSerializer
 
 import logging

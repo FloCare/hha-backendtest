@@ -30,7 +30,7 @@ class GetStaffView(APIView):
         try:
             user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError as e:
-            return FailureResponse(status.HTTP_401_UNAUTHORIZED, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
+            return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
         requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
@@ -58,7 +58,7 @@ class UpdateStaffView(APIView):
         try:
             user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError as e:
-            return FailureResponse(status.HTTP_401_UNAUTHORIZED, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
+            return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
         formatted_request_data = self.validate_and_format_request(request)
         requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
@@ -90,7 +90,7 @@ class CreateStaffView(APIView):
             try:
                 user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
             except UserOrgAccessDoesNotExistError as e:
-                return FailureResponse(status.HTTP_401_UNAUTHORIZED, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
+                return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
             formatted_request_data = self.validate_and_format_request(request)
             with transaction.atomic():
                 user_data_service().create_user(formatted_request_data, user_org.organization)
@@ -110,7 +110,7 @@ class DeleteStaffView(APIView):
         try:
             user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError as e:
-            return FailureResponse(status.HTTP_401_UNAUTHORIZED, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
+            return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
 
         requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
