@@ -1,5 +1,6 @@
 from user_auth.data_services import UserDataService
 from user_auth.exceptions import *
+from user_auth.tests.integration.common import utils
 from flocarebase.common.test_helpers import *
 
 import uuid
@@ -25,8 +26,8 @@ class TestUserDataService(TestCase):
         user = User.objects.first()
         user_profile = UserProfile.objects.first()
 
-        self.compare_user(user, user_data)
-        self.compare_user_profile(user_profile, user_data)
+        utils.compare_user(self, user, user_data)
+        utils.compare_user_profile(self, user_profile, user_data)
 
         user_org_access = UserOrganizationAccess.objects.first()
         # Validate user org access
@@ -67,8 +68,8 @@ class TestUserDataService(TestCase):
         }
         self.uds.update_user_by_uuid(user_profile.uuid, user_data)
         user_profile = UserProfile.objects.first()
-        self.compare_user(user_profile.user, user_data)
-        self.compare_user_profile(user_profile, user_data)
+        utils.compare_user(self, user_profile.user, user_data)
+        utils.compare_user_profile(self, user_profile, user_data)
 
         user_org_access = UserOrganizationAccess.objects.first()
         # Validate user org access
@@ -101,12 +102,3 @@ class TestUserDataService(TestCase):
             'role': 'role'
         }
         self.uds.create_user(user_data, self.organization)
-
-    def compare_user(self, user_object, expected_hash):
-        self.assertEqual(user_object.first_name, expected_hash['first_name'])
-        self.assertEqual(user_object.last_name, expected_hash['last_name'])
-        self.assertEqual(user_object.email, expected_hash['email'])
-        self.assertEqual(user_object.username, expected_hash['email'])
-
-    def compare_user_profile(self, user_object, expected_hash):
-        self.assertEqual(user_object.contact_no, expected_hash['contact_no'])
