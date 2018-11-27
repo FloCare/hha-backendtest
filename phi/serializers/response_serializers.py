@@ -142,8 +142,21 @@ class EpisodeResponseSerializer(serializers.ModelSerializer):
                   'socClinician', 'attendingPhysician', 'primaryPhysician')
 
 
+class EpisodeWithCareTeamResponseSerializer(EpisodeResponseSerializer):
+    careTeam = serializers.SerializerMethodField(required=False)
+
+    def get_careTeam(self, obj):
+        return obj.user_accesses.all().values_list('user__uuid', flat=True)
+
+    class Meta:
+        model = models.Episode
+        fields = ('episodeID', 'patientID', 'socDate', 'endDate', 'period', 'allergies',
+                  'transportationLevel', 'acuityType', 'classification', 'pharmacy',
+                  'socClinician', 'attendingPhysician', 'primaryPhysician', 'careTeam')
+
+
 class EpisodeDetailsResponseSerializer(serializers.Serializer):
-    success = EpisodeResponseSerializer(many=True)
+    success = EpisodeWithCareTeamResponseSerializer(many=True)
     failure = FailureResponseSerializer(many=True)
 
     class Meta:
@@ -162,6 +175,7 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
     episode = EpisodeWithPatientsResponseSerializer()
     place = PlacesResponseSerializer()
     timeOfCompletion = serializers.DateTimeField(source='time_of_completion', required=False)
+    midnightEpoch = serializers.CharField(source='midnight_epoch', required=False)
     isDone = serializers.BooleanField(source='is_done', required=False)
     isDeleted = serializers.BooleanField(source='is_deleted', required=False)
     plannedStartTime = serializers.SerializerMethodField(required=False)
@@ -174,7 +188,7 @@ class VisitForOrgResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Visit
-        fields = ('visitID', 'userID', 'episode', 'place', 'timeOfCompletion', 'isDone', 'isDeleted', 'plannedStartTime')
+        fields = ('visitID', 'userID', 'episode', 'place', 'timeOfCompletion', 'midnightEpoch', 'isDone', 'isDeleted', 'plannedStartTime')
 
 
 class VisitMilesResponseSerializer(serializers.ModelSerializer):

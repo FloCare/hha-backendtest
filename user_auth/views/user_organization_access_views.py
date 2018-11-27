@@ -22,6 +22,7 @@ class UserOrganizationView(APIView):
 
     def parse_query_params(self, query_params):
         sort_field = query_params.get('sort', 'first_name')
+        # TODO Add checks to see if it is valid field
         sort_order = query_params.get('order', 'ASC')
         sort_field = query_to_db_field_map.get(sort_field)
         if sort_order == 'DESC':

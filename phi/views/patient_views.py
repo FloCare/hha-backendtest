@@ -205,6 +205,12 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                     }
                                 }).async(my_publish_callback)
 
+                                #Message the rest of careteam
+                                settings.PUBNUB.publish().channel('episode_' + str(episode_id)).message({
+                                    'actionType': 'USER_ASSIGNED',
+                                    'userID': str(user_id),
+                                }).async(my_publish_callback)
+
                         user_access_to_delete = models.UserEpisodeAccess.objects.filter(
                             organization=organization).filter(episode_id=episode_id).exclude(user_id__in=users)
                         logger.debug('to delete: %s' % str(user_access_to_delete))
@@ -521,6 +527,12 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                         }
                     }).async(my_publish_callback)
 
+                    # Message the rest of careteam
+                    settings.PUBNUB.publish().channel('episode_' + str(episode_obj.uuid)).message({
+                        'actionType': 'USER_ASSIGNED',
+                        'userID': str(user_id),
+                    }).async(my_publish_callback)
+
                     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
                         'pn_apns': {
                             "aps": {
@@ -786,6 +798,12 @@ class AssignPatientToUser(APIView):
                         'patientID': str(patient_id)
                     }
                 }
+            }).async(my_publish_callback)
+
+            # Message the rest of careteam
+            settings.PUBNUB.publish().channel('episode_' + str(episode.uuid)).message({
+                'actionType': 'USER_ASSIGNED',
+                'userID': str(user_id),
             }).async(my_publish_callback)
 
             AssignPatientToUser.local_counter += 1

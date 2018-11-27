@@ -20,7 +20,7 @@ def my_publish_callback(envelope, status):
         # Request can be resent using: [status retry];
 
 
-def send_pubnub_msg(patient, user_id):
+def send_pubnub_msg(patient, user_id, episode_id):
     global global_counter
     # SILENT NOTIFICATION
     settings.PUBNUB.publish().channel(str(user_id) + '_assignedPatients').message({
@@ -61,6 +61,12 @@ def send_pubnub_msg(patient, user_id):
                 "navigateTo": 'patient_list'
             }
         }
+    }).async(my_publish_callback)
+
+    # Message the rest of careteam
+    settings.PUBNUB.publish().channel('episode_' + str(episode_id)).message({
+        'actionType': 'USER_ASSIGNED',
+        'userID': str(user_id),
     }).async(my_publish_callback)
 
     global_counter += 1
@@ -177,7 +183,7 @@ class Command(BaseCommand):
                             else:
                                 access = UserEpisodeAccess.objects.create(episode=episode, user=profile, organization=org, user_role=role)
                                 self.stdout.write(self.style.SUCCESS('Entered Access Details to DB'))
-                                send_pubnub_msg(p, profile.uuid)
+                                send_pubnub_msg(p, profile.uuid, episode.uuid)
                         except Exception as e:
                             self.stderr.write('Access fetch or write error: %s' % str(e))
                     else:
