@@ -71,12 +71,14 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         self.addCleanup(pubnub_patcher.stop)
 
     def test_validates_admin_user(self):
+        """Raises error if user is not admin"""
         url = reverse('update-staff', args=[uuid.uuid4()])
         payload = {}
         response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_validates_body(self):
+        """Raises error if user key is missing"""
         test_helpers.make_user_admin(self.user_profile)
 
         url = reverse('update-staff', args=[uuid.uuid4()])
@@ -111,7 +113,7 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         self.assertIn('role', response.data['error_message'])
 
     def test_validates_null_fields(self):
-        """Raises error if fields are blank"""
+        """Raises error if fields are null"""
         test_helpers.make_user_admin(self.user_profile)
 
         url = reverse('update-staff', args=[uuid.uuid4()])
@@ -136,6 +138,7 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         self.assertIn('role', response.data['error_message'])
 
     def test_checks_for_same_org(self):
+        """Raises error if user organizations don't match """
         test_helpers.make_user_admin(self.user_profile)
 
         org = test_helpers.create_organization()
@@ -151,6 +154,7 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
 
     def test_updates_requested_profile(self):
+        """Updates profile and makes call to pubnub service"""
         test_helpers.make_user_admin(self.user_profile)
 
         user_profile = test_helpers.create_user(self.organization)
@@ -186,3 +190,147 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         self.pubnub_service_mock.get_organization_channel.assert_called_with(self.organization)
         self.pubnub_service_mock.get_user_update_message.assert_called_with(user_profile)
         self.pubnub_service_mock.publish.assert_called_with('channel', 'user_update_message')
+
+
+class TestCreateStaffView(test_helpers.UserRequestTestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.initObjects()
+
+    def test_validates_admin_user(self):
+        """Raises error if user is not admin"""
+        url = reverse('create-staff')
+        payload = {}
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_validates_body(self):
+        """Raises error if user key is missing"""
+        test_helpers.make_user_admin(self.user_profile)
+
+        url = reverse('create-staff')
+        payload = {}
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.DATA_INVALID)
+
+    def test_validates_blank_fields(self):
+        """Raises error if fields are is blank"""
+        test_helpers.make_user_admin(self.user_profile)
+
+        url = reverse('create-staff')
+        payload = {
+            'user': {
+                'firstName': '',
+                'lastName': '',
+                'email': '',
+                'password': '',
+                'phone': '',
+                'role': ''
+            }
+        }
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.DATA_INVALID)
+        self.assertIn('firstName', response.data['error_message'])
+        self.assertIn('lastName', response.data['error_message'])
+        self.assertIn('email', response.data['error_message'])
+        self.assertIn('password', response.data['error_message'])
+        self.assertIn('phone', response.data['error_message'])
+        self.assertIn('role', response.data['error_message'])
+
+    def test_validates_mandatory_fields(self):
+        """Raises error if mandatory fields in payload are missing"""
+        test_helpers.make_user_admin(self.user_profile)
+
+        url = reverse('create-staff')
+        payload = {
+            'user': {
+                'email': 'adf3@g.com'
+            }
+        }
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.DATA_INVALID)
+        self.assertIn('firstName', response.data['error_message'])
+        self.assertIn('lastName', response.data['error_message'])
+
+    def test_validates_null_fields(self):
+        """Raises error if fields are null"""
+        test_helpers.make_user_admin(self.user_profile)
+
+        url = reverse('create-staff')
+        payload = {
+            'user': {
+                'firstName': None,
+                'lastName': None,
+                'email': None,
+                'password': None,
+                'phone': None,
+                'role': None
+            }
+        }
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.DATA_INVALID)
+        self.assertIn('firstName', response.data['error_message'])
+        self.assertIn('lastName', response.data['error_message'])
+        self.assertIn('email', response.data['error_message'])
+        self.assertIn('password', response.data['error_message'])
+        self.assertNotIn('phone', response.data['error_message'])
+        self.assertIn('role', response.data['error_message'])
+
+    def test_creates_user(self):
+        """Creates user and returns 201"""
+        test_helpers.make_user_admin(self.user_profile)
+        url = reverse('create-staff')
+        payload = {
+            'user': {
+                'firstName': 'Gondor',
+                'lastName': 'Calls',
+                'email': 'For@aid.com',
+                'password': 'And Rohan',
+                'phone': 'Shall',
+                'role': 'answer'
+            }
+        }
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user_profile = UserProfile.objects.get(user__first_name=payload['user']['firstName'])
+        expected_user_data = {
+            'first_name': payload['user']['firstName'],
+            'last_name': payload['user']['lastName'],
+            'email': payload['user']['email'],
+            'password': payload['user']['password'],
+            'contact_no': payload['user']['phone'],
+            'role': payload['user']['role']
+        }
+        utils.compare_user(self, user_profile.user, expected_user_data)
+        utils.compare_user_profile(self, user_profile, expected_user_data)
+
+        user_org_access = UserOrganizationAccess.objects.get(user=user_profile)
+        # Validate user org access
+        self.assertEqual(user_org_access.user, user_profile)
+        self.assertEqual(user_org_access.organization, self.organization)
+        self.assertEqual(user_org_access.user_role, expected_user_data['role'])
+
+    def test_raises_error_user_already_exists(self):
+        """Raises error if user already exists with the given information"""
+        test_helpers.make_user_admin(self.user_profile)
+        url = reverse('create-staff')
+        payload = {
+            'user': {
+                'firstName': 'Gondor',
+                'lastName': 'Calls',
+                'email': 'For@aid.com',
+                'password': 'And Rohan',
+                'phone': 'Shall',
+                'role': 'answer'
+            }
+        }
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_ALREADY_EXISTS)
