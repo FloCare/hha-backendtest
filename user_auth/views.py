@@ -65,9 +65,8 @@ class UserOrganizationView(APIView):
 
             # Todo: Improve Sorting logic - use DRF builtin
             query, sort_field, sort_order, size = self.parse_query_params(request.query_params)
-            query_params = request.query_params
-            if 'sort' in query_params:
-                sort_field = query_to_db_field_map.get(query_params['sort'], sort_field)
+            if sort_field:
+                sort_field = query_to_db_field_map.get(sort_field)
                 if sort_order == 'DESC':
                     sort_field = '-' + sort_field
 
