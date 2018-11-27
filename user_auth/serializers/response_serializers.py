@@ -53,12 +53,11 @@ class UserDetailsResponseSerializer(serializers.Serializer):
 
 
 class AdminUserResponseSerializer(serializers.Serializer):
-    success = serializers.BooleanField()
     organization = OrganizationSerializer()
     users = UserProfileWithOrgAccessSerializer(many=True)
 
     class Meta:
-        fields = ('success', 'organization', 'users',)
+        fields = ('organization', 'users',)
 
     def create(self, validated_data):
         pass

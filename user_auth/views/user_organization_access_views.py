@@ -54,7 +54,7 @@ class UserOrganizationView(APIView):
         user_ids = request.GET.getlist('ids')
         accesses = self.filter_by_params(user_ids, organization, query, sort_field, size)
         # TODO Remove organization - why is org required?
-        serializer = AdminUserResponseSerializer({'success': True, 'organization': organization, 'users': accesses})
+        serializer = AdminUserResponseSerializer({'organization': organization, 'users': accesses})
         return SuccessResponse(status.HTTP_200_OK, serializer.data)
 
 

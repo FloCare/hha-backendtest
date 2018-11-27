@@ -16,5 +16,5 @@ urlpatterns = [
     path('v1.0/delete-staff-for-id/<uuid:pk>/', views.DeleteStaffView.as_view(), name='delete-staff'),    # admin
 
     # Org access
-    path('v1.0/org-access/', views.UserOrganizationView.as_view())                      # admin
+    path('v1.0/org-access/', views.UserOrganizationView.as_view(), name='org-access')                      # admin
 ]
