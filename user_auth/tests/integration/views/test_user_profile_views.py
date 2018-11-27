@@ -334,3 +334,38 @@ class TestCreateStaffView(test_helpers.UserRequestTestCase):
         response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['error_code'], errors.USER_ALREADY_EXISTS)
+
+
+class TestDeleteStaffView(test_helpers.UserRequestTestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.initObjects()
+
+    def test_validates_admin_user(self):
+        """Raises error if user is not admin"""
+        url = reverse('delete-staff', args=[uuid.uuid4()])
+        response = self.client.delete(url, **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_checks_for_same_org(self):
+        """Raises error if user organizations don't match """
+        test_helpers.make_user_admin(self.user_profile)
+
+        org = test_helpers.create_organization()
+        user_profile = test_helpers.create_user(org)
+        url = reverse('delete-staff', args=[user_profile.uuid])
+        response = self.client.delete(url, **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
+
+    def test_deletes_user(self):
+        """Soft deletes the user"""
+        test_helpers.make_user_admin(self.user_profile)
+        user_profile = test_helpers.create_user(self.organization)
+        url = reverse('delete-staff', args=[user_profile.uuid])
+        response = self.client.delete(url, **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user_profile = UserProfile.all_objects.get(uuid=user_profile.uuid)
+        self.assertTrue(user_profile.is_deleted)
+        self.assertFalse(user_profile.user.is_active)

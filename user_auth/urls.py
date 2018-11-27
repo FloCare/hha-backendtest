@@ -13,7 +13,7 @@ urlpatterns = [
     path('v1.0/create-staff/', views.CreateStaffView.as_view(), name='create-staff'),                     # admin
     path('v1.0/get-staff-for-id/<uuid:pk>/', views.GetStaffView.as_view(), name='get-staff'),             # admin
     path('v1.0/update-staff-for-id/<uuid:pk>/', views.UpdateStaffView.as_view(), name='update-staff'),    # admin
-    path('v1.0/delete-staff-for-id/<uuid:pk>/', views.DeleteStaffView.as_view()),       # admin
+    path('v1.0/delete-staff-for-id/<uuid:pk>/', views.DeleteStaffView.as_view(), name='delete-staff'),    # admin
 
     # Org access
     path('v1.0/org-access/', views.UserOrganizationView.as_view())                      # admin

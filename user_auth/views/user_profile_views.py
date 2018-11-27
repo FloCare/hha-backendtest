@@ -115,9 +115,6 @@ class DeleteStaffView(APIView):
         requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
-        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
-        if user_org.organization != requested_user_org_access.organization:
-            raise UserDoesNotExistError(pk)
         user_profile = requested_user_org_access.user
         with transaction.atomic():
             user_data_service().delete_user_by_user_profile(user_profile)
