@@ -369,3 +369,73 @@ class TestDeleteStaffView(test_helpers.UserRequestTestCase):
         user_profile = UserProfile.all_objects.get(uuid=user_profile.uuid)
         self.assertTrue(user_profile.is_deleted)
         self.assertFalse(user_profile.user.is_active)
+
+
+class TestUserProfileView(test_helpers.UserRequestTestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.initObjects()
+
+    def test_if_no_userID_is_passed(self):
+        """Returns API caller information if user ID is not passed"""
+        url = reverse('get-user-for-id')
+        response = self.client.post(url, None, **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        user = self.user_profile.user
+        user_org_access = UserOrganizationAccess.objects.get(user=self.user_profile)
+        expected_response = {
+            'userID': str(self.user_profile.uuid),
+            'firstName': user.first_name,
+            'lastName': user.last_name,
+            'username': user.username,
+            'primaryContact': self.user_profile.contact_no,
+            'addressID': None,
+            'email': user.email,
+            'roles': [
+                {'orgID': str(self.organization.uuid),
+                 'org': self.organization.name,
+                 'role': user_org_access.user_role
+                 }
+            ]
+        }
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_response)
+
+    def test_raises_error_if_userID_does_not_exist(self):
+        """Returns 400 if user ID doesn't exist"""
+        url = reverse('get-user-for-id')
+        payload = {
+            'userID': str(uuid.uuid4())
+        }
+        response = self.client.post(url, json.dumps(payload),"application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
+
+    def test_returns_if_userID_is_passed(self):
+        "Returns information for requested userID if user exists"
+        url = reverse('get-user-for-id')
+        user_profile = test_helpers.create_user(self.organization)
+        payload = {
+            'userID': str(user_profile.uuid)
+        }
+        response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user = user_profile.user
+        user_org_access = UserOrganizationAccess.objects.get(user=user_profile)
+        expected_response = {
+            'userID': str(user_profile.uuid),
+            'firstName': user.first_name,
+            'lastName': user.last_name,
+            'username': user.username,
+            'primaryContact': user_profile.contact_no,
+            'addressID': None,
+            'email': user.email,
+            'roles': [
+                {'orgID': str(self.organization.uuid),
+                 'org': self.organization.name,
+                 'role': user_org_access.user_role
+                 }
+            ]
+        }
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_response)

@@ -141,8 +141,8 @@ class UserProfileView(APIView):
     @handle_user_org_missing
     @handle_user_missing
     def post(self, request):
-        accesses, profile = self.get_access_and_profile(request)
-        serializer = RoleSerializer(accesses, many=True)
+        access, profile = self.get_access_and_profile(request)
+        serializer = RoleSerializer([access], many=True)
         roles = serializer.data
         user_profile_serializer = UserProfileResponseSerializer(profile)
         response = dict(user_profile_serializer.data)

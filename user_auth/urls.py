@@ -7,7 +7,7 @@ router = DefaultRouter()
 
 urlpatterns = [
     # User Profile
-    path('v1.0/get-user-for-id/', views.UserProfileView.as_view()),                     # app
+    path('v1.0/get-user-for-id/', views.UserProfileView.as_view(), name='get-user-for-id'),               # app
 
     # Staff
     path('v1.0/create-staff/', views.CreateStaffView.as_view(), name='create-staff'),                     # admin
