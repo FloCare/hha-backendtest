@@ -142,8 +142,30 @@ class EpisodeResponseSerializer(serializers.ModelSerializer):
                   'socClinician', 'attendingPhysician', 'primaryPhysician')
 
 
+class EpisodeWithCareTeamResponseSerializer(serializers.ModelSerializer):
+    episodeID = serializers.UUIDField(source='uuid', required=False)
+    patientID = serializers.UUIDField(source='patient_id', required=False)
+    socDate = serializers.DateField(source='soc_date', required=False)
+    endDate = serializers.DateField(source='end_date', required=False)
+    transportationLevel = serializers.CharField(source='transportation_level', required=False)
+    acuityType = serializers.CharField(source='acuity_type', required=False)
+    socClinician = UserProfileResponseSerializer(source='soc_clinician', required=False)
+    attendingPhysician = UserProfileResponseSerializer(source='attending_physician', required=False)
+    primaryPhysician = PhysicianResponseSerializer(source='primary_physician', required=False)
+    careTeam = serializers.SerializerMethodField(required=False)
+
+    def get_careTeam(self, obj):
+        return obj.user_accesses.all().values_list('user__uuid', flat=True)
+
+    class Meta:
+        model = models.Episode
+        fields = ('episodeID', 'patientID', 'socDate', 'endDate', 'period', 'allergies',
+                  'transportationLevel', 'acuityType', 'classification', 'pharmacy',
+                  'socClinician', 'attendingPhysician', 'primaryPhysician', 'careTeam')
+
+
 class EpisodeDetailsResponseSerializer(serializers.Serializer):
-    success = EpisodeResponseSerializer(many=True)
+    success = EpisodeWithCareTeamResponseSerializer(many=True)
     failure = FailureResponseSerializer(many=True)
 
     class Meta:
