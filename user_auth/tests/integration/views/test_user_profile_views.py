@@ -1,9 +1,10 @@
 from backend import errors
 from django.urls import reverse
 from flocarebase.common import test_helpers
-from user_auth.tests.integration.common import utils
-from user_auth.models import *
 from rest_framework import status
+from unittest.mock import patch, MagicMock
+from user_auth.models import *
+from user_auth.tests.integration.common import utils
 
 import json
 import uuid
@@ -61,6 +62,13 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.initObjects()
+
+    def setUp(self):
+        self.pubnub_service_mock = MagicMock(name='pubnub_service_mock')
+        pubnub_patcher = patch('user_auth.views.user_profile_views.PubnubService')
+        pubnub_mock = pubnub_patcher.start()
+        pubnub_mock.return_value = self.pubnub_service_mock
+        self.addCleanup(pubnub_patcher.stop)
 
     def test_validates_admin_user(self):
         url = reverse('update-staff', args=[uuid.uuid4()])
@@ -143,7 +151,6 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
 
     def test_updates_requested_profile(self):
-        # TODO Patch calls to pubnub
         test_helpers.make_user_admin(self.user_profile)
 
         user_profile = test_helpers.create_user(self.organization)
@@ -158,6 +165,10 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
                 'role': 'new_role'
             }
         }
+
+        self.pubnub_service_mock.get_organization_channel.return_value = 'channel'
+        self.pubnub_service_mock.get_user_update_message.return_value = 'user_update_message'
+
         response = self.client.put(url, json.dumps(payload), "application/json", **self.get_base_headers())
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         user_profile = UserProfile.objects.get(uuid=user_profile.uuid)
@@ -171,3 +182,7 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         }
         utils.compare_user(self, user_profile.user, expected_user_data)
         utils.compare_user_profile(self, user_profile, expected_user_data)
+
+        self.pubnub_service_mock.get_organization_channel.assert_called_with(self.organization)
+        self.pubnub_service_mock.get_user_update_message.assert_called_with(user_profile)
+        self.pubnub_service_mock.publish.assert_called_with('channel', 'user_update_message')
