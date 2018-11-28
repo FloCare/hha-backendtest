@@ -21,10 +21,12 @@ class UserOrganizationView(APIView):
     permission_classes = (IsAuthenticated, IsAdminForOrg)
 
     def parse_query_params(self, query_params):
-        sort_field = query_params.get('sort', 'first_name')
-        # TODO Add checks to see if it is valid field
-        sort_order = query_params.get('order', 'ASC')
+        default_sort_field = 'first_name'
+        sort_field = query_params.get('sort', default_sort_field)
+        if sort_field not in query_to_db_field_map.keys():
+            sort_field = default_sort_field
         sort_field = query_to_db_field_map.get(sort_field)
+        sort_order = query_params.get('order', 'ASC')
         if sort_order == 'DESC':
             sort_field = '-' + sort_field
         query = query_params.get('query', None)
