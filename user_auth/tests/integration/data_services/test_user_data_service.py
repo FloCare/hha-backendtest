@@ -1,6 +1,6 @@
 from user_auth.data_services import UserDataService
 from user_auth.exceptions import *
-from user_auth.tests.integration.common import utils
+from user_auth.tests.integration.utils import utils
 from flocarebase.common.test_helpers import *
 
 import uuid

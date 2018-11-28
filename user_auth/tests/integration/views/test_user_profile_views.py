@@ -4,7 +4,7 @@ from flocarebase.common import test_helpers
 from rest_framework import status
 from unittest.mock import patch, MagicMock
 from user_auth.models import *
-from user_auth.tests.integration.common import utils
+from user_auth.tests.integration.utils import utils
 
 import json
 import uuid
@@ -332,7 +332,7 @@ class TestCreateStaffView(test_helpers.UserRequestTestCase):
         response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         response = self.client.post(url, json.dumps(payload), "application/json", **self.get_base_headers())
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['error_code'], errors.USER_ALREADY_EXISTS)
 
 

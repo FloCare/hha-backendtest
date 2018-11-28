@@ -96,7 +96,7 @@ class CreateStaffView(APIView):
                 user_data_service().create_user(formatted_request_data, user_org.organization)
                 return SuccessResponse(status.HTTP_201_CREATED)
         except UserAlreadyExistsError as e:
-            return FailureResponse(status.HTTP_400_BAD_REQUEST, errors.USER_ALREADY_EXISTS, str(e))
+            return FailureResponse(status.HTTP_409_CONFLICT, errors.USER_ALREADY_EXISTS, str(e))
 
 
 # Check behaviour before using. Check all cases and message handling
