@@ -157,3 +157,86 @@ class TestUserOrganizationViewAPI(test_helpers.UserRequestTestCase):
         self.admin_user_response_ser_class.assert_called_once_with({'organization': self.organization,
                                                                     'users': ordered_accesses})
         self.assertEqual(response.data, self.admin_user_resp_serializer_mock.data)
+
+    def test_for_sort_field(self):
+        url = reverse('org-access')
+        sort_field = 'last_name'
+        url = url + '?sort=' + sort_field
+        test_helpers.make_user_admin(self.user_profile)
+        user_org_mock = MagicMock(name='user_org_mock', organization=self.organization)
+        base_accesses = MagicMock(name='base_accesses')
+        ordered_accesses = MagicMock(name='ordered_accesses')
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org_mock
+        self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_accesses
+        base_accesses.order_by.return_value = ordered_accesses
+        self.admin_user_resp_serializer_mock.data = 1
+        response = self.client.get(url, **self.get_base_headers())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        select_related_fields = ('user', 'user__user')
+        self.user_org_access_ds_mock.get_user_org_access_for_org.assert_called_once_with(self.organization,
+                                                                                         select_related_fields)
+        base_accesses.order_by.assert_called_once_with(query_to_db_field_map[sort_field])
+        self.admin_user_response_ser_class.assert_called_once_with({'organization': self.organization,
+                                                                    'users': ordered_accesses})
+        self.assertEqual(response.data, self.admin_user_resp_serializer_mock.data)
+
+    def test_for_query(self):
+        url = reverse('org-access')
+        query='abc'
+        url += '?query=' + query
+        test_helpers.make_user_admin(self.user_profile)
+
+        user_org_mock = MagicMock(name='user_org_mock', organization=self.organization)
+        base_accesses = MagicMock(name='base_accesses')
+        filtered_accesses = MagicMock(name='filtered_accesses')
+        ordered_accesses = MagicMock(name='ordered_accesses')
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org_mock
+        self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_accesses
+        self.user_org_access_ds_mock.filter_acccesses_by_name.return_value = filtered_accesses
+        filtered_accesses.order_by.return_value = ordered_accesses
+        self.admin_user_resp_serializer_mock.data = 1
+        response = self.client.get(url, **self.get_base_headers())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        select_related_fields = ('user', 'user__user')
+        self.user_org_access_ds_mock.get_user_org_access_for_org.assert_called_once_with(self.organization,
+                                                                                         select_related_fields)
+        self.user_org_access_ds_mock.filter_acccesses_by_name.assert_called_once_with(base_accesses, query)
+        filtered_accesses.order_by.assert_called_once_with(query_to_db_field_map['first_name'])
+        self.admin_user_response_ser_class.assert_called_once_with({'organization': self.organization,
+                                                                    'users': ordered_accesses})
+        self.assertEqual(response.data, self.admin_user_resp_serializer_mock.data)
+
+    def test_for_size(self):
+        url = reverse('org-access')
+        size = 2
+        url += '?size=' + str(size)
+        test_helpers.make_user_admin(self.user_profile)
+        test_helpers.create_user(self.organization)
+        test_helpers.create_user(self.organization)
+
+        user_org_mock = MagicMock(name='user_org_mock', organization=self.organization)
+        base_accesses = MagicMock(name='base_accesses')
+        access_1 = MagicMock()
+        access_2 = MagicMock()
+        access_3 = MagicMock()
+        ordered_accesses = [access_1, access_2, access_3]
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org_mock
+        self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_accesses
+        base_accesses.order_by.return_value = ordered_accesses
+        self.admin_user_resp_serializer_mock.data = 1
+        response = self.client.get(url, **self.get_base_headers())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        select_related_fields = ('user', 'user__user')
+        self.user_org_access_ds_mock.get_user_org_access_for_org.assert_called_once_with(self.organization,
+                                                                                         select_related_fields)
+        base_accesses.order_by.assert_called_once_with(query_to_db_field_map['first_name'])
+        size_limited_access = ordered_accesses[:size]
+        self.admin_user_response_ser_class.assert_called_once_with({'organization': self.organization,
+                                                                    'users': size_limited_access})
+        self.assertEqual(response.data, self.admin_user_resp_serializer_mock.data)
