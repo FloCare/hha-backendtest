@@ -1,5 +1,4 @@
 from rest_framework import status
-from rest_framework.test import APIRequestFactory
 from flocarebase.common import test_helpers
 from django.urls import reverse
 from unittest.mock import MagicMock
@@ -118,7 +117,6 @@ class TestUserOrganizationViewAPI(test_helpers.UserRequestTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.factory = APIRequestFactory()
         cls.initObjects()
 
     def setUp(self):
