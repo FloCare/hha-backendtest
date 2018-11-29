@@ -1,4 +1,5 @@
-from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework import status
+from rest_framework.test import APIRequestFactory
 from flocarebase.common import test_helpers
 from django.urls import reverse
 from unittest.mock import MagicMock
@@ -9,16 +10,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TestUserOrganizationView(test_helpers.UnitTestCase):
+class TestUserOrganizationView(test_helpers.BaseTestCase):
 
     def setUp(self):
-        # TODO Filter out creation of  patches to a helper
-        factory = APIRequestFactory()
-        url = reverse('org-access')
-        self.request = factory.get(url)
         self.org = test_helpers.create_organization()
-        user_profile = test_helpers.create_user(self.org)
-        force_authenticate(self.request, user=user_profile.user)
         self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
         self.patch_class('user_auth.views.user_organization_access_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
 
@@ -117,3 +112,48 @@ class TestUserOrganizationView(test_helpers.UnitTestCase):
         self.assertEqual(query_set, ordered_access)
 
     # TODO Add test for size filter
+
+
+class TestUserOrganizationViewAPI(test_helpers.UserRequestTestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.factory = APIRequestFactory()
+        cls.initObjects()
+
+    def setUp(self):
+        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
+        self.patch_class('user_auth.views.user_organization_access_views.UserOrgAccessDataService',
+                         self.user_org_access_ds_mock)
+        self.admin_user_resp_serializer_mock = MagicMock(name='admin_user_resp_serializer_mock')
+        self.admin_user_response_ser_class = self.patch_class(
+            'user_auth.views.user_organization_access_views.AdminUserResponseSerializer',
+            self.admin_user_resp_serializer_mock)
+
+    def test_checks_admin(self):
+        url = reverse('org-access')
+        response = self.client.get(url, **self.get_base_headers())
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_returns_response_for_simple(self):
+        url = reverse('org-access')
+        test_helpers.make_user_admin(self.user_profile)
+
+        user_org_mock = MagicMock(name='user_org_mock', organization=self.organization)
+        base_accesses = MagicMock(name='base_accesses')
+        ordered_accesses = MagicMock(name='ordered_accesses')
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org_mock
+        self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_accesses
+        base_accesses.order_by.return_value = ordered_accesses
+        self.admin_user_resp_serializer_mock.data = 1
+        response = self.client.get(url, **self.get_base_headers())
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        select_related_fields = ('user', 'user__user')
+        self.user_org_access_ds_mock.get_user_org_access_for_org.assert_called_once_with(self.organization,
+                                                                                         select_related_fields)
+        base_accesses.order_by.assert_called_once_with(query_to_db_field_map['first_name'])
+        self.admin_user_response_ser_class.assert_called_once_with({'organization': self.organization,
+                                                                    'users': ordered_accesses})
+        self.assertEqual(response.data, self.admin_user_resp_serializer_mock.data)

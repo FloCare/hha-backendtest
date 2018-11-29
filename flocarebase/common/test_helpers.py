@@ -6,7 +6,23 @@ from user_auth.models import *
 import random
 
 
-class UserRequestTestCase(TestCase):
+class BaseTestCase(TestCase):
+
+    """
+    Replaces calls to the class with the return_mock_object
+    Eg: If you are mocking 'user_auth.foo.foo_data_service', creating a new foo_data_service object will return the
+    return_mock_object
+    Returns the class mock if you need to make any assertions
+    """
+    def patch_class(self, path, return_mock_object):
+        patcher = patch(path)
+        class_mock = patcher.start()
+        class_mock.return_value = return_mock_object
+        self.addCleanup(patcher.stop)
+        return class_mock
+
+
+class UserRequestTestCase(BaseTestCase):
 
     @classmethod
     def initObjects(cls):
@@ -44,17 +60,3 @@ def create_user(organization, first_name=None, last_name=None):
 
 def make_user_admin(user_profile):
     UserOrganizationAccess.objects.filter(user=user_profile).update(is_admin=True)
-
-
-class UnitTestCase(TestCase):
-
-    """
-    Replaces calls to the class with the return_mock_object
-    Eg: If you are mocking 'user_auth.foo.foo_data_service', creating a new foo_data_service object will return the
-    return_mock_object
-    """
-    def patch_class(self, path, return_mock_object):
-        patcher = patch(path)
-        class_mock = patcher.start()
-        class_mock.return_value = return_mock_object
-        self.addCleanup(patcher.stop)
