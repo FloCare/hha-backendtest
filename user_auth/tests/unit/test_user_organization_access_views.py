@@ -1,8 +1,7 @@
-from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 from flocarebase.common import test_helpers
 from django.urls import reverse
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from user_auth.views.user_organization_access_views import UserOrganizationView
 from user_auth.constants import query_to_db_field_map
 import logging
@@ -10,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TestUserOrganizationView(TestCase):
+class TestUserOrganizationView(test_helpers.UnitTestCase):
 
     def setUp(self):
         # TODO Filter out creation of  patches to a helper
@@ -21,10 +20,7 @@ class TestUserOrganizationView(TestCase):
         user_profile = test_helpers.create_user(self.org)
         force_authenticate(self.request, user=user_profile.user)
         self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        user_org_patcher = patch('user_auth.views.user_organization_access_views.UserOrgAccessDataService')
-        user_org_mock = user_org_patcher.start()
-        user_org_mock.return_value = self.user_org_access_ds_mock
-        self.addCleanup(user_org_patcher.stop)
+        self.patch_class('user_auth.views.user_organization_access_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
 
     def test_parse_query_params_default_param(self):
         """Returns sort field as first_name if not recognised"""
@@ -75,8 +71,8 @@ class TestUserOrganizationView(TestCase):
         user_ids = [1,2]
 
         select_related_fields = ('user', 'user__user')
-        base_access = MagicMock('base_access')
-        filtered_user_id_access = MagicMock('filtered_user_id_access')
+        base_access = MagicMock(name='base_access')
+        filtered_user_id_access = MagicMock(name='filtered_user_id_access')
         self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_access
         self.user_org_access_ds_mock.filter_org_access_by_user_ids.return_value = filtered_user_id_access
 
@@ -90,8 +86,8 @@ class TestUserOrganizationView(TestCase):
         query = 'query'
         select_related_fields = ('user', 'user__user')
 
-        base_access = MagicMock('base_access')
-        query_filtered_access = MagicMock('query_filtered_access')
+        base_access = MagicMock(name='base_access')
+        query_filtered_access = MagicMock(name='query_filtered_access')
 
         self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_access
         self.user_org_access_ds_mock.filter_acccesses_by_name.return_value = query_filtered_access
@@ -107,8 +103,8 @@ class TestUserOrganizationView(TestCase):
         sort_field = 'sort_field'
         select_related_fields = ('user', 'user__user')
 
-        base_access = MagicMock('base_access')
-        ordered_access = MagicMock('ordered_access')
+        base_access = MagicMock(name='base_access')
+        ordered_access = MagicMock(name='ordered_access')
 
         self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_access
         base_access.order_by.return_value = ordered_access
