@@ -475,7 +475,7 @@ class AssignedPatientsHistorySerializer(serializers.ModelSerializer):
     def get_episode(self, obj):
         try:
             # Todo: IMP: If the episode is marked 'is_active=False' on Patient Deletion, this will start failing.
-            return EpisodeResponseSerializer(obj.episodes(manager='all_objects').select_related('primary_physician').get(is_active=True)).data
+            return EpisodeWithCareTeamResponseSerializer(obj.episodes(manager='all_objects').select_related('primary_physician').get(is_active=True)).data
         except Exception as e:
             logger.error(str(e))
             return None
