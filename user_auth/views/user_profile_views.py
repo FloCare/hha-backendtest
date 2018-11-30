@@ -44,7 +44,7 @@ class UpdateStaffView(APIView):
 
     def validate_and_format_request(self, request):
         request_data = request.data.get('user', None)
-        if not request_data:
+        if request_data is None:
             raise InvalidPayloadError('user data missing')
         request_serializer = UpdateUserRequestSerializer(data=request_data)
         if not request_serializer.is_valid():
