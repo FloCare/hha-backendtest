@@ -4,8 +4,8 @@ from flocarebase.common import test_helpers
 from flocarebase.exceptions import InvalidPayloadError
 from django.urls import reverse
 from unittest.mock import MagicMock
-from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError
-from user_auth.views import UpdateStaffView, CreateStaffView, DeleteStaffView
+from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError, UserOrgAccessDoesNotExistError
+from user_auth.views import GetStaffView, UpdateStaffView, CreateStaffView, DeleteStaffView, UserProfileView
 import logging
 import uuid
 
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO Replace with base test case only
+# TODO Add tests for permission classes
 class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
 
     @classmethod
@@ -398,3 +399,93 @@ class TestDeleteStaffView(test_helpers.BaseTestCase):
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
         self.user_org_access_ds_mock.get_user_org_access_by_user_id.assert_called_once_with(user_1.uuid)
         self.user_ds_mock.delete_user_by_user_profile.assert_called_once_with(user_1)
+
+
+class TestUserProfileView(test_helpers.BaseTestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.initObjects()
+
+    def setUp(self):
+        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
+        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
+        self.user_ds_mock = MagicMock(name='user_ds_mock')
+        self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
+
+    def test_get_access_and_profile_with_userID(self):
+        request_uuid = 'uuid'
+        request = MagicMock(name='request', user=self.user_profile.user, data={'userID': request_uuid})
+        user_1_profile = MagicMock('user_1_profile')
+        user_1_org_access = MagicMock(name='user_1_org_access')
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_1_org_access
+        self.user_ds_mock.get_user_profile_by_uuid.return_value = user_1_profile
+
+        access, profile = UserProfileView().get_access_and_profile(request)
+
+        self.assertEqual(access, user_1_org_access)
+        self.assertEqual(profile, user_1_profile)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(user_1_profile)
+        self.user_ds_mock.get_user_profile_by_uuid.assert_called_once_with(request_uuid)
+
+    def test_get_access_and_profile_without_userID(self):
+        request = MagicMock(name='request', user=self.user_profile.user, data={})
+        user_org_access = MagicMock(name='user_org_access')
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org_access
+
+        access, profile = UserProfileView().get_access_and_profile(request)
+
+        self.assertEqual(access, user_org_access)
+        self.assertEqual(profile, self.user_profile)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+
+    def test_post_fails_if_userID_does_not_exist(self):
+        request_uuid = 'uuid'
+        request = MagicMock(name='request', user=self.user_profile.user, data={'userID': request_uuid})
+        get_access_method_mock = self.patch_class(
+            'user_auth.views.user_profile_views.UserProfileView.get_access_and_profile')
+        get_access_method_mock.side_effect = UserDoesNotExistError(request_uuid)
+
+        response = UserProfileView().post(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
+
+    def test_post_fails_if_user_has_no_org(self):
+        request_uuid = 'uuid'
+        request = MagicMock(name='request', user=self.user_profile.user, data={'userID': request_uuid})
+        get_access_method_mock = self.patch_class(
+            'user_auth.views.user_profile_views.UserProfileView.get_access_and_profile')
+        get_access_method_mock.side_effect = UserOrgAccessDoesNotExistError(request_uuid)
+
+        response = UserProfileView().post(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_ORG_MAPPING_NOT_PRESENT)
+
+    def test_post_returns_success(self):
+        request_uuid = 'uuid'
+        request = MagicMock(name='request', user=self.user_profile.user, data={'userID': request_uuid})
+        get_access_method_mock = self.patch_class(
+            'user_auth.views.user_profile_views.UserProfileView.get_access_and_profile')
+        access = MagicMock(name='access')
+        profile = MagicMock(name='profile')
+        get_access_method_mock.return_value = (access, profile)
+
+        role_serializer_class_mock = self.patch_class('user_auth.views.user_profile_views.RoleSerializer')
+        role_serializer_mock = MagicMock(name='role_serializer_mock', data=1)
+        role_serializer_class_mock.return_value = role_serializer_mock
+
+        up_response = {'firstName': 'Bilbo', 'lastName': 'Baggins'}
+        up_response_serializer_class_mock = self.patch_class(
+            'user_auth.views.user_profile_views.UserProfileResponseSerializer')
+        up_response_serializer = MagicMock(name='up_response_serializer', data=up_response)
+        up_response_serializer_class_mock.return_value = up_response_serializer
+
+        response = UserProfileView().post(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        expected_response = {**up_response, 'roles': role_serializer_mock.data}
+        self.assertEqual(response.data, expected_response)
+        role_serializer_class_mock.assert_called_once_with([access], many=True)
+        up_response_serializer_class_mock.assert_called_once_with(profile)

@@ -19,7 +19,7 @@ class BaseTestCase(TestCase):
     return_mock_object
     Returns the class mock if you need to make any assertions
     """
-    def patch_class(self, path, return_mock_object):
+    def patch_class(self, path, return_mock_object=None):
         patcher = patch(path)
         class_mock = patcher.start()
         class_mock.return_value = return_mock_object
