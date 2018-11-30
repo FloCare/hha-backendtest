@@ -4,8 +4,8 @@ from flocarebase.common import test_helpers
 from flocarebase.exceptions import InvalidPayloadError
 from django.urls import reverse
 from unittest.mock import MagicMock
-from user_auth.exceptions import UserAlreadyExistsError
-from user_auth.views import UpdateStaffView, CreateStaffView
+from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError
+from user_auth.views import UpdateStaffView, CreateStaffView, DeleteStaffView
 import logging
 import uuid
 
@@ -338,3 +338,63 @@ class TestCreateStaffView(test_helpers.BaseTestCase):
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(request.user.profile)
         validate_method_mock.assert_called_once_with(request)
         self.user_ds_mock.create_user.assert_called_once_with(formatted_request, user_org.organization)
+
+
+class TestDeleteStaffView(test_helpers.BaseTestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.initObjects()
+
+    def setUp(self):
+        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
+        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
+        self.user_ds_mock = MagicMock(name='user_ds_mock')
+        self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
+
+    def test_delete_fails_if_user_does_not_exist(self):
+        request = MagicMock(name='request')
+        request.user.profile = self.user_profile
+        user_org = MagicMock(name='user_org', organization=self.organization)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org
+        user_1_uuid = uuid.uuid4()
+        self.user_org_access_ds_mock.get_user_org_access_by_user_id.side_effect = UserDoesNotExistError(user_1_uuid)
+
+        response = DeleteStaffView().delete(request, user_1_uuid)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_id.assert_called_once_with(user_1_uuid)
+
+    def test_delete_fails_if_different_org(self):
+        request = MagicMock(name='request')
+        request.user.profile = self.user_profile
+        user_org = MagicMock(name='user_org', organization=self.organization)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org
+        user_1 = MagicMock(name='user_1', uuid=uuid.uuid4())
+        user_1_org = MagicMock(name='user_1_org', organization=2)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_id.return_value = user_1_org
+
+        response = DeleteStaffView().delete(request, user_1.uuid)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error_code'], errors.USER_NOT_EXIST)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_id.assert_called_once_with(user_1.uuid)
+
+    def test_deletes_user(self):
+        request = MagicMock(name='request')
+        request.user.profile = self.user_profile
+        user_org = MagicMock(name='user_org', organization=self.organization)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org
+        user_1 = MagicMock(name='user_1', uuid=uuid.uuid4())
+        user_1_org = MagicMock(name='user_1_org', organization=self.organization, user=user_1)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_id.return_value = user_1_org
+
+        response = DeleteStaffView().delete(request, user_1.uuid)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
+        self.user_org_access_ds_mock.get_user_org_access_by_user_id.assert_called_once_with(user_1.uuid)
+        self.user_ds_mock.delete_user_by_user_profile.assert_called_once_with(user_1)
