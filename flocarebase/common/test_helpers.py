@@ -8,6 +8,11 @@ import random
 
 class BaseTestCase(TestCase):
 
+    @classmethod
+    def initObjects(cls):
+        cls.organization = create_organization()
+        cls.user_profile = create_user(cls.organization)
+
     """
     Replaces calls to the class with the return_mock_object
     Eg: If you are mocking 'user_auth.foo.foo_data_service', creating a new foo_data_service object will return the
@@ -26,9 +31,7 @@ class UserRequestTestCase(BaseTestCase):
 
     @classmethod
     def initObjects(cls):
-        cls.organization = create_organization()
-        cls.user_profile = create_user(cls.organization)
-
+        super().initObjects()
         Token.objects.create(user=cls.user_profile.user)
         token = Token.objects.all()
 
