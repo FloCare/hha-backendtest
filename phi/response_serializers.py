@@ -142,16 +142,7 @@ class EpisodeResponseSerializer(serializers.ModelSerializer):
                   'socClinician', 'attendingPhysician', 'primaryPhysician')
 
 
-class EpisodeWithCareTeamResponseSerializer(serializers.ModelSerializer):
-    episodeID = serializers.UUIDField(source='uuid', required=False)
-    patientID = serializers.UUIDField(source='patient_id', required=False)
-    socDate = serializers.DateField(source='soc_date', required=False)
-    endDate = serializers.DateField(source='end_date', required=False)
-    transportationLevel = serializers.CharField(source='transportation_level', required=False)
-    acuityType = serializers.CharField(source='acuity_type', required=False)
-    socClinician = UserProfileResponseSerializer(source='soc_clinician', required=False)
-    attendingPhysician = UserProfileResponseSerializer(source='attending_physician', required=False)
-    primaryPhysician = PhysicianResponseSerializer(source='primary_physician', required=False)
+class EpisodeWithCareTeamResponseSerializer(EpisodeResponseSerializer):
     careTeam = serializers.SerializerMethodField(required=False)
 
     def get_careTeam(self, obj):
@@ -484,7 +475,7 @@ class AssignedPatientsHistorySerializer(serializers.ModelSerializer):
     def get_episode(self, obj):
         try:
             # Todo: IMP: If the episode is marked 'is_active=False' on Patient Deletion, this will start failing.
-            return EpisodeResponseSerializer(obj.episodes(manager='all_objects').select_related('primary_physician').get(is_active=True)).data
+            return EpisodeWithCareTeamResponseSerializer(obj.episodes(manager='all_objects').select_related('primary_physician').get(is_active=True)).data
         except Exception as e:
             logger.error(str(e))
             return None
