@@ -6,6 +6,7 @@ from user_auth.models import *
 import random
 
 
+# To be used for unit test cases
 class BaseTestCase(TestCase):
 
     @classmethod
@@ -27,6 +28,7 @@ class BaseTestCase(TestCase):
         return class_mock
 
 
+# TO be used for integration tests
 class UserRequestTestCase(BaseTestCase):
 
     @classmethod

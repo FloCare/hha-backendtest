@@ -2,19 +2,19 @@ from backend import errors
 from rest_framework import status
 from flocarebase.common import test_helpers
 from flocarebase.exceptions import InvalidPayloadError
-from django.urls import reverse
+from rest_framework.permissions import IsAuthenticated
 from unittest.mock import MagicMock
 from user_auth.exceptions import UserAlreadyExistsError, UserDoesNotExistError, UserOrgAccessDoesNotExistError
 from user_auth.views import GetStaffView, UpdateStaffView, CreateStaffView, DeleteStaffView, UserProfileView
+from user_auth.permissions import IsAdminForOrg
+
 import logging
 import uuid
 
 logger = logging.getLogger(__name__)
 
 
-# TODO Replace with base test case only
-# TODO Add tests for permission classes
-class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
+class TestGetStaffView(test_helpers.BaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
@@ -24,10 +24,8 @@ class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
         self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
         self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
 
-    def test_checks_admin(self):
-        url = reverse('get-staff', args=[uuid.uuid4()])
-        response = self.client.get(url, **self.get_base_headers())
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    def test_permission_classes(self):
+        self.assertEqual(GetStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
 
     def test_validates_same_org(self):
         test_helpers.make_user_admin(self.user_profile)
@@ -35,11 +33,10 @@ class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
         org_1 = test_helpers.create_organization()
         user_1_uuid = uuid.uuid4()
         user_1_oa_mock = MagicMock(name='user_1_org_access', organization=org_1)
-        url = reverse('get-staff', args=[user_1_uuid])
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_oa_mock
         self.user_org_access_ds_mock.get_user_org_access_by_user_id.return_value = user_1_oa_mock
-
-        response = self.client.get(url, **self.get_base_headers())
+        request = MagicMock(name='request', user=self.user_profile.user)
+        response = GetStaffView().get(request, user_1_uuid)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
         self.user_org_access_ds_mock.get_user_org_access_by_user_id.assert_called_once_with(user_1_uuid)
@@ -49,7 +46,6 @@ class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
         user_oa_mock = MagicMock(name='user_org_mock', organization=self.organization)
         user_1 = test_helpers.create_user(self.organization)
         user_1_oa_mock = MagicMock(name='user_1_org_access', organization=self.organization)
-        url = reverse('get-staff', args=[user_1.uuid])
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_oa_mock
         self.user_org_access_ds_mock.get_user_org_access_by_user_id.return_value = user_1_oa_mock
 
@@ -58,7 +54,8 @@ class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
             'user_auth.views.user_profile_views.UserDetailsResponseSerializer', user_details_ser_mock)
         serializer_mock = MagicMock(name='serializer_mock', data=1)
         user_details_ser_class_mock.return_value = serializer_mock
-        response = self.client.get(url, **self.get_base_headers())
+        request = MagicMock(name='request', user=self.user_profile.user)
+        response = GetStaffView().get(request, user_1.uuid)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.assert_called_once_with(self.user_profile)
@@ -67,7 +64,6 @@ class TestGetStaffViewAPI(test_helpers.UserRequestTestCase):
         self.assertEqual(response.data, serializer_mock.data)
 
 
-# TODO Try to make these proper unit tests
 class TestUpdateStaffView(test_helpers.BaseTestCase):
 
     @classmethod
@@ -81,6 +77,9 @@ class TestUpdateStaffView(test_helpers.BaseTestCase):
         self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
         self.pubnub_service_mock = MagicMock(name='pubnub_service_mock')
         self.patch_class('user_auth.views.user_profile_views.PubnubService', self.pubnub_service_mock)
+
+    def test_permission_classes(self):
+        self.assertEqual(UpdateStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
 
     def test_validate_and_format_request_user_key(self):
         """Raises error if request doesn't have user key"""
@@ -221,6 +220,9 @@ class TestCreateStaffView(test_helpers.BaseTestCase):
         self.user_ds_mock = MagicMock(name='user_ds_mock')
         self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
 
+    def test_permission_classes(self):
+        self.assertEqual(CreateStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
+
     def test_validate_and_format_request_user_key(self):
         """Raises error if request doesn't have user key"""
         request = MagicMock(name='request', data={})
@@ -353,6 +355,9 @@ class TestDeleteStaffView(test_helpers.BaseTestCase):
         self.user_ds_mock = MagicMock(name='user_ds_mock')
         self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
 
+    def test_permission_classes(self):
+        self.assertEqual(DeleteStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
+
     def test_delete_fails_if_user_does_not_exist(self):
         request = MagicMock(name='request')
         request.user.profile = self.user_profile
@@ -412,6 +417,9 @@ class TestUserProfileView(test_helpers.BaseTestCase):
         self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
         self.user_ds_mock = MagicMock(name='user_ds_mock')
         self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
+
+    def test_permission_classes(self):
+        self.assertEqual(UserProfileView.permission_classes, (IsAuthenticated, ))
 
     def test_get_access_and_profile_with_userID(self):
         request_uuid = 'uuid'
