@@ -15,12 +15,8 @@ class IsAdminForOrg(permissions.BasePermission):
 
     def has_permission(self, request, view):
         try:
-            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = UserOrgAccessDataService.get_user_org_access_by_user_profile(request.user.profile)
             return (user_org is not None) and user_org.is_admin
         except UserOrgAccessDoesNotExistError:
             logger.error('User org access does not exist for user')
             return False
-
-
-def user_org_access_data_service():
-    return UserOrgAccessDataService()

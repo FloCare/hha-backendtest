@@ -9,13 +9,16 @@ class PubnubService:
     def __init__(self):
         pass
 
-    def publish(self, channel, message):
+    @staticmethod
+    def publish(channel, message):
         settings.PUBNUB.publish().channel(channel).message(message).async(my_publish_callback)
 
-    def get_organization_channel(self, organization):
+    @staticmethod
+    def get_organization_channel(organization):
         return 'organisation_' + str(organization.uuid)
 
-    def get_user_update_message(self, user):
+    @staticmethod
+    def get_user_update_message(user):
         return {
             'actionType': 'USER_UPDATE',
             'userID': str(user.uuid)
