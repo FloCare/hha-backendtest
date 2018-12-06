@@ -137,8 +137,9 @@ class CreateReportForVisits(APIView):
                     total_miles_travelled = 0
                     for visit_id in visits:
                         visit_miles = visits[visit_id].visit_miles
-                        if visit_miles and visit_miles.computed_miles is not None:
-                            total_miles_travelled += visit_miles.computed_miles
+                        if visit_miles:
+                            if visit_miles.computed_miles is not None:
+                                total_miles_travelled += visit_miles.computed_miles
                             if visit_miles.extra_miles is not None:
                                 total_miles_travelled += visit_miles.extra_miles
                     difference_in_db_and_app = abs(total_miles_travelled - total_miles_in_app_report)

@@ -43,12 +43,17 @@ class GetVisitsByOrg(APIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = VisitForOrgResponseSerializer
 
-    def get(self, request, date):
+    def get(self, request):
         user = request.user.profile
+        query_params = request.query_params
+        start = query_params.get('start', None)
+        end = query_params.get('end', None)
         try:
             user_org = UserOrganizationAccess.objects.filter(user=user).get(is_admin=True)
-            midnight_epoch = int(datetime.datetime.strptime(date, "%Y-%m-%d").date().strftime('%s'))*1000
-            visits = models.Visit.objects.filter(organization=user_org.organization).filter(midnight_epoch=midnight_epoch)
+            midnight_epoch_start = int(datetime.datetime.strptime(start, "%Y-%m-%d").date().strftime('%s')) * 1000
+            midnight_epoch_end = int(datetime.datetime.strptime(end, "%Y-%m-%d").date().strftime('%s')) * 1000
+            visits = models.Visit.objects.filter(organization=user_org.organization)\
+                .filter(midnight_epoch__range=(midnight_epoch_start, midnight_epoch_end))
             serializer = self.serializer_class(visits, many=True)
             return Response(serializer.data)
         except Exception as e:
