@@ -28,10 +28,10 @@ class GetStaffView(APIView):
     @handle_user_missing
     def get(self, request, pk=None):
         try:
-            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = UserOrgAccessDataService.get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError as e:
             return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
-        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = UserOrgAccessDataService.get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
         serializer = UserDetailsResponseSerializer({'user': requested_user_org_access})
@@ -56,18 +56,18 @@ class UpdateStaffView(APIView):
     @handle_user_missing
     def put(self, request, pk):
         try:
-            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = UserOrgAccessDataService.get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError as e:
             return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
         formatted_request_data = self.validate_and_format_request(request)
-        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = UserOrgAccessDataService.get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
         with transaction.atomic():
-            user_data_service().update_user_by_uuid(pk, formatted_request_data)
-            channel = pub_nub_service().get_organization_channel(user_org.organization)
-            user_update_message = pub_nub_service().get_user_update_message(requested_user_org_access.user)
-            pub_nub_service().publish(channel, user_update_message)
+            UserDataService.update_user_by_uuid(pk, formatted_request_data)
+            channel = PubnubService.get_organization_channel(user_org.organization)
+            user_update_message = PubnubService.get_user_update_message(requested_user_org_access.user)
+            PubnubService.publish(channel, user_update_message)
         return SuccessResponse(status.HTTP_200_OK, {})
 
 
@@ -88,12 +88,12 @@ class CreateStaffView(APIView):
     def post(self, request):
         try:
             try:
-                user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
+                user_org = UserOrgAccessDataService.get_user_org_access_by_user_profile(request.user.profile)
             except UserOrgAccessDoesNotExistError as e:
                 return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
             formatted_request_data = self.validate_and_format_request(request)
             with transaction.atomic():
-                user_data_service().create_user(formatted_request_data, user_org.organization)
+                UserDataService.create_user(formatted_request_data, user_org.organization)
                 return SuccessResponse(status.HTTP_201_CREATED)
         except UserAlreadyExistsError as e:
             return FailureResponse(status.HTTP_409_CONFLICT, errors.USER_ALREADY_EXISTS, str(e))
@@ -108,16 +108,16 @@ class DeleteStaffView(APIView):
     @handle_user_missing
     def delete(self, request, pk=None):
         try:
-            user_org = user_org_access_data_service().get_user_org_access_by_user_profile(request.user.profile)
+            user_org = UserOrgAccessDataService.get_user_org_access_by_user_profile(request.user.profile)
         except UserOrgAccessDoesNotExistError as e:
             return FailureResponse(status.HTTP_403_FORBIDDEN, errors.USER_ORG_MAPPING_NOT_PRESENT, str(e))
 
-        requested_user_org_access = user_org_access_data_service().get_user_org_access_by_user_id(pk)
+        requested_user_org_access = UserOrgAccessDataService.get_user_org_access_by_user_id(pk)
         if user_org.organization != requested_user_org_access.organization:
             raise UserDoesNotExistError(pk)
         user_profile = requested_user_org_access.user
         with transaction.atomic():
-            user_data_service().delete_user_by_user_profile(user_profile)
+            UserDataService.delete_user_by_user_profile(user_profile)
             return SuccessResponse(status.HTTP_200_OK)
 
 
@@ -132,10 +132,10 @@ class UserProfileView(APIView):
         data = request.data
         if 'userID' in data:
             user_id = data['userID']
-            profile = user_data_service().get_user_profile_by_uuid(user_id)
+            profile = UserDataService.get_user_profile_by_uuid(user_id)
         else:
             profile = user.profile
-        user_org_access = user_org_access_data_service().get_user_org_access_by_user_profile(profile)
+        user_org_access = UserOrgAccessDataService.get_user_org_access_by_user_profile(profile)
         return user_org_access, profile
 
     @handle_user_org_missing
@@ -148,15 +148,3 @@ class UserProfileView(APIView):
         response = dict(user_profile_serializer.data)
         response.update({'roles': roles})
         return SuccessResponse(status.HTTP_200_OK, response)
-
-
-def user_data_service():
-    return UserDataService()
-
-
-def user_org_access_data_service():
-    return UserOrgAccessDataService()
-
-
-def pub_nub_service():
-    return PubnubService()

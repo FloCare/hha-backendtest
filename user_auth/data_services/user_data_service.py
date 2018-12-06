@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 class UserDataService:
 
-    def create_user(self, user_data, organization):
+    @staticmethod
+    def create_user(user_data, organization):
         try:
             user = models.User.objects.create_user(first_name=user_data['first_name'], last_name=user_data['last_name'],
                                                    username=user_data['email'], password=user_data['password'],
@@ -27,13 +28,15 @@ class UserDataService:
             logger.error(e)
             raise UserAlreadyExistsError(user_data)
 
-    def get_user_profile_by_uuid(self, user_id):
+    @staticmethod
+    def get_user_profile_by_uuid(user_id):
         try:
             return models.UserProfile.objects.get(pk=user_id)
         except models.UserProfile.DoesNotExist:
             raise UserDoesNotExistError(user_id)
 
-    def update_user_by_uuid(self, uuid, user_data):
+    @staticmethod
+    def update_user_by_uuid(uuid, user_data):
         try:
             user_profile = models.UserProfile.objects.get(uuid=uuid)
             user = user_profile.user
@@ -55,7 +58,8 @@ class UserDataService:
         except models.UserProfile.DoesNotExist:
             raise UserDoesNotExistError(uuid)
 
-    def delete_user_by_user_profile(self, user_profile):
+    @staticmethod
+    def delete_user_by_user_profile(user_profile):
         user_profile.soft_delete()
         user = user_profile.user
         user.is_active = False

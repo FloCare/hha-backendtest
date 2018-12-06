@@ -21,8 +21,7 @@ class TestGetStaffView(test_helpers.BaseTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
+        self.user_org_access_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService')
 
     def test_permission_classes(self):
         self.assertEqual(GetStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
@@ -71,12 +70,9 @@ class TestUpdateStaffView(test_helpers.BaseTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
-        self.user_ds_mock = MagicMock(name='user_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
-        self.pubnub_service_mock = MagicMock(name='pubnub_service_mock')
-        self.patch_class('user_auth.views.user_profile_views.PubnubService', self.pubnub_service_mock)
+        self.user_org_access_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService')
+        self.user_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserDataService')
+        self.pubnub_service_mock = self.patch_class('user_auth.views.user_profile_views.PubnubService')
 
     def test_permission_classes(self):
         self.assertEqual(UpdateStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
@@ -215,10 +211,8 @@ class TestCreateStaffView(test_helpers.BaseTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
-        self.user_ds_mock = MagicMock(name='user_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
+        self.user_org_access_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService')
+        self.user_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserDataService')
 
     def test_permission_classes(self):
         self.assertEqual(CreateStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
@@ -350,10 +344,8 @@ class TestDeleteStaffView(test_helpers.BaseTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
-        self.user_ds_mock = MagicMock(name='user_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
+        self.user_org_access_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService')
+        self.user_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserDataService')
 
     def test_permission_classes(self):
         self.assertEqual(DeleteStaffView.permission_classes, (IsAuthenticated, IsAdminForOrg))
@@ -413,10 +405,8 @@ class TestUserProfileView(test_helpers.BaseTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService', self.user_org_access_ds_mock)
-        self.user_ds_mock = MagicMock(name='user_ds_mock')
-        self.patch_class('user_auth.views.user_profile_views.UserDataService', self.user_ds_mock)
+        self.user_org_access_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserOrgAccessDataService')
+        self.user_ds_mock = self.patch_class('user_auth.views.user_profile_views.UserDataService')
 
     def test_permission_classes(self):
         self.assertEqual(UserProfileView.permission_classes, (IsAuthenticated, ))
