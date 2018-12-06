@@ -1,6 +1,5 @@
 from rest_framework import status
 from flocarebase.common import test_helpers
-from django.urls import reverse
 from unittest.mock import MagicMock
 from user_auth.views.user_organization_access_views import UserOrganizationView
 from user_auth.constants import query_to_db_field_map
@@ -16,9 +15,7 @@ class TestUserOrganizationView(test_helpers.BaseTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.user_org_access_ds_mock = MagicMock(name='user_org_access_ds_mock')
-        self.patch_class('user_auth.views.user_organization_access_views.UserOrgAccessDataService',
-                         self.user_org_access_ds_mock)
+        self.user_org_access_ds_mock = self.patch_class('user_auth.views.user_organization_access_views.UserOrgAccessDataService')
         self.admin_user_resp_serializer_mock = MagicMock(name='admin_user_resp_serializer_mock')
         self.admin_user_response_ser_class = self.patch_class(
             'user_auth.views.user_organization_access_views.AdminUserResponseSerializer',
@@ -92,12 +89,12 @@ class TestUserOrganizationView(test_helpers.BaseTestCase):
         query_filtered_access = MagicMock(name='query_filtered_access')
 
         self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_access
-        self.user_org_access_ds_mock.filter_acccesses_by_name.return_value = query_filtered_access
+        self.user_org_access_ds_mock.filter_accesses_by_name.return_value = query_filtered_access
 
         query_set = UserOrganizationView().filter_by_params(None, self.organization, query, None, None)
 
         self.user_org_access_ds_mock.get_user_org_access_for_org.assert_called_once_with(self.organization,select_related_fields)
-        self.user_org_access_ds_mock.filter_acccesses_by_name.assert_called_once_with(base_access, query)
+        self.user_org_access_ds_mock.filter_accesses_by_name.assert_called_once_with(base_access, query)
 
         self.assertEqual(query_set, query_filtered_access)
 
@@ -176,7 +173,7 @@ class TestUserOrganizationView(test_helpers.BaseTestCase):
         ordered_accesses = MagicMock(name='ordered_accesses')
         self.user_org_access_ds_mock.get_user_org_access_by_user_profile.return_value = user_org_mock
         self.user_org_access_ds_mock.get_user_org_access_for_org.return_value = base_accesses
-        self.user_org_access_ds_mock.filter_acccesses_by_name.return_value = filtered_accesses
+        self.user_org_access_ds_mock.filter_accesses_by_name.return_value = filtered_accesses
         filtered_accesses.order_by.return_value = ordered_accesses
         self.admin_user_resp_serializer_mock.data = 1
         request = MagicMock(name='request', user=self.user_profile.user, query_params={'query': query})
@@ -188,7 +185,7 @@ class TestUserOrganizationView(test_helpers.BaseTestCase):
         select_related_fields = ('user', 'user__user')
         self.user_org_access_ds_mock.get_user_org_access_for_org.assert_called_once_with(self.organization,
                                                                                          select_related_fields)
-        self.user_org_access_ds_mock.filter_acccesses_by_name.assert_called_once_with(base_accesses, query)
+        self.user_org_access_ds_mock.filter_accesses_by_name.assert_called_once_with(base_accesses, query)
         filtered_accesses.order_by.assert_called_once_with(query_to_db_field_map['first_name'])
         self.admin_user_response_ser_class.assert_called_once_with({'organization': self.organization,
                                                                     'users': ordered_accesses})

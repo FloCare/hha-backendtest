@@ -2,7 +2,6 @@ from backend import errors
 from django.urls import reverse
 from flocarebase.common import test_helpers
 from rest_framework import status
-from unittest.mock import patch, MagicMock
 from user_auth.models import *
 from user_auth.tests.integration.utils import utils
 
@@ -64,11 +63,7 @@ class TestUpdateStaffView(test_helpers.UserRequestTestCase):
         cls.initObjects()
 
     def setUp(self):
-        self.pubnub_service_mock = MagicMock(name='pubnub_service_mock')
-        pubnub_patcher = patch('user_auth.views.user_profile_views.PubnubService')
-        pubnub_mock = pubnub_patcher.start()
-        pubnub_mock.return_value = self.pubnub_service_mock
-        self.addCleanup(pubnub_patcher.stop)
+        self.pubnub_service_mock = self.patch_class('user_auth.views.user_profile_views.PubnubService')
 
     def test_validates_admin_user(self):
         """Raises error if user is not admin"""
