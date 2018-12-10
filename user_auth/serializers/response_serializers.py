@@ -53,16 +53,25 @@ class UserDetailsResponseSerializer(serializers.Serializer):
 
 
 class AdminUserResponseSerializer(serializers.Serializer):
-    success = serializers.BooleanField()
     organization = OrganizationSerializer()
     users = UserProfileWithOrgAccessSerializer(many=True)
 
     class Meta:
-        fields = ('success', 'organization', 'users',)
+        fields = ('organization', 'users',)
 
     def create(self, validated_data):
         pass
 
     def update(self, instance, validated_data):
         pass
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    orgID = serializers.UUIDField(source='organization.uuid')
+    org = serializers.CharField(source='organization.name')
+    role = serializers.CharField(source='user_role')
+
+    class Meta:
+        model = models.UserOrganizationAccess
+        fields = ('orgID', 'org', 'role')
 

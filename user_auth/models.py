@@ -70,7 +70,7 @@ class UserProfile(BaseModel):
         if self.reports and self.reports.exists():
             [report.soft_delete() for report in self.reports.all()]
         if self.episode_accesses and self.episode_accesses.exists():
-            [access.soft_delete() for access in self.episode_access.all()]
+            [access.soft_delete() for access in self.episode_accesses.all()]
         if self.org_accesses and self.org_accesses.exists():
             [access.soft_delete() for access in self.org_accesses.all()]
         super().soft_delete()
