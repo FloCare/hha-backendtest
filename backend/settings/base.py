@@ -28,12 +28,19 @@ class Base(Configuration):
         'django.contrib.sessions',
         'django.contrib.messages',
         'django.contrib.staticfiles',
+        'django_nose',
         'corsheaders',
         'rest_framework',
         'rest_framework.authtoken',
         'flocarebase.apps.FlocarebaseConfig',
         'user_auth.apps.UserAuthConfig',
         'phi.apps.PhiConfig',
+    ]
+
+    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+
+    NOSE_ARGS = [
+        '--cover-erase',
     ]
 
     MIDDLEWARE = [
@@ -95,7 +102,8 @@ class Base(Configuration):
             'format': '%(levelname)s %(message)s',
         },
         'verbose': {
-            'format': '%(levelname)s (%(asctime)s)(%(module)s)(%(filename)s)(%(funcName)s)'
+            '()': 'colorlog.ColoredFormatter',
+            'format': '%(log_color)s%(levelname)s (%(asctime)s)(%(module)s)(%(filename)s)(%(funcName)s)'
                       '(%(lineno)d) %(message)s'
         }
     }

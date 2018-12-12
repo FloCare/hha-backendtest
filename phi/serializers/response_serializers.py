@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from user_auth.serializers import AddressSerializer
-from user_auth.serializers import AddressIDWithLatLngSerializer
-from user_auth.response_serializers import UserProfileResponseSerializer
+from user_auth.serializers.serializers import AddressSerializer
+from user_auth.serializers.serializers import AddressIDWithLatLngSerializer
+from user_auth.serializers.response_serializers import UserProfileResponseSerializer
 from phi import models
 import logging
 
