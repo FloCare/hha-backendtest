@@ -13,3 +13,5 @@ NPI_DATA_URL = 'http://npi.npi.io/npi/'
 total_miles_buffer_allowed = 1
 
 MILES_COMMENTS_DEFAULT_TEXT = 'OdometerStart: %s, OdometerEnd: %s'
+
+PHI_ADMIN = '#phiadmin'
