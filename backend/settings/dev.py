@@ -11,8 +11,8 @@ class Dev(Base):
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': 'flo2',
-            'USER': 'piyush',
-            'PASSWORD': 'floCare',
+            'USER': '',
+            'PASSWORD': '',
             'HOST': '127.0.0.1',
             'PORT': '5432',
         }
@@ -46,21 +46,26 @@ class Dev(Base):
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
+        'filters': {
+            'request_id': {
+                '()': 'log_request_id.filters.RequestIDFilter'
+            }
+        },
         'loggers': {
             'django': {
-                'handlers': ['console'],
+                'handlers': ['console', 'logfile'],
                 'level': 'INFO'
             },
             'phi': {
-                'handlers': ['console'],
+                'handlers': ['console', 'logfile'],
                 'level': 'DEBUG'
             },
             'user_auth': {
-                'handlers': ['console'],
+                'handlers': ['console', 'logfile'],
                 'level': 'DEBUG'
             },
             'flocarebase': {
-                'handlers': ['console'],
+                'handlers': ['console', 'logfile'],
                 'level': 'DEBUG'
             }
         },

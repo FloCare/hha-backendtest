@@ -44,6 +44,7 @@ class Base(Configuration):
     ]
 
     MIDDLEWARE = [
+        'log_request_id.middleware.RequestIDMiddleware',
         'flocarebase.middleware.DBStatsMiddleWare',
         'django.middleware.security.SecurityMiddleware',
         'django.contrib.sessions.middleware.SessionMiddleware',
@@ -94,7 +95,17 @@ class Base(Configuration):
     LOGGING_HANDLERS = {
         'console': {
             'class': 'logging.StreamHandler',
+            'filters': ['request_id'],
             'formatter': 'verbose'
+        },
+        'logfile': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.dirname(BASE_DIR) + "/logs.txt",
+            'filters': ['request_id'],
+            'maxBytes': 50000,
+            'backupCount': 2,
+            'formatter': 'verbose',
         }
     }
     LOGGING_FORMATTERS = {
@@ -103,7 +114,7 @@ class Base(Configuration):
         },
         'verbose': {
             '()': 'colorlog.ColoredFormatter',
-            'format': '%(log_color)s%(levelname)s (%(asctime)s)(%(module)s)(%(filename)s)(%(funcName)s)'
+            'format': '%(log_color)s%(levelname)s (%(asctime)s)[%(request_id)s](%(module)s)(%(filename)s)(%(funcName)s)'
                       '(%(lineno)d) %(message)s'
         }
     }
