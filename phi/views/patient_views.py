@@ -243,10 +243,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                                 logger.warning('Could not delete visits for user_id: %s, episode_id: %s. Error: %s' % (str(user_id), str(episode_id), str(e)))
 
                         AccessiblePatientViewSet.local_counter += 1
-                    logger.info('%s : %s updated patient record %s from Organization %s %s' % (PHI_ADMIN,
-                                                            str(request.user.first_name + ' ' + request.user.last_name),
-                                                            (patient.last_name + ' ' + patient.first_name), str(user_org.organization),
-                                                            {'userID': request.user.profile.uuid, 'email': request.user.username}))
+                    logger.info('%s : %s %s updated patient record %s for Organization %s' % (PHI_ADMIN, str(request.user.first_name + ' ' + request.user.last_name),
+                                                    {'userID': request.user.profile.uuid, 'email': request.user.username},
+                                                    {'UUID': patient_obj.uuid}, str(user_org.organization)))
                     return Response({'success': True})
 
             return Response(status=status.HTTP_401_UNAUTHORIZED, data={'success': False, 'error': errors.ACCESS_DENIED})
@@ -288,9 +287,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                             }).async(my_publish_callback)
 
                     logger.info('Delete successful')
-                    logger.info('%s : %s deleted patient record %s from Organization %s %s' % (PHI_ADMIN, str(user.first_name + ' ' + user.last_name),
-                                                                                (patient.last_name + ' ' + patient.first_name), str(user_org.organization),
-                                                                                {'userID': request.user.profile.uuid, 'email': request.user.username}))
+                    logger.info('%s : %s %s deleted patient record %s for Organization %s' % (PHI_ADMIN, str(user.first_name + ' ' + user.last_name),
+                                                    {'userID': request.user.profile.uuid, 'email': request.user.username},
+                                                    {'UUID': patient.uuid}, str(user_org.organization)))
                     return Response({'success': True, 'error': None})
                 except models.OrganizationPatientsMapping.DoesNotExist:
                     logger.info('Org does not have %s access to this patient: %s' % (organization.uuid, patient.uuid))
@@ -313,10 +312,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
             organization = user_org.organization
             if user_org :
                 patient = models.Patient.objects.get(uuid=pk)
-                logger.info(
-                    '%s : %s viewed patient record %s from Organization %s %s' % (PHI_ADMIN, str(user.first_name + ' ' + user.last_name),
-                                            (patient.last_name + ' ' + patient.first_name), str(user_org.organization),
-                                            {'userID': request.user.profile.uuid, 'email': request.user.username}))
+                logger.info('%s : %s %s viewed patient record with %s for Organization %s' % (PHI_ADMIN, str(user.first_name + ' ' + user.last_name),
+                                                    {'userID': request.user.profile.uuid, 'email': request.user.username},
+                                                    {'UUID': patient.uuid}, str(user_org.organization)))
 
                 # Assumption: A patient can only have 1 active episode at a time
                 # Get the active episodes for that patient
@@ -570,9 +568,9 @@ class AccessiblePatientViewSet(viewsets.ViewSet):
                     }).async(my_publish_callback)
 
                 logger.info(
-                    '%s : %s created patient record %s for Organization %s %s' % (PHI_ADMIN, str(user.first_name + ' ' + user.last_name),
-                                                    (patient_obj.last_name + ' ' + patient_obj.first_name), str(user_org.organization),
-                                                    {'userID': request.user.profile.uuid, 'email': request.user.username}))
+                    '%s : %s %s created patient record %s for Organization %s' % (PHI_ADMIN, str(user.first_name + ' ' + user.last_name),
+                                                    {'userID': request.user.profile.uuid, 'email': request.user.username},
+                                                    {'UUID': patient_obj.uuid}, str(user_org.organization)))
 
                 return Response({'success': True, 'error': None})
 
