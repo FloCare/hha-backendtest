@@ -121,8 +121,8 @@ class Base(Configuration):
 
     # PubNub Specific Settings
     pnconfig = PNConfiguration()
-    pnconfig.subscribe_key = "pubnub_sub_key"
-    pnconfig.publish_key = "pubnub_pub_key"
+    pnconfig.subscribe_key = "INSERT_PUBNUB_SUBSCRIBE_KEY"
+    pnconfig.publish_key = "INSERT_PUBNUB_PUBLISH_KEY"
     pnconfig.ssl = True
 
     PUBNUB = PubNub(pnconfig)

@@ -84,6 +84,16 @@ Run the server with `python manage.py runserver`
 
 To run the migrations - `python manage.py migrate`
 
+#### Key Changes:
+The following keys need to be added for the app to completely work.
+
+|Key    | File Location   | Description |
+|-------|----------------  | ------ | 
+|SECRET_KEY | backend/settings/prod.py | Secret key for the aptible environment  |
+|DATABASES | backend/settings/prod.py | DB to connect to |
+|pnconfig.subscribe_key | backend/settings/base.py | pubnub key |
+|pnconfig.publish_key | backend/settings/base.py | pubnub key | 
+
 #### Deploying the server on cloud:
 
 To deploy this server you need to add the secret key in `backend/settings/prod.py`. Uncomment the **SECRET_KEY** key
