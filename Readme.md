@@ -29,7 +29,7 @@ There is a list of places that can be created through the admin dashboard. These
  their home health and will be synced to their mobile apps. They could include places like a lab or hospital that their
  clinicians might go to. 
 
-#####Visit:
+##### Visit:
 Clinicians create visits for the patients/place for a particular date that they need to visit the patient on. They can set
  the time of the visit and for patient visits this information is synced to all members of the careteam.
  
@@ -41,7 +41,7 @@ A visit may also have mileage information associated with it. This mileage infor
 A physician is a doctor/surgeon in the hospitals. Uniquely identified by their NPI id, they are created from the
  admin dashboard. A patient can have a physician assigned to them.
 
-#####Report:
+##### Report:
 Clinicians may create a report according to the cycle followed in their homehealth(15 days - 30 days). This report will
  have the visit information and the mileage information for each of the visit. The total miles for the report is also
  shown to know the total miles for which the clinician needs to be reimbursed. 
@@ -81,7 +81,3 @@ Activate the environment - `source env/bin/activate`
 Run the server with `python manage.py runserver`
 
 To run the migrations - `python manage.py migrate`
-
-
-#### Contributors:
-The initial release of this code was written by ....... 
