@@ -51,7 +51,7 @@ Clinicians may create a report according to the cycle followed in their homeheal
  information with new miles before calling this API again. 
 
 
-### **`Installation instructions`**
+### **`Installation and Usage instructions`**
 
 #### Prerequisites:
 Install postgresql
@@ -75,9 +75,16 @@ If you get a installation error with `psycopg2`, use the following command inste
 `pip install -r requirements.txt --global-option=build_ext --global-option="-I/usr/local/opt/openssl/include" --global-option="-L/usr/local/opt/openssl/lib"`
 
 
-#### Starting the server:
+#### Starting the server locally:
 Activate the environment - `source env/bin/activate`
 
+Change the db credentials in `backend/settings/dev.py`. Update the name, user and password to the local db credentials.
+ 
 Run the server with `python manage.py runserver`
 
 To run the migrations - `python manage.py migrate`
+
+#### Deploying the server on cloud:
+
+To deploy this server you need to add the secret key in `backend/settings/prod.py`. Uncomment the **SECRET_KEY** key
+ in the file and replace it with the environment variable.

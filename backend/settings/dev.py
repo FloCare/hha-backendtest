@@ -5,7 +5,6 @@ from .base import Base
 class Dev(Base):
     DEBUG = True
     ALLOWED_HOSTS = ['*']
-    SECRET_KEY = 'INSERT_SECRET_KEY'
 
     DATABASES = {
         'default': {
