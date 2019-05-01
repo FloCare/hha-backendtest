@@ -11,7 +11,7 @@ class Prod(Base):
     # ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",")]
     ALLOWED_HOSTS = ['*']
     # SECRET_KEY = os.environ.get('SECRET_KEY')
-    SECRET_KEY = 'INSERT_SECRET_KEY'
+
     DATABASES = {'default': dj_database_url.config()}
 
     # Password validation
