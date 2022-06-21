@@ -20,7 +20,7 @@ iso8601==0.1.12
 itypes==1.1.0
 Jinja2==2.10
 MarkupSafe==1.0
-numpy==1.14.5
+numpy==1.22.0
 pandas==0.23.1
 promise==2.1
 psycopg2==2.7.4
